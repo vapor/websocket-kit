@@ -1,16 +1,55 @@
+import WebSocket
 import XCTest
-@testable import WebSocket
 
-final class WebSocketTests: XCTestCase {
-    func testExample() {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct
-        // results.
-        XCTAssertEqual(WebSocket().text, "Hello, World!")
+class WebSocketTests: XCTestCase {
+    func testServer() throws {
+        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+
+        let ws = WebSocket.httpProtocolUpgrader(shouldUpgrade: { req in
+            if req.url.path == "/deny" {
+                return nil
+            }
+            return [:]
+        }, onUpgrade: { ws, req in
+            ws.send(req.url.path)
+            ws.onText { string in
+                ws.send(string.reversed())
+                if string == "close" {
+                    ws.close()
+                }
+            }
+            ws.onData { data in
+                print("data: \(data)")
+            }
+            ws.onClose {
+                print("closed")
+            }
+        })
+
+        struct HelloResponder: HTTPResponder {
+            func respond(to request: HTTPRequest, on worker: Worker) -> EventLoopFuture<HTTPResponse> {
+                let res = HTTPResponse(status: .ok, body: HTTPBody(string: "Hello, world!"))
+                return Future.map(on: worker) { res }
+            }
+        }
+
+        let server = try HTTPServer.start(
+            hostname: "127.0.0.1",
+            port: 8888,
+            responder: HelloResponder(),
+            upgraders: [ws],
+            on: group
+        ) { error in
+            XCTFail("\(error)")
+        }.wait()
+
+        print(server)
+        // uncomment to test websocket server
+        // try server.onClose.wait()
     }
 
 
-    static var allTests = [
-        ("testExample", testExample),
+    static let allTests = [
+        ("testServer", testServer),
     ]
 }
