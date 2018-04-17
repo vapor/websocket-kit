@@ -12,21 +12,21 @@ class WebSocketTests: XCTestCase {
             return [:]
         }, onUpgrade: { ws, req in
             ws.send(req.url.path)
-            ws.onText { string in
+            ws.onText { ws, string in
                 ws.send(string.reversed())
                 if string == "close" {
                     ws.close()
                 }
             }
-            ws.onData { data in
+            ws.onData { ws, data in
                 print("data: \(data)")
             }
-            ws.onClose {
+            ws.onClose { ws in
                 print("closed")
             }
         })
 
-        struct HelloResponder: HTTPResponder {
+        struct HelloResponder: HTTPServerResponder {
             func respond(to request: HTTPRequest, on worker: Worker) -> EventLoopFuture<HTTPResponse> {
                 let res = HTTPResponse(status: .ok, body: HTTPBody(string: "Hello, world!"))
                 return Future.map(on: worker) { res }
@@ -45,7 +45,7 @@ class WebSocketTests: XCTestCase {
 
         print(server)
         // uncomment to test websocket server
-        // try server.onClose.wait()
+        try server.onClose.wait()
     }
 
 

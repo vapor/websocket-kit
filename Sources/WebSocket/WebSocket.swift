@@ -1,29 +1,43 @@
-import HTTP
-import Foundation
-
 /// Represents a client connected via WebSocket protocol.
 /// Use this to receive text/data frames and send responses.
 ///
-///      ws.onText { string in
+///      ws.onText { ws, string in
 ///         ws.send(string.reversed())
-///     }
+///      }
 ///
-public final class WebSocket {
-    /// The internal NIO channel pipeline handler.
-    private let handler: WebsocketHandler
-
+public final class WebSocket: WebSocketEventHandler {
     /// `true` if the `WebSocket` has been closed.
     public private(set) var isClosed: Bool
 
-    /// Creates a new `WebSocket` on the supplied handler.
-    internal init(handler: WebsocketHandler) {
-        self.handler = handler
+    /// Outbound `WebSocketEventHandler`.
+    private let eventHandler: WebSocketEventHandler
+
+    /// See `onText(...)`.
+    private var _onText: (WebSocket, String) -> ()
+
+    /// See `onData(...)`.
+    private var _onData: (WebSocket, Data) -> ()
+
+    /// See `onClose(...)`.
+    private var _onClose: (WebSocket) -> ()
+
+    /// See `onError(...)`.
+    private var _onError: (WebSocket, Error) -> ()
+
+    /// Creates a new `WebSocket` using the supplied `WebSocketEventHandler`.
+    /// Use `httpProtocolUpgrader(...)` to create a protocol upgrader that can create `WebSocket`s.
+    internal init(eventHandler: WebSocketEventHandler) {
+        self.eventHandler = eventHandler
         self.isClosed = false
+        self._onText = { _, _ in }
+        self._onData = { _, _ in }
+        self._onClose = { _ in }
+        self._onError = { _, _ in }
     }
 
     /// Adds a callback to this `WebSocket` to receive text-formatted messages.
     ///
-    ///     ws.onText { string in
+    ///     ws.onText { ws, string in
     ///         ws.send(string.reversed())
     ///     }
     ///
@@ -32,13 +46,13 @@ public final class WebSocket {
     /// - parameters:
     ///     - callback: Closure to accept incoming text-formatted data.
     ///                 This will be called every time the connected client sends text.
-    public func onText(_ callback: @escaping (String) -> ()) {
-        self.handler.onText = callback
+    public func onText(_ callback: @escaping (WebSocket, String) -> ()) {
+        _onText = callback
     }
 
     /// Adds a callback to this `WebSocket` to receive binary-formatted messages.
     ///
-    ///     ws.onText { data in
+    ///     ws.onText { ws, data in
     ///         print(data)
     ///     }
     ///
@@ -47,37 +61,37 @@ public final class WebSocket {
     /// - parameters:
     ///     - callback: Closure to accept incoming binary-formatted data.
     ///                 This will be called every time the connected client sends binary-data.
-    public func onData(_ callback: @escaping (Data) -> ()) {
-        self.handler.onData = callback
+    public func onData(_ callback: @escaping (WebSocket, Data) -> ()) {
+        _onData = callback
     }
 
     /// Adds a callback to this `WebSocket` that will be called when the connection closes.
     ///
-    ///     ws.onClose {
+    ///     ws.onClose { ws in
     ///         // client has disconnected
     ///     }
     ///
     /// - parameters:
     ///     - callback: Closure that will be called when this connection closes.
-    public func onClose(_ callback: @escaping () -> ()) {
-        self.handler.onClose = callback
+    public func onClose(_ callback: @escaping (WebSocket) -> ()) {
+        _onClose = callback
     }
 
     /// Adds a callback to this `WebSocket` to handle errors.
     ///
-    ///     ws.onError { error in
+    ///     ws.onError { ws, error in
     ///         print(error)
     ///     }
     ///
     /// - parameters:
     ///     - callback: Closure to handle error's caught during this connection.
-    public func onError(_ callback: @escaping (Error) -> ()) {
-        self.handler.onError = callback
+    public func onError(_ callback: @escaping (WebSocket, Error) -> ()) {
+        _onError = callback
     }
 
     /// Sends text-formatted data to the connected client.
     ///
-    ///     ws.onText { string in
+    ///     ws.onText { ws, string in
     ///         ws.send(string.reversed())
     ///     }
     ///
@@ -85,14 +99,12 @@ public final class WebSocket {
     ///     - text: `String` to send as text-formatted data to the client.
     public func send(_ text: String) {
         guard !isClosed else { return }
-        handler.send(count: text.count, opcode: .text) { buffer in
-            buffer.write(string: text)
-        }
+        eventHandler.webSocketEvent(.text(text))
     }
 
     /// Sends text-formatted data to the connected client.
     ///
-    ///     ws.onText { string in
+    ///     ws.onText { ws, string in
     ///         ws.send(string.reversed())
     ///     }
     ///
@@ -104,16 +116,15 @@ public final class WebSocket {
 
     /// Sends binary-formatted data to the connected client.
     ///
-    ///     ws.onText { string in
+    ///     ws.onText { ws, string in
     ///         ws.send(string.reversed())
     ///     }
     ///
     /// - parameters:
     ///     - data: `Data` to send as binary-formatted data to the client.
     public func send(_ data: Data) {
-        handler.send(count: data.count, opcode: .binary) { buffer in
-            buffer.write(bytes: data)
-        }
+        guard !isClosed else { return }
+        eventHandler.webSocketEvent(.binary(data))
     }
 
     /// Closes the `WebSocket`'s connection, disconnecting the client.
@@ -121,6 +132,17 @@ public final class WebSocket {
         guard !isClosed else {
             return
         }
-        handler.close()
+        eventHandler.webSocketEvent(.close)
+    }
+
+    /// See `WebSocketEventHandler`.
+    internal func webSocketEvent(_ event: WebSocketEvent) {
+        switch event {
+        case .binary(let data): _onData(self, data)
+        case .text(let text): _onText(self, text)
+        case .close: _onClose(self)
+        case .error(let err): _onError(self, err)
+        case .connect: break
+        }
     }
 }
