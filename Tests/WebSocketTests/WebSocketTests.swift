@@ -18,7 +18,7 @@ class WebSocketTests: XCTestCase {
                     ws.close()
                 }
             }
-            ws.onData { ws, data in
+            ws.onBinary { ws, data in
                 print("data: \(data)")
             }
             ws.onClose { ws in
@@ -47,7 +47,6 @@ class WebSocketTests: XCTestCase {
         // uncomment to test websocket server
         try server.onClose.wait()
     }
-
 
     static let allTests = [
         ("testServer", testServer),

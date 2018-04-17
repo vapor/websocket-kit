@@ -19,10 +19,9 @@ extension WebSocket {
                 version: head.version,
                 headers: head.headers
             )
-            let encoder = WebSocketEventEncoder()
-            let webSocket = WebSocket(eventHandler: encoder)
-            let decoder = WebSocketEventDecoder(eventHandler: webSocket)
-            return channel.pipeline.addHandlers(decoder, encoder, first: false).map {
+            let webSocket = WebSocket(channel: channel)
+            let handler = WebSocketHandler(webSocket: webSocket)
+            return channel.pipeline.add(handler: handler).map {
                 onUpgrade(webSocket, req)
             }
         })
@@ -31,55 +30,8 @@ extension WebSocket {
 
 // MARK: Private
 
-/// Encodes `WebSocketEvent`s to `WebSocketFrame`s.
-private final class WebSocketEventEncoder: ChannelOutboundHandler, WebSocketEventHandler {
-    /// See `ChannelOutboundHandler`.
-    typealias OutboundIn = WebSocketFrame
-
-    /// See `ChannelOutboundHandler`.
-    typealias OutboundOut = WebSocketFrame
-
-
-    /// Holds the current `ChannelHandlerContext`.
-    private var currentCtx: ChannelHandlerContext? // fixme: better way to do this?
-
-    /// See `ChannelOutboundHandler`.
-    func handlerAdded(ctx: ChannelHandlerContext) {
-        self.currentCtx = ctx
-    }
-
-    /// See `ChannelOutboundHandler`.
-    func handlerRemoved(ctx: ChannelHandlerContext) {
-        self.currentCtx = nil
-    }
-
-    /// See `WebSocketEventHandler`.
-    func webSocketEvent(_ event: WebSocketEvent) {
-        let ctx = currentCtx!
-        switch event {
-        case .binary(let data): send(count: data.count, opcode: .binary, ctx: ctx) { $0.write(bytes: data) }
-        case .text(let str): send(count: str.count, opcode: .text, ctx: ctx) { $0.write(string: str) }
-        case .close:
-            send(count: 0, opcode: .connectionClose, ctx: ctx) { _ in  }
-            ctx.close(promise: nil)
-        default:
-            // ignore all other events
-            break
-        }
-    }
-
-    /// Sends a bytebuffer according to supplied opcode.
-    func send(count: Int, opcode: WebSocketOpcode, ctx: ChannelHandlerContext, bufferWriter: @escaping (inout ByteBuffer) -> ()) {
-        guard ctx.channel.isActive else { return }
-        var buffer = ctx.channel.allocator.buffer(capacity: count)
-        bufferWriter(&buffer)
-        let frame = WebSocketFrame(fin: true, opcode: opcode, data: buffer)
-        ctx.writeAndFlush(self.wrapOutboundOut(frame), promise: nil)
-    }
-}
-
-/// Decodes `WebSocketFrame`s, forwarding to a `WebSocketEventHandler`.
-private final class WebSocketEventDecoder: ChannelInboundHandler {
+/// Decodes `WebSocketFrame`s, forwarding to a `WebSocket`.
+private final class WebSocketHandler: ChannelInboundHandler {
     /// See `ChannelInboundHandler`.
     typealias InboundIn = WebSocketFrame
 
@@ -89,23 +41,23 @@ private final class WebSocketEventDecoder: ChannelInboundHandler {
     /// If true, a close has been sent from this decoder.
     private var awaitingClose: Bool
 
-    /// `WebSocketEventHandler` to handle the incoming events.
-    private var eventHandler: WebSocketEventHandler
+    /// `WebSocket` to handle the incoming events.
+    private var webSocket: WebSocket
 
     /// Creates a new `WebSocketEventDecoder`
-    init(eventHandler: WebSocketEventHandler) {
+    init(webSocket: WebSocket) {
         self.awaitingClose = false
-        self.eventHandler = eventHandler
+        self.webSocket = webSocket
     }
 
     /// See `ChannelInboundHandler`.
     func channelActive(ctx: ChannelHandlerContext) {
-        eventHandler.webSocketEvent(.connect)
+        // connected
     }
 
     /// See `ChannelInboundHandler`.
     func channelInactive(ctx: ChannelHandlerContext) {
-        eventHandler.webSocketEvent(.close)
+        webSocket.onCloseCallback(webSocket)
     }
 
     /// See `ChannelInboundHandler`.
@@ -118,11 +70,11 @@ private final class WebSocketEventDecoder: ChannelInboundHandler {
         case .text:
             var data = frame.unmaskedData
             let text = data.readString(length: data.readableBytes) ?? ""
-            eventHandler.webSocketEvent(.text(text))
+            webSocket.onTextCallback(webSocket, text)
         case .binary:
             var data = frame.unmaskedData
             let binary = data.readData(length: data.readableBytes) ?? Data()
-            eventHandler.webSocketEvent(.binary(binary))
+            webSocket.onBinaryCallback(webSocket, binary)
         default:
             // We ignore all other frames.
             break
@@ -131,7 +83,7 @@ private final class WebSocketEventDecoder: ChannelInboundHandler {
 
     /// See `ChannelInboundHandler`.
     func errorCaught(ctx: ChannelHandlerContext, error: Error) {
-        eventHandler.webSocketEvent(.error(error))
+        webSocket.onErrorCallback(webSocket, error)
     }
 
     /// Closes gracefully.

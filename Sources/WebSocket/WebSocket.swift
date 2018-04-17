@@ -5,34 +5,39 @@
 ///         ws.send(string.reversed())
 ///      }
 ///
-public final class WebSocket: WebSocketEventHandler {
+public final class WebSocket: BasicWorker {
     /// `true` if the `WebSocket` has been closed.
     public private(set) var isClosed: Bool
 
+    /// See `BasicWorker`.
+    public var eventLoop: EventLoop {
+        return channel.eventLoop
+    }
+
     /// Outbound `WebSocketEventHandler`.
-    private let eventHandler: WebSocketEventHandler
+    private let channel: Channel
 
     /// See `onText(...)`.
-    private var _onText: (WebSocket, String) -> ()
+    var onTextCallback: (WebSocket, String) -> ()
 
-    /// See `onData(...)`.
-    private var _onData: (WebSocket, Data) -> ()
+    /// See `onBinary(...)`.
+    var onBinaryCallback: (WebSocket, Data) -> ()
 
     /// See `onClose(...)`.
-    private var _onClose: (WebSocket) -> ()
+    var onCloseCallback: (WebSocket) -> ()
 
     /// See `onError(...)`.
-    private var _onError: (WebSocket, Error) -> ()
+    var onErrorCallback: (WebSocket, Error) -> ()
 
-    /// Creates a new `WebSocket` using the supplied `WebSocketEventHandler`.
+    /// Creates a new `WebSocket` using the supplied `Channel`.
     /// Use `httpProtocolUpgrader(...)` to create a protocol upgrader that can create `WebSocket`s.
-    internal init(eventHandler: WebSocketEventHandler) {
-        self.eventHandler = eventHandler
+    internal init(channel: Channel) {
+        self.channel = channel
         self.isClosed = false
-        self._onText = { _, _ in }
-        self._onData = { _, _ in }
-        self._onClose = { _ in }
-        self._onError = { _, _ in }
+        self.onTextCallback = { _, _ in }
+        self.onBinaryCallback = { _, _ in }
+        self.onCloseCallback = { _ in }
+        self.onErrorCallback = { _, _ in }
     }
 
     /// Adds a callback to this `WebSocket` to receive text-formatted messages.
@@ -41,28 +46,28 @@ public final class WebSocket: WebSocketEventHandler {
     ///         ws.send(string.reversed())
     ///     }
     ///
-    /// Use `onData(callback:)` to handle binary-formatted messages.
+    /// Use `onBinary(_:)` to handle binary-formatted messages.
     ///
     /// - parameters:
     ///     - callback: Closure to accept incoming text-formatted data.
     ///                 This will be called every time the connected client sends text.
     public func onText(_ callback: @escaping (WebSocket, String) -> ()) {
-        _onText = callback
+        onTextCallback = callback
     }
 
     /// Adds a callback to this `WebSocket` to receive binary-formatted messages.
     ///
-    ///     ws.onText { ws, data in
+    ///     ws.onBinary { ws, data in
     ///         print(data)
     ///     }
     ///
-    /// Use `onText(callback:)` to handle text-formatted messages.
+    /// Use `onText(_:)` to handle text-formatted messages.
     ///
     /// - parameters:
     ///     - callback: Closure to accept incoming binary-formatted data.
     ///                 This will be called every time the connected client sends binary-data.
-    public func onData(_ callback: @escaping (WebSocket, Data) -> ()) {
-        _onData = callback
+    public func onBinary(_ callback: @escaping (WebSocket, Data) -> ()) {
+        onBinaryCallback = callback
     }
 
     /// Adds a callback to this `WebSocket` that will be called when the connection closes.
@@ -74,7 +79,7 @@ public final class WebSocket: WebSocketEventHandler {
     /// - parameters:
     ///     - callback: Closure that will be called when this connection closes.
     public func onClose(_ callback: @escaping (WebSocket) -> ()) {
-        _onClose = callback
+        onCloseCallback = callback
     }
 
     /// Adds a callback to this `WebSocket` to handle errors.
@@ -86,7 +91,7 @@ public final class WebSocket: WebSocketEventHandler {
     /// - parameters:
     ///     - callback: Closure to handle error's caught during this connection.
     public func onError(_ callback: @escaping (WebSocket, Error) -> ()) {
-        _onError = callback
+        onErrorCallback = callback
     }
 
     /// Sends text-formatted data to the connected client.
@@ -97,34 +102,48 @@ public final class WebSocket: WebSocketEventHandler {
     ///
     /// - parameters:
     ///     - text: `String` to send as text-formatted data to the client.
-    public func send(_ text: String) {
-        guard !isClosed else { return }
-        eventHandler.webSocketEvent(.text(text))
-    }
-
-    /// Sends text-formatted data to the connected client.
-    ///
-    ///     ws.onText { ws, string in
-    ///         ws.send(string.reversed())
-    ///     }
-    ///
-    /// - parameters:
-    ///     - text: `String` to send as text-formatted data to the client.
-    public func send(_ text: [Character]) {
-        send(String(text))
+    ///     - promise: Optional `Promise` to complete when the send is finished.
+    public func send<S>(_ text: S, promise: Promise<Void>? = nil) where S: Collection, S.Element == Character {
+        return send(text: String(text), promise: promise)
     }
 
     /// Sends binary-formatted data to the connected client.
     ///
     ///     ws.onText { ws, string in
-    ///         ws.send(string.reversed())
+    ///         ws.send([0x68, 0x69])
     ///     }
     ///
     /// - parameters:
-    ///     - data: `Data` to send as binary-formatted data to the client.
-    public func send(_ data: Data) {
-        guard !isClosed else { return }
-        eventHandler.webSocketEvent(.binary(data))
+    ///     - text: `Data` to send as binary-formatted data to the client.
+    ///     - promise: Optional `Promise` to complete when the send is finished.
+    public func send(_ binary: Data, promise: Promise<Void>? = nil) {
+        return send(binary: binary, promise: promise)
+    }
+
+    /// Sends text-formatted data to the connected client.
+    ///
+    ///     ws.onText { ws, string in
+    ///         ws.send(text: string.reversed())
+    ///     }
+    ///
+    /// - parameters:
+    ///     - text: `LosslessDataConvertible` to send as text-formatted data to the client.
+    ///     - promise: Optional `Promise` to complete when the send is finished.
+    public func send(text: LosslessDataConvertible, promise: Promise<Void>? = nil) {
+        send(text, opcode: .text, promise: promise)
+    }
+
+    /// Sends binary-formatted data to the connected client.
+    ///
+    ///     ws.onText { ws, string in
+    ///         ws.send(binary: [0x68, 0x69])
+    ///     }
+    ///
+    /// - parameters:
+    ///     - data: `LosslessDataConvertible` to send as binary-formatted data to the client.
+    ///     - promise: Optional `Promise` to complete when the send is finished.
+    public func send(binary: LosslessDataConvertible, promise: Promise<Void>? = nil) {
+        send(binary, opcode: .binary, promise: promise)
     }
 
     /// Closes the `WebSocket`'s connection, disconnecting the client.
@@ -132,17 +151,22 @@ public final class WebSocket: WebSocketEventHandler {
         guard !isClosed else {
             return
         }
-        eventHandler.webSocketEvent(.close)
+        channel.close(promise: nil)
     }
 
-    /// See `WebSocketEventHandler`.
-    internal func webSocketEvent(_ event: WebSocketEvent) {
-        switch event {
-        case .binary(let data): _onData(self, data)
-        case .text(let text): _onText(self, text)
-        case .close: _onClose(self)
-        case .error(let err): _onError(self, err)
-        case .connect: break
-        }
+    // MARK: Private
+
+    /// Private send that accepts a raw `WebSocketOpcode`.
+    private func send(_ data: LosslessDataConvertible, opcode: WebSocketOpcode, promise: Promise<Void>?) {
+        guard !isClosed else { return }
+        let data = data.convertToData()
+        var buffer = channel.allocator.buffer(capacity: data.count)
+        buffer.write(bytes: data)
+        send(WebSocketFrame(fin: true, opcode: opcode, data: buffer), promise: promise)
+    }
+
+    /// Private send that accepts a raw `WebSocketFrame`.
+    private func send(_ frame: WebSocketFrame, promise: Promise<Void>?) {
+        channel.writeAndFlush(frame, promise: promise)
     }
 }
