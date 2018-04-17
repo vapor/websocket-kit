@@ -2,6 +2,20 @@ import WebSocket
 import XCTest
 
 class WebSocketTests: XCTestCase {
+    func testClient() throws {
+        // ws://echo.websocket.org
+        let worker = MultiThreadedEventLoopGroup(numThreads: 1)
+        let webSocket = try HTTPClient.webSocket(hostname: "echo.websocket.org", on: worker).wait()
+
+        let promise = worker.eventLoop.newPromise(String.self)
+        webSocket.onText { ws, text in
+            promise.succeed(result: text)
+        }
+        let message = "Hello, world!"
+        webSocket.send(message)
+        try XCTAssertEqual(promise.futureResult.wait(), message)
+    }
+
     func testServer() throws {
         let group = MultiThreadedEventLoopGroup(numThreads: 1)
 
@@ -21,7 +35,7 @@ class WebSocketTests: XCTestCase {
             ws.onBinary { ws, data in
                 print("data: \(data)")
             }
-            ws.onClose { ws in
+            ws.onClose.always {
                 print("closed")
             }
         })
@@ -45,10 +59,11 @@ class WebSocketTests: XCTestCase {
 
         print(server)
         // uncomment to test websocket server
-        try server.onClose.wait()
+        // try server.onClose.wait()
     }
 
     static let allTests = [
         ("testServer", testServer),
+        ("testClient", testClient),
     ]
 }

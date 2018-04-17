@@ -14,6 +14,11 @@ public final class WebSocket: BasicWorker {
         return channel.eventLoop
     }
 
+    /// A `Future` that will be completed when the `WebSocket` closes.
+    public var onClose: Future<Void> {
+        return channel.closeFuture
+    }
+
     /// Outbound `WebSocketEventHandler`.
     private let channel: Channel
 
@@ -22,9 +27,6 @@ public final class WebSocket: BasicWorker {
 
     /// See `onBinary(...)`.
     var onBinaryCallback: (WebSocket, Data) -> ()
-
-    /// See `onClose(...)`.
-    var onCloseCallback: (WebSocket) -> ()
 
     /// See `onError(...)`.
     var onErrorCallback: (WebSocket, Error) -> ()
@@ -36,7 +38,6 @@ public final class WebSocket: BasicWorker {
         self.isClosed = false
         self.onTextCallback = { _, _ in }
         self.onBinaryCallback = { _, _ in }
-        self.onCloseCallback = { _ in }
         self.onErrorCallback = { _, _ in }
     }
 
@@ -68,18 +69,6 @@ public final class WebSocket: BasicWorker {
     ///                 This will be called every time the connected client sends binary-data.
     public func onBinary(_ callback: @escaping (WebSocket, Data) -> ()) {
         onBinaryCallback = callback
-    }
-
-    /// Adds a callback to this `WebSocket` that will be called when the connection closes.
-    ///
-    ///     ws.onClose { ws in
-    ///         // client has disconnected
-    ///     }
-    ///
-    /// - parameters:
-    ///     - callback: Closure that will be called when this connection closes.
-    public func onClose(_ callback: @escaping (WebSocket) -> ()) {
-        onCloseCallback = callback
     }
 
     /// Adds a callback to this `WebSocket` to handle errors.

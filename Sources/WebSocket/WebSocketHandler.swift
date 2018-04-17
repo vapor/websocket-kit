@@ -1,30 +1,8 @@
-extension WebSocket {
-    /// Creates an `HTTPProtocolUpgrader` that will create instances of this class upon HTTP upgrade.
-    public static func httpProtocolUpgrader(
-        shouldUpgrade: @escaping (HTTPRequest) -> (HTTPHeaders?),
-        onUpgrade: @escaping (WebSocket, HTTPRequest) -> ()
-    ) -> HTTPProtocolUpgrader {
-        return WebSocketUpgrader(shouldUpgrade: { head in
-            let req = HTTPRequest(
-                method: head.method,
-                url: head.uri,
-                version: head.version,
-                headers: head.headers
-            )
-            return shouldUpgrade(req)
-        }, upgradePipelineHandler: { channel, head in
-            let req = HTTPRequest(
-                method: head.method,
-                url: head.uri,
-                version: head.version,
-                headers: head.headers
-            )
-            let webSocket = WebSocket(channel: channel)
-            let handler = WebSocketHandler(webSocket: webSocket)
-            return channel.pipeline.add(handler: handler).map {
-                onUpgrade(webSocket, req)
-            }
-        })
+extension ChannelPipeline {
+    /// Adds the supplied `WebSocket` to this `ChannelPipeline`.
+    internal func add(webSocket: WebSocket) -> Future<Void> {
+        let handler = WebSocketHandler(webSocket: webSocket)
+        return add(handler: handler)
     }
 }
 
@@ -53,11 +31,6 @@ private final class WebSocketHandler: ChannelInboundHandler {
     /// See `ChannelInboundHandler`.
     func channelActive(ctx: ChannelHandlerContext) {
         // connected
-    }
-
-    /// See `ChannelInboundHandler`.
-    func channelInactive(ctx: ChannelHandlerContext) {
-        webSocket.onCloseCallback(webSocket)
     }
 
     /// See `ChannelInboundHandler`.
