@@ -73,7 +73,7 @@ class WebSocketTests: XCTestCase {
 
         print(server)
         // uncomment to test websocket server
-        try server.onClose.wait()
+        // try server.onClose.wait()
     }
 
     static let allTests = [
