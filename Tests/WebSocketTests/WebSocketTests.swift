@@ -31,7 +31,7 @@ class WebSocketTests: XCTestCase {
     }
 
     func testServer() throws {
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numThreads: 8)
 
         let ws = WebSocket.httpProtocolUpgrader(shouldUpgrade: { req in
             if req.url.path == "/deny" {
@@ -56,8 +56,8 @@ class WebSocketTests: XCTestCase {
 
         struct HelloResponder: HTTPServerResponder {
             func respond(to request: HTTPRequest, on worker: Worker) -> EventLoopFuture<HTTPResponse> {
-                let res = HTTPResponse(status: .ok, body: HTTPBody(string: "Hello, world!"))
-                return Future.map(on: worker) { res }
+                let res = HTTPResponse(status: .ok, body: "This is a WebSocket server")
+                return worker.eventLoop.newSucceededFuture(result: res)
             }
         }
 
@@ -73,7 +73,7 @@ class WebSocketTests: XCTestCase {
 
         print(server)
         // uncomment to test websocket server
-        // try server.onClose.wait()
+        try server.onClose.wait()
     }
 
     static let allTests = [
