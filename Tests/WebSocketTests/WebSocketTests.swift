@@ -16,6 +16,20 @@ class WebSocketTests: XCTestCase {
         try XCTAssertEqual(promise.futureResult.wait(), message)
     }
 
+    func testClientTLS() throws {
+        // ws://echo.websocket.org
+        let worker = MultiThreadedEventLoopGroup(numThreads: 1)
+        let webSocket = try HTTPClient.webSocket(scheme: .wss, hostname: "echo.websocket.org", on: worker).wait()
+
+        let promise = worker.eventLoop.newPromise(String.self)
+        webSocket.onText { ws, text in
+            promise.succeed(result: text)
+        }
+        let message = "Hello, world!"
+        webSocket.send(message)
+        try XCTAssertEqual(promise.futureResult.wait(), message)
+    }
+
     func testServer() throws {
         let group = MultiThreadedEventLoopGroup(numThreads: 1)
 
@@ -63,7 +77,8 @@ class WebSocketTests: XCTestCase {
     }
 
     static let allTests = [
-        ("testServer", testServer),
         ("testClient", testClient),
+        ("testClientTLS", testClientTLS),
+        ("testServer", testServer),
     ]
 }

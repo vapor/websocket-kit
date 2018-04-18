@@ -17,7 +17,7 @@ extension HTTPClient {
     ///     - worker: `Worker` to perform async work on.
     /// - returns: A `Future` containing the connected `HTTPClient`.
     public static func webSocket(
-        scheme: HTTPScheme = .plainText,
+        scheme: HTTPScheme = .ws,
         hostname: String,
         port: Int? = nil,
         path: String = "/",

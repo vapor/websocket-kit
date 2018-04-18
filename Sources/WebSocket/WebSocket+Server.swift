@@ -1,5 +1,7 @@
 extension WebSocket {
     /// Creates an `HTTPProtocolUpgrader` that will create instances of this class upon HTTP upgrade.
+    ///
+    /// Use this with `HTTPServer.start(...)`.
     public static func httpProtocolUpgrader(
         shouldUpgrade: @escaping (HTTPRequest) -> (HTTPHeaders?),
         onUpgrade: @escaping (WebSocket, HTTPRequest) -> ()
