@@ -1,16 +1,84 @@
+import WebSocket
 import XCTest
-@testable import WebSocket
 
-final class WebSocketTests: XCTestCase {
-    func testExample() {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct
-        // results.
-        XCTAssertEqual(WebSocket().text, "Hello, World!")
+class WebSocketTests: XCTestCase {
+    func testClient() throws {
+        // ws://echo.websocket.org
+        let worker = MultiThreadedEventLoopGroup(numThreads: 1)
+        let webSocket = try HTTPClient.webSocket(hostname: "echo.websocket.org", on: worker).wait()
+
+        let promise = worker.eventLoop.newPromise(String.self)
+        webSocket.onText { ws, text in
+            promise.succeed(result: text)
+        }
+        let message = "Hello, world!"
+        webSocket.send(message)
+        try XCTAssertEqual(promise.futureResult.wait(), message)
     }
 
+    func testClientTLS() throws {
+        // ws://echo.websocket.org
+        let worker = MultiThreadedEventLoopGroup(numThreads: 1)
+        let webSocket = try HTTPClient.webSocket(scheme: .wss, hostname: "echo.websocket.org", on: worker).wait()
 
-    static var allTests = [
-        ("testExample", testExample),
+        let promise = worker.eventLoop.newPromise(String.self)
+        webSocket.onText { ws, text in
+            promise.succeed(result: text)
+        }
+        let message = "Hello, world!"
+        webSocket.send(message)
+        try XCTAssertEqual(promise.futureResult.wait(), message)
+    }
+
+    func testServer() throws {
+        let group = MultiThreadedEventLoopGroup(numThreads: 8)
+
+        let ws = WebSocket.httpProtocolUpgrader(shouldUpgrade: { req in
+            if req.url.path == "/deny" {
+                return nil
+            }
+            return [:]
+        }, onUpgrade: { ws, req in
+            ws.send(req.url.path)
+            ws.onText { ws, string in
+                ws.send(string.reversed())
+                if string == "close" {
+                    ws.close()
+                }
+            }
+            ws.onBinary { ws, data in
+                print("data: \(data)")
+            }
+            ws.onClose.always {
+                print("closed")
+            }
+        })
+
+        struct HelloResponder: HTTPServerResponder {
+            func respond(to request: HTTPRequest, on worker: Worker) -> EventLoopFuture<HTTPResponse> {
+                let res = HTTPResponse(status: .ok, body: "This is a WebSocket server")
+                return worker.eventLoop.newSucceededFuture(result: res)
+            }
+        }
+
+        let server = try HTTPServer.start(
+            hostname: "127.0.0.1",
+            port: 8888,
+            responder: HelloResponder(),
+            upgraders: [ws],
+            on: group
+        ) { error in
+            XCTFail("\(error)")
+        }.wait()
+
+        print(server)
+        // uncomment to test websocket server
+        // try server.onClose.wait()
+    }
+
+    static let allTests = [
+        ("testClient", testClient),
+        ("testClientTLS", testClientTLS),
+        ("testServer", testServer),
     ]
 }

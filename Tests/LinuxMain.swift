@@ -1,7 +1,9 @@
+#if os(Linux)
+
 import XCTest
+@testable import WebSocketTests
+XCTMain([
+    testCase(WebSocketTests.allTests),
+])
 
-import WebSocketTests
-
-var tests = [XCTestCaseEntry]()
-tests += WebSocketTests.allTests()
-XCTMain(tests)
+#endif
