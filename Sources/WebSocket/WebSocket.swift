@@ -6,17 +6,9 @@
 ///      }
 ///
 public final class WebSocket: BasicWorker {
-    /// `true` if the `WebSocket` has been closed.
-    public private(set) var isClosed: Bool
-
     /// See `BasicWorker`.
     public var eventLoop: EventLoop {
         return channel.eventLoop
-    }
-
-    /// A `Future` that will be completed when the `WebSocket` closes.
-    public var onClose: Future<Void> {
-        return channel.closeFuture
     }
 
     /// Outbound `WebSocketEventHandler`.
@@ -40,6 +32,8 @@ public final class WebSocket: BasicWorker {
         self.onBinaryCallback = { _, _ in }
         self.onErrorCallback = { _, _ in }
     }
+
+    // MARK: Receive
 
     /// Adds a callback to this `WebSocket` to receive text-formatted messages.
     ///
@@ -82,6 +76,8 @@ public final class WebSocket: BasicWorker {
     public func onError(_ callback: @escaping (WebSocket, Error) -> ()) {
         onErrorCallback = callback
     }
+
+    // MARK: Send
 
     /// Sends text-formatted data to the connected client.
     ///
@@ -133,6 +129,16 @@ public final class WebSocket: BasicWorker {
     ///     - promise: Optional `Promise` to complete when the send is finished.
     public func send(binary: LosslessDataConvertible, promise: Promise<Void>? = nil) {
         send(binary, opcode: .binary, promise: promise)
+    }
+
+    // MARK: Close
+
+    /// `true` if the `WebSocket` has been closed.
+    public private(set) var isClosed: Bool
+
+    /// A `Future` that will be completed when the `WebSocket` closes.
+    public var onClose: Future<Void> {
+        return channel.closeFuture
     }
 
     /// Closes the `WebSocket`'s connection, disconnecting the client.

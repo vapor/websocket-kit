@@ -1,13 +1,23 @@
+/// Allows `HTTPClient` to be used to create `WebSocket` connections.
+///
+///     let ws = try HTTPClient.webSocket(hostname: "echo.websocket.org", on: ...).wait()
+///     ws.onText { ws, text in
+///         print("server said: \(text)")
+///     }
+///     ws.send("Hello, world!")
+///     try ws.onClose.wait()
+///
 extension HTTPClient {
-    /// Performs an HTTP protocol upgrade to WebSocket protocol `HTTPClient`.
+    // MARK: Client Upgrade
+
+    /// Performs an HTTP protocol upgrade to` WebSocket` protocol `HTTPClient`.
     ///
-    ///     let worker = MultiThreadedEventLoopGroup(numThreads: 1)
-    ///     let webSocket = try HTTPClient.webSocket(hostname: "echo.websocket.org", on: worker).wait()
-    ///     webSocket.onText { ws, text in
-    ///         print("server said: \(text))
+    ///     let ws = try HTTPClient.webSocket(hostname: "echo.websocket.org", on: ...).wait()
+    ///     ws.onText { ws, text in
+    ///         print("server said: \(text)")
     ///     }
-    ///     webSocket.send("Hello, world!")
-    ///     try webSocket.onClose.wait()
+    ///     ws.send("Hello, world!")
+    ///     try ws.onClose.wait()
     ///
     /// - parameters:
     ///     - scheme: Transport layer security to use, either tls or plainText.

@@ -1,8 +1,27 @@
-extension WebSocket {
-    /// Creates an `HTTPProtocolUpgrader` that will create instances of this class upon HTTP upgrade.
+/// Allows `HTTPServer` to accept `WebSocket` connections.
+///
+///     let ws = HTTPServer.webSocketUpgrader(shouldUpgrade: { req in
+///         // return non-nil HTTPHeaders to allow upgrade
+///     }, onUpgrade: { ws, req in
+///         // setup callbacks or send data to connected WebSocket
+///     })
+///
+///     HTTPServer.start(..., upgraders: [ws])
+///
+extension HTTPServer {
+    // MARK: Server Upgrade
+
+    /// Creates an `HTTPProtocolUpgrader` that will accept incoming `WebSocket` upgrade requests.
     ///
-    /// Use this with `HTTPServer.start(...)`.
-    public static func httpProtocolUpgrader(
+    ///     let ws = HTTPServer.webSocketUpgrader(shouldUpgrade: { req in
+    ///         // return non-nil HTTPHeaders to allow upgrade
+    ///     }, onUpgrade: { ws, req in
+    ///         // setup callbacks or send data to connected WebSocket
+    ///     })
+    ///
+    ///     HTTPServer.start(..., upgraders: [ws])
+    ///
+    public static func webSocketUpgrader(
         shouldUpgrade: @escaping (HTTPRequest) -> (HTTPHeaders?),
         onUpgrade: @escaping (WebSocket, HTTPRequest) -> ()
     ) -> HTTPProtocolUpgrader {
