@@ -33,7 +33,7 @@ class WebSocketTests: XCTestCase {
     func testServer() throws {
         let group = MultiThreadedEventLoopGroup(numThreads: 8)
 
-        let ws = WebSocket.httpProtocolUpgrader(shouldUpgrade: { req in
+        let ws = HTTPServer.webSocketUpgrader(shouldUpgrade: { req in
             if req.url.path == "/deny" {
                 return nil
             }
