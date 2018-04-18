@@ -11,7 +11,7 @@ let package = Package(
         .package(url: "https://github.com/vapor/core.git", from: "3.0.0"),
         
         // 🚀 Non-blocking, event-driven HTTP for Swift built on Swift NIO.
-        .package(url: "https://github.com/vapor/http.git", .branch("master")),
+        .package(url: "https://github.com/vapor/http.git", from: "3.0.0"),
         
         // Event-driven network application framework for high performance protocol servers & clients, non-blocking.
         .package(url: "https://github.com/apple/swift-nio.git", from: "1.4.0"),
