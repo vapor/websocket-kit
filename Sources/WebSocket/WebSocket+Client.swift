@@ -67,8 +67,8 @@ private final class WebSocketClientUpgrader: HTTPClientProtocolUpgrader {
         upgradeReq.headers.add(name: .upgrade, value: "websocket")
         upgradeReq.headers.add(name: .host, value: hostname)
         upgradeReq.headers.add(name: .origin, value: "vapor/websocket")
-        upgradeReq.headers.add(name: "Sec-WebSocket-Version", value: "13") // fixme: randomly gen
-        upgradeReq.headers.add(name: "Sec-WebSocket-Key", value: "MTMtMTUyMzk4NDIxNzk3NQ==") // fixme: randomly gen
+        upgradeReq.headers.add(name: .secWebSocketVersion, value: "13") // fixme: randomly gen
+        upgradeReq.headers.add(name: .secWebSocketKey, value: "MTMtMTUyMzk4NDIxNzk3NQ==") // fixme: randomly gen
         return upgradeReq
     }
 
