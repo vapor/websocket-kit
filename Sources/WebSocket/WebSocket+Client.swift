@@ -24,8 +24,9 @@ extension HTTPClient {
     ///     - hostname: Remote server's hostname.
     ///     - port: Remote server's port, defaults to 80 for TCP and 443 for TLS.
     ///     - path: Path on remote server to connect to.
+    ///     - headers: Additional HTTP headers are used to establish a connection.
     ///     - worker: `Worker` to perform async work on.
-    /// - returns: A `Future` containing the connected `HTTPClient`.
+    /// - returns: A `Future` containing the connected `WebSocket`.
     public static func webSocket(
         scheme: HTTPScheme = .ws,
         hostname: String,
