@@ -21,11 +21,18 @@ extension HTTPServer {
     ///
     ///     HTTPServer.start(..., upgraders: [ws])
     ///
+    /// - parameters:
+    ///     - maxFrameSize: Maximum WebSocket frame size this server will accept.
+    ///     - shouldUpgrade: Called when an incoming HTTPRequest attempts to upgrade.
+    ///                      Return non-nil headers to accept the upgrade.
+    ///     - onUpgrade: Called when a new WebSocket client has connected.
+    /// - returns: An `HTTPProtocolUpgrader` for use with `HTTPServer`.
     public static func webSocketUpgrader(
+        maxFrameSize: Int = 1 << 14,
         shouldUpgrade: @escaping (HTTPRequest) -> (HTTPHeaders?),
         onUpgrade: @escaping (WebSocket, HTTPRequest) -> ()
     ) -> HTTPProtocolUpgrader {
-        return WebSocketUpgrader(shouldUpgrade: { head in
+        return WebSocketUpgrader(maxFrameSize: maxFrameSize, shouldUpgrade: { head in
             let req = HTTPRequest(
                 method: head.method,
                 url: head.uri,
