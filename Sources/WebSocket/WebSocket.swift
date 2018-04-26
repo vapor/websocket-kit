@@ -138,7 +138,9 @@ public final class WebSocket: BasicWorker {
 
     /// A `Future` that will be completed when the `WebSocket` closes.
     public var onClose: Future<Void> {
-        return channel.closeFuture
+        return channel.closeFuture.always { [weak self] in
+            self?.isClosed = true
+        }
     }
 
     /// Closes the `WebSocket`'s connection, disconnecting the client.
