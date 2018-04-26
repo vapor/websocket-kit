@@ -5,15 +5,20 @@ class WebSocketTests: XCTestCase {
     func testClient() throws {
         // ws://echo.websocket.org
         let worker = MultiThreadedEventLoopGroup(numThreads: 1)
-        let webSocket = try HTTPClient.webSocket(hostname: "echo.websocket.org", on: worker).wait()
+        let ws = try HTTPClient.webSocket(hostname: "echo.websocket.org", on: worker).wait()
 
         let promise = worker.eventLoop.newPromise(String.self)
-        webSocket.onText { ws, text in
+        ws.onText { ws, text in
             promise.succeed(result: text)
+            ws.close(code: .normalClosure)
+        }
+        ws.onCloseCode { code in
+            print("code: \(code)")
         }
         let message = "Hello, world!"
-        webSocket.send(message)
+        ws.send(message)
         try XCTAssertEqual(promise.futureResult.wait(), message)
+        try ws.onClose.wait()
     }
 
     func testClientTLS() throws {
@@ -48,6 +53,9 @@ class WebSocketTests: XCTestCase {
             }
             ws.onBinary { ws, data in
                 print("data: \(data)")
+            }
+            ws.onCloseCode { code in
+                print("code: \(code)")
             }
             ws.onClose.always {
                 print("closed")
