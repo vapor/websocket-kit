@@ -24,16 +24,18 @@ extension HTTPClient {
     ///     - hostname: Remote server's hostname.
     ///     - port: Remote server's port, defaults to 80 for TCP and 443 for TLS.
     ///     - path: Path on remote server to connect to.
+    ///     - headers: Additional HTTP headers are used to establish a connection.
     ///     - worker: `Worker` to perform async work on.
-    /// - returns: A `Future` containing the connected `HTTPClient`.
+    /// - returns: A `Future` containing the connected `WebSocket`.
     public static func webSocket(
         scheme: HTTPScheme = .ws,
         hostname: String,
         port: Int? = nil,
         path: String = "/",
+        headers: HTTPHeaders = .init(),
         on worker: Worker
     ) -> Future<WebSocket> {
-        let upgrader = WebSocketClientUpgrader(hostname: hostname, path: path)
+        let upgrader = WebSocketClientUpgrader(hostname: hostname, path: path, headers: headers)
         return HTTPClient.upgrade(scheme: scheme, hostname: hostname, port: port, upgrader: upgrader, on: worker)
     }
 }
@@ -47,22 +49,27 @@ private final class WebSocketClientUpgrader: HTTPClientProtocolUpgrader {
 
     /// Path to use when upgrading.
     let path: String
+    
+    /// Additional headers to use when upgrading.
+    let headers: HTTPHeaders
 
     /// Creates a new `WebSocketClientUpgrader`.
-    init(hostname: String, path: String) {
+    init(hostname: String, path: String, headers: HTTPHeaders) {
         self.hostname = hostname
         self.path = path
+        self.headers = headers
     }
 
     /// See `HTTPClientProtocolUpgrader`.
     func buildUpgradeRequest() -> HTTPRequestHead {
         var upgradeReq = HTTPRequestHead(version: .init(major: 1, minor: 1), method: .GET, uri: path)
+        headers.forEach { upgradeReq.headers.replaceOrAdd(name: $0.name, value: $0.value) }
         upgradeReq.headers.add(name: .connection, value: "Upgrade")
         upgradeReq.headers.add(name: .upgrade, value: "websocket")
         upgradeReq.headers.add(name: .host, value: hostname)
         upgradeReq.headers.add(name: .origin, value: "vapor/websocket")
-        upgradeReq.headers.add(name: "Sec-WebSocket-Version", value: "13") // fixme: randomly gen
-        upgradeReq.headers.add(name: "Sec-WebSocket-Key", value: "MTMtMTUyMzk4NDIxNzk3NQ==") // fixme: randomly gen
+        upgradeReq.headers.add(name: .secWebSocketVersion, value: "13") // fixme: randomly gen
+        upgradeReq.headers.add(name: .secWebSocketKey, value: "MTMtMTUyMzk4NDIxNzk3NQ==") // fixme: randomly gen
         return upgradeReq
     }
 
