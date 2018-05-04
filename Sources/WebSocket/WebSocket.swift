@@ -138,7 +138,12 @@ public final class WebSocket: BasicWorker {
 
     /// A `Future` that will be completed when the `WebSocket` closes.
     public var onClose: Future<Void> {
-        return channel.closeFuture
+        let promise = eventLoop.newPromise(Void.self)
+        channel.closeFuture.always {
+            self.isClosed = true
+            promise.succeed()
+        }
+        return promise.futureResult
     }
 
     /// Closes the `WebSocket`'s connection, disconnecting the client.
