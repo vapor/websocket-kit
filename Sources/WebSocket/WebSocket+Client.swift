@@ -27,6 +27,7 @@ extension HTTPClient {
     ///     - port: Remote server's port, defaults to 80 for TCP and 443 for TLS.
     ///     - path: Path on remote server to connect to.
     ///     - headers: Additional HTTP headers are used to establish a connection.
+    ///     - maxFrameSize: Maximum WebSocket frame size this client will accept.
     ///     - worker: `Worker` to perform async work on.
     /// - returns: A `Future` containing the connected `WebSocket`.
     public static func webSocket(
@@ -35,9 +36,10 @@ extension HTTPClient {
         port: Int? = nil,
         path: String = "/",
         headers: HTTPHeaders = .init(),
+        maxFrameSize: Int = 1 << 14,
         on worker: Worker
     ) -> Future<WebSocket> {
-        let upgrader = WebSocketClientUpgrader(hostname: hostname, path: path, headers: headers)
+        let upgrader = WebSocketClientUpgrader(hostname: hostname, path: path, headers: headers, maxFrameSize: maxFrameSize)
         return HTTPClient.upgrade(scheme: scheme, hostname: hostname, port: port, upgrader: upgrader, on: worker)
     }
 }
@@ -55,11 +57,15 @@ private final class WebSocketClientUpgrader: HTTPClientProtocolUpgrader {
     /// Additional headers to use when upgrading.
     let headers: HTTPHeaders
 
+    /// Maximum frame size for decoder.
+    private let maxFrameSize: Int
+
     /// Creates a new `WebSocketClientUpgrader`.
-    init(hostname: String, path: String, headers: HTTPHeaders) {
+    init(hostname: String, path: String, headers: HTTPHeaders, maxFrameSize: Int) {
         self.hostname = hostname
         self.path = path
         self.headers = headers
+        self.maxFrameSize = maxFrameSize
     }
 
     /// See `HTTPClientProtocolUpgrader`.
@@ -93,7 +99,7 @@ private final class WebSocketClientUpgrader: HTTPClientProtocolUpgrader {
     /// See `HTTPClientProtocolUpgrader`.
     func upgrade(ctx: ChannelHandlerContext, upgradeResponse: HTTPResponseHead) -> Future<WebSocket> {
         let webSocket = WebSocket(channel: ctx.channel)
-        return ctx.channel.pipeline.addHandlers(WebSocketFrameEncoder(), WebSocketFrameDecoder(), first: false).then {
+        return ctx.channel.pipeline.addHandlers(WebSocketFrameEncoder(), WebSocketFrameDecoder(maxFrameSize: maxFrameSize), first: false).then {
             return ctx.channel.pipeline.add(webSocket: webSocket)
         }.map(to: WebSocket.self) {
             return webSocket
