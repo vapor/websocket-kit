@@ -1,3 +1,5 @@
+import Crypto
+
 /// Allows `HTTPClient` to be used to create `WebSocket` connections.
 ///
 ///     let ws = try HTTPClient.webSocket(hostname: "echo.websocket.org", on: ...).wait()
@@ -68,8 +70,13 @@ private final class WebSocketClientUpgrader: HTTPClientProtocolUpgrader {
         upgradeReq.headers.add(name: .upgrade, value: "websocket")
         upgradeReq.headers.add(name: .host, value: hostname)
         upgradeReq.headers.add(name: .origin, value: "vapor/websocket")
-        upgradeReq.headers.add(name: .secWebSocketVersion, value: "13") // fixme: randomly gen
-        upgradeReq.headers.add(name: .secWebSocketKey, value: "MTMtMTUyMzk4NDIxNzk3NQ==") // fixme: randomly gen
+        upgradeReq.headers.add(name: .secWebSocketVersion, value: "13")
+        do {
+            let webSocketKey = try CryptoRandom().generateData(count: 16).base64EncodedString()
+            upgradeReq.headers.add(name: .secWebSocketKey, value: webSocketKey)
+        } catch {
+            print("[WebSocket] [Upgrader] Could not generate random value for Sec-WebSocket-Key header.")
+        }
         return upgradeReq
     }
 
