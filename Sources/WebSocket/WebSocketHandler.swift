@@ -16,15 +16,11 @@ private final class WebSocketHandler: ChannelInboundHandler {
     /// See `ChannelInboundHandler`.
     typealias OutboundOut = WebSocketFrame
 
-    /// If true, a close has been sent from this decoder.
-    private var awaitingClose: Bool
-
     /// `WebSocket` to handle the incoming events.
     private var webSocket: WebSocket
 
     /// Creates a new `WebSocketEventDecoder`
     init(webSocket: WebSocket) {
-        self.awaitingClose = false
         self.webSocket = webSocket
     }
 
@@ -61,18 +57,25 @@ private final class WebSocketHandler: ChannelInboundHandler {
 
     /// Closes gracefully.
     private func receivedClose(ctx: ChannelHandlerContext, frame: WebSocketFrame) {
+        /// Parse the close frame.
+        var data = frame.unmaskedData
+        if let closeCode = data.readInteger(as: UInt16.self)
+            .map(Int.init)
+            .flatMap(WebSocketErrorCode.init(codeNumber:))
+        {
+            webSocket.onCloseCodeCallback(closeCode)
+        }
+
         // Handle a received close frame. In websockets, we're just going to send the close
         // frame and then close, unless we already sent our own close frame.
-        if awaitingClose {
+        if webSocket.isClosed {
             // Cool, we started the close and were waiting for the user. We're done.
             ctx.close(promise: nil)
         } else {
             // This is an unsolicited close. We're going to send a response frame and
             // then, when we've sent it, close up shop. We should send back the close code the remote
             // peer sent us, unless they didn't send one at all.
-            var data = frame.unmaskedData
-            let closeDataCode = data.readSlice(length: 2) ?? ctx.channel.allocator.buffer(capacity: 0)
-            let closeFrame = WebSocketFrame(fin: true, opcode: .connectionClose, data: closeDataCode)
+            let closeFrame = WebSocketFrame(fin: true, opcode: .connectionClose, data: data)
             _ = ctx.write(wrapOutboundOut(closeFrame)).always {
                 _ = ctx.close(promise: nil)
             }
@@ -103,6 +106,6 @@ private final class WebSocketHandler: ChannelInboundHandler {
         _ = ctx.write(self.wrapOutboundOut(frame)).then {
             ctx.close(mode: .output)
         }
-        awaitingClose = true
+        webSocket.isClosed = true
     }
 }

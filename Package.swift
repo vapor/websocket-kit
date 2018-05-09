@@ -9,6 +9,9 @@ let package = Package(
     dependencies: [
         // 🌎 Utility package containing tools for byte manipulation, Codable, OS APIs, and debugging.
         .package(url: "https://github.com/vapor/core.git", from: "3.0.0"),
+
+        // 🔑 Hashing (BCrypt, SHA2, HMAC), encryption (AES), public-key (RSA), and random data generation.
+        .package(url: "https://github.com/vapor/crypto.git", from: "3.0.0"),
         
         // 🚀 Non-blocking, event-driven HTTP for Swift built on Swift NIO.
         .package(url: "https://github.com/vapor/http.git", from: "3.0.0"),
@@ -20,7 +23,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "1.0.1"),
     ],
     targets: [
-        .target(name: "WebSocket", dependencies: ["Core", "HTTP", "NIO", "NIOWebSocket"]),
+        .target(name: "WebSocket", dependencies: ["Core", "Crypto", "HTTP", "NIO", "NIOWebSocket"]),
         .testTarget(name: "WebSocketTests", dependencies: ["WebSocket"]),
     ]
 )

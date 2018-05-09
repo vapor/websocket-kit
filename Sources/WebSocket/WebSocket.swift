@@ -23,6 +23,9 @@ public final class WebSocket: BasicWorker {
     /// See `onError(...)`.
     var onErrorCallback: (WebSocket, Error) -> ()
 
+    /// See `onCloseCode(...)`.
+    var onCloseCodeCallback: (WebSocketErrorCode) -> ()
+
     /// Creates a new `WebSocket` using the supplied `Channel`.
     /// Use `httpProtocolUpgrader(...)` to create a protocol upgrader that can create `WebSocket`s.
     internal init(channel: Channel) {
@@ -31,6 +34,7 @@ public final class WebSocket: BasicWorker {
         self.onTextCallback = { _, _ in }
         self.onBinaryCallback = { _, _ in }
         self.onErrorCallback = { _, _ in }
+        self.onCloseCodeCallback = { _ in }
     }
 
     // MARK: Receive
@@ -75,6 +79,18 @@ public final class WebSocket: BasicWorker {
     ///     - callback: Closure to handle error's caught during this connection.
     public func onError(_ callback: @escaping (WebSocket, Error) -> ()) {
         onErrorCallback = callback
+    }
+
+    /// Adds a callback to this `WebSocket` to handle incoming close codes.
+    ///
+    ///     ws.onCloseCode { closeCode in
+    ///         print(closeCode)
+    ///     }
+    ///
+    /// - parameters:
+    ///     - callback: Closure to handle received close codes.
+    public func onCloseCode(_ callback: @escaping (WebSocketErrorCode) -> ()) {
+        onCloseCodeCallback = callback
     }
 
     // MARK: Send
@@ -134,7 +150,7 @@ public final class WebSocket: BasicWorker {
     // MARK: Close
 
     /// `true` if the `WebSocket` has been closed.
-    public private(set) var isClosed: Bool
+    public internal(set) var isClosed: Bool
 
     /// A `Future` that will be completed when the `WebSocket` closes.
     public var onClose: Future<Void> {
@@ -142,14 +158,32 @@ public final class WebSocket: BasicWorker {
     }
 
     /// Closes the `WebSocket`'s connection, disconnecting the client.
-    public func close() {
+    ///
+    /// - parameters:
+    ///     - code: Optional `WebSocketCloseCode` to send before closing the connection.
+    ///             If a code is provided, the WebSocket will wait until an acknowledgment is
+    ///             received from the server before actually closing the connection.
+    public func close(code: WebSocketErrorCode? = nil) {
         guard !isClosed else {
             return
         }
-        channel.close(promise: nil)
+        self.isClosed = true
+        if let code = code {
+            sendClose(code: code)
+        } else {
+            channel.close(promise: nil)
+        }
     }
 
     // MARK: Private
+
+    /// Private just send close code.
+    private func sendClose(code: WebSocketErrorCode) {
+        var buffer = channel.allocator.buffer(capacity: 2)
+        buffer.write(webSocketErrorCode: code)
+        let frame = WebSocketFrame(fin: true, opcode: .connectionClose, data: buffer)
+        send(frame, promise: nil)
+    }
 
     /// Private send that accepts a raw `WebSocketOpcode`.
     private func send(_ data: LosslessDataConvertible, opcode: WebSocketOpcode, promise: Promise<Void>?) {
