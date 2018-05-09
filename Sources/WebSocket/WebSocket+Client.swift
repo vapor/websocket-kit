@@ -75,7 +75,7 @@ private final class WebSocketClientUpgrader: HTTPClientProtocolUpgrader {
             let webSocketKey = try CryptoRandom().generateData(count: 16).base64EncodedString()
             upgradeReq.headers.add(name: .secWebSocketKey, value: webSocketKey)
         } catch {
-            print("[WebSocket] [Upgrader] Could not generate random value for Sec-WebSocket-Key header.")
+            print("[WebSocket] [Upgrader] Could not generate random value for Sec-WebSocket-Key header: \(error)")
         }
         return upgradeReq
     }
