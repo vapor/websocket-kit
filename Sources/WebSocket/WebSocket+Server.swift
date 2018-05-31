@@ -48,7 +48,7 @@ extension HTTPServer {
                 headers: head.headers
             )
             req.channel = channel
-            let webSocket = WebSocket(channel: channel)
+            let webSocket = WebSocket(channel: channel, mode: .server)
             return channel.pipeline.add(webSocket: webSocket).map {
                 onUpgrade(webSocket, req)
             }
