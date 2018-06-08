@@ -76,7 +76,7 @@ private final class WebSocketHandler: ChannelInboundHandler {
             // then, when we've sent it, close up shop. We should send back the close code the remote
             // peer sent us, unless they didn't send one at all.
             let closeFrame = WebSocketFrame(fin: true, opcode: .connectionClose, data: data)
-            _ = ctx.write(wrapOutboundOut(closeFrame)).always {
+            _ = ctx.writeAndFlush(wrapOutboundOut(closeFrame)).always {
                 _ = ctx.close(promise: nil)
             }
         }
@@ -92,7 +92,7 @@ private final class WebSocketHandler: ChannelInboundHandler {
         }
 
         let responseFrame = WebSocketFrame(fin: true, opcode: .pong, data: frameData)
-        ctx.write(self.wrapOutboundOut(responseFrame), promise: nil)
+        ctx.writeAndFlush(self.wrapOutboundOut(responseFrame), promise: nil)
     }
 
     /// Closes the connection with error frame.
@@ -103,7 +103,7 @@ private final class WebSocketHandler: ChannelInboundHandler {
         let error = WebSocketErrorCode.protocolError
         data.write(webSocketErrorCode: error)
         let frame = WebSocketFrame(fin: true, opcode: .connectionClose, data: data)
-        _ = ctx.write(self.wrapOutboundOut(frame)).then {
+        _ = ctx.writeAndFlush(self.wrapOutboundOut(frame)).then {
             ctx.close(mode: .output)
         }
         webSocket.isClosed = true
