@@ -1,3 +1,4 @@
+import Crypto
 /// Represents a client connected via WebSocket protocol.
 /// Use this to receive text/data frames and send responses.
 ///
@@ -6,6 +7,39 @@
 ///      }
 ///
 public final class WebSocket: BasicWorker {
+    
+    /// Available WebSocket modes. Either `Client` or `Server`.
+    public enum Mode {
+        
+        /// Uses socket in `Client` mode
+        case client
+        
+        /// Uses socket in `Server` mode
+        case server
+        
+        /// RFC 6455 Section 5.1
+        /// To avoid confusing network intermediaries (such as intercepting proxies) and
+        /// for security reasons that are further, a client MUST mask all frames that it
+        /// sends to the server.
+        /// The server MUST close the connection upon receiving a frame that is not masked.
+        /// A server MUST NOT mask any frames that it sends to the client.
+        /// A client MUST close a connection if it detects a masked frame.
+        ///
+        /// RFC 6455 Section 5.3
+        /// The masking key is a 32-bit value chosen at random by the client.
+        /// When preparing a masked frame, the client MUST pick a fresh masking
+        /// key from the set of allowed 32-bit values.
+        public func maskKey() -> WebSocketMaskingKey? {
+            switch self {
+            case .client:
+                let buffer = try! CryptoRandom().generateData(count: 4).map { $0 }
+                return WebSocketMaskingKey(buffer)
+            case .server:
+                return  nil
+            }
+        }
+    }
+    
     /// See `BasicWorker`.
     public var eventLoop: EventLoop {
         return channel.eventLoop
@@ -13,6 +47,9 @@ public final class WebSocket: BasicWorker {
 
     /// Outbound `WebSocketEventHandler`.
     private let channel: Channel
+    
+    /// `WebSocket` processing mode.
+    private(set) public var mode: Mode
 
     /// See `onText(...)`.
     var onTextCallback: (WebSocket, String) -> ()
@@ -26,10 +63,11 @@ public final class WebSocket: BasicWorker {
     /// See `onCloseCode(...)`.
     var onCloseCodeCallback: (WebSocketErrorCode) -> ()
 
-    /// Creates a new `WebSocket` using the supplied `Channel`.
+    /// Creates a new `WebSocket` using the supplied `Channel` and `Mode`.
     /// Use `httpProtocolUpgrader(...)` to create a protocol upgrader that can create `WebSocket`s.
-    internal init(channel: Channel) {
+    internal init(channel: Channel, mode: Mode) {
         self.channel = channel
+        self.mode = mode
         self.isClosed = false
         self.onTextCallback = { _, _ in }
         self.onBinaryCallback = { _, _ in }
@@ -191,7 +229,8 @@ public final class WebSocket: BasicWorker {
         let data = data.convertToData()
         var buffer = channel.allocator.buffer(capacity: data.count)
         buffer.write(bytes: data)
-        send(WebSocketFrame(fin: true, opcode: opcode, data: buffer), promise: promise)
+        let maskKey: WebSocketMaskingKey? = mode.maskKey()
+        send(WebSocketFrame(fin: true, opcode: opcode, maskKey: maskKey, data: buffer), promise: promise)
     }
 
     /// Private send that accepts a raw `WebSocketFrame`.
