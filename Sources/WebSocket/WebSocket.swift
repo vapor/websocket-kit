@@ -1,4 +1,5 @@
 import Crypto
+
 /// Represents a client connected via WebSocket protocol.
 /// Use this to receive text/data frames and send responses.
 ///
@@ -29,11 +30,11 @@ public final class WebSocket: BasicWorker {
         /// The masking key is a 32-bit value chosen at random by the client.
         /// When preparing a masked frame, the client MUST pick a fresh masking
         /// key from the set of allowed 32-bit values.
-        public func maskKey() -> WebSocketMaskingKey? {
+        public func makeMaskKey() -> WebSocketMaskingKey? {
             switch self {
             case .client:
-                let buffer = try! CryptoRandom().generateData(count: 4).map { $0 }
-                return WebSocketMaskingKey(buffer)
+                let buffer = try? CryptoRandom().generateData(count: 4).map { $0 }
+                return buffer.flatMap(WebSocketMaskingKey.init)
             case .server:
                 return  nil
             }
@@ -49,7 +50,7 @@ public final class WebSocket: BasicWorker {
     private let channel: Channel
     
     /// `WebSocket` processing mode.
-    private(set) public var mode: Mode
+    public private(set) var mode: Mode
 
     /// See `onText(...)`.
     var onTextCallback: (WebSocket, String) -> ()
@@ -229,7 +230,7 @@ public final class WebSocket: BasicWorker {
         let data = data.convertToData()
         var buffer = channel.allocator.buffer(capacity: data.count)
         buffer.write(bytes: data)
-        let maskKey: WebSocketMaskingKey? = mode.maskKey()
+        let maskKey: WebSocketMaskingKey? = mode.makeMaskKey()
         send(WebSocketFrame(fin: true, opcode: opcode, maskKey: maskKey, data: buffer), promise: promise)
     }
 
