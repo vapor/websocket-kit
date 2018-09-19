@@ -10,7 +10,7 @@ import Crypto
 public final class WebSocket: BasicWorker {
     
     /// Available WebSocket modes. Either `Client` or `Server`.
-    public enum Mode {
+    internal enum Mode {
         
         /// Uses socket in `Client` mode
         case client
@@ -30,7 +30,7 @@ public final class WebSocket: BasicWorker {
         /// The masking key is a 32-bit value chosen at random by the client.
         /// When preparing a masked frame, the client MUST pick a fresh masking
         /// key from the set of allowed 32-bit values.
-        public func makeMaskKey() -> WebSocketMaskingKey? {
+        internal func makeMaskKey() -> WebSocketMaskingKey? {
             switch self {
             case .client:
                 let buffer = try? CryptoRandom().generateData(count: 4).map { $0 }
@@ -50,7 +50,7 @@ public final class WebSocket: BasicWorker {
     private let channel: Channel
     
     /// `WebSocket` processing mode.
-    public private(set) var mode: Mode
+    internal let mode: Mode
 
     /// See `onText(...)`.
     var onTextCallback: (WebSocket, String) -> ()
