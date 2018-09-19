@@ -220,8 +220,7 @@ public final class WebSocket: BasicWorker {
     private func sendClose(code: WebSocketErrorCode) {
         var buffer = channel.allocator.buffer(capacity: 2)
         buffer.write(webSocketErrorCode: code)
-        let frame = WebSocketFrame(fin: true, opcode: .connectionClose, data: buffer)
-        send(frame, promise: nil)
+        send(buffer, opcode: .connectionClose, promise: nil)
     }
 
     /// Private send that accepts a raw `WebSocketOpcode`.
@@ -230,12 +229,18 @@ public final class WebSocket: BasicWorker {
         let data = data.convertToData()
         var buffer = channel.allocator.buffer(capacity: data.count)
         buffer.write(bytes: data)
-        let maskKey: WebSocketMaskingKey? = mode.makeMaskKey()
-        send(WebSocketFrame(fin: true, opcode: opcode, maskKey: maskKey, data: buffer), promise: promise)
+        send(buffer, opcode: opcode, promise: promise)
     }
 
     /// Private send that accepts a raw `WebSocketFrame`.
-    private func send(_ frame: WebSocketFrame, promise: Promise<Void>?) {
+    private func send(_ buffer: ByteBuffer, opcode: WebSocketOpcode, promise: Promise<Void>?) {
+        let maskKey = mode.makeMaskKey()
+        let frame = WebSocketFrame(
+            fin: true,
+            opcode: opcode,
+            maskKey: maskKey,
+            data: buffer
+        )
         channel.writeAndFlush(frame, promise: promise)
     }
 }
