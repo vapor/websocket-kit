@@ -8,6 +8,39 @@ import Crypto
 ///      }
 ///
 public final class WebSocket: BasicWorker {
+    
+    /// Available WebSocket modes. Either `Client` or `Server`.
+    internal enum Mode {
+        
+        /// Uses socket in `Client` mode
+        case client
+        
+        /// Uses socket in `Server` mode
+        case server
+        
+        /// RFC 6455 Section 5.1
+        /// To avoid confusing network intermediaries (such as intercepting proxies) and
+        /// for security reasons that are further, a client MUST mask all frames that it
+        /// sends to the server.
+        /// The server MUST close the connection upon receiving a frame that is not masked.
+        /// A server MUST NOT mask any frames that it sends to the client.
+        /// A client MUST close a connection if it detects a masked frame.
+        ///
+        /// RFC 6455 Section 5.3
+        /// The masking key is a 32-bit value chosen at random by the client.
+        /// When preparing a masked frame, the client MUST pick a fresh masking
+        /// key from the set of allowed 32-bit values.
+        internal func makeMaskKey() -> WebSocketMaskingKey? {
+            switch self {
+            case .client:
+                let buffer = try? CryptoRandom().generateData(count: 4).map { $0 }
+                return buffer.flatMap(WebSocketMaskingKey.init)
+            case .server:
+                return  nil
+            }
+        }
+    }
+    
     /// See `BasicWorker`.
     public var eventLoop: EventLoop {
         return channel.eventLoop
@@ -15,6 +48,9 @@ public final class WebSocket: BasicWorker {
 
     /// Outbound `WebSocketEventHandler`.
     private let channel: Channel
+    
+    /// `WebSocket` processing mode.
+    internal let mode: Mode
 
     /// See `onText(...)`.
     var onTextCallback: (WebSocket, String) -> ()
@@ -28,10 +64,11 @@ public final class WebSocket: BasicWorker {
     /// See `onCloseCode(...)`.
     var onCloseCodeCallback: (WebSocketErrorCode) -> ()
 
-    /// Creates a new `WebSocket` using the supplied `Channel`.
+    /// Creates a new `WebSocket` using the supplied `Channel` and `Mode`.
     /// Use `httpProtocolUpgrader(...)` to create a protocol upgrader that can create `WebSocket`s.
-    internal init(channel: Channel) {
+    internal init(channel: Channel, mode: Mode) {
         self.channel = channel
+        self.mode = mode
         self.isClosed = false
         self.onTextCallback = { _, _ in }
         self.onBinaryCallback = { _, _ in }
@@ -183,8 +220,7 @@ public final class WebSocket: BasicWorker {
     private func sendClose(code: WebSocketErrorCode) {
         var buffer = channel.allocator.buffer(capacity: 2)
         buffer.write(webSocketErrorCode: code)
-        let frame = WebSocketFrame(fin: true, opcode: .connectionClose, data: buffer)
-        send(frame, promise: nil)
+        send(buffer, opcode: .connectionClose, promise: nil)
     }
 
     /// Private send that accepts a raw `WebSocketOpcode`.
@@ -193,12 +229,20 @@ public final class WebSocket: BasicWorker {
         let data = data.convertToData()
         var buffer = channel.allocator.buffer(capacity: data.count)
         buffer.write(bytes: data)
+        #warning("Make this dynamic")
         let maskKey = WebSocketMaskingKey.generateRandom()
         send(WebSocketFrame(fin: true, opcode: opcode, maskKey: maskKey, data: buffer), promise: promise)
     }
 
     /// Private send that accepts a raw `WebSocketFrame`.
-    private func send(_ frame: WebSocketFrame, promise: Promise<Void>?) {
+    private func send(_ buffer: ByteBuffer, opcode: WebSocketOpcode, promise: Promise<Void>?) {
+        let maskKey = mode.makeMaskKey()
+        let frame = WebSocketFrame(
+            fin: true,
+            opcode: opcode,
+            maskKey: maskKey,
+            data: buffer
+        )
         channel.writeAndFlush(frame, promise: promise)
     }
 }

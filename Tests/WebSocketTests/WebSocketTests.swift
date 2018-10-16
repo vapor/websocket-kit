@@ -4,7 +4,7 @@ import XCTest
 class WebSocketTests: XCTestCase {
     func testClient() throws {
         // ws://echo.websocket.org
-        let worker = MultiThreadedEventLoopGroup(numThreads: 1)
+        let worker = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         let ws = try HTTPClient.webSocket(hostname: "echo.websocket.org", on: worker).wait()
 
         let promise = worker.eventLoop.newPromise(String.self)
@@ -23,7 +23,7 @@ class WebSocketTests: XCTestCase {
 
     func testClientTLS() throws {
         // ws://echo.websocket.org
-        let worker = MultiThreadedEventLoopGroup(numThreads: 1)
+        let worker = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         let webSocket = try HTTPClient.webSocket(scheme: .wss, hostname: "echo.websocket.org", on: worker).wait()
 
         let promise = worker.eventLoop.newPromise(String.self)
@@ -36,7 +36,7 @@ class WebSocketTests: XCTestCase {
     }
 
     func testServer() throws {
-        let group = MultiThreadedEventLoopGroup(numThreads: 8)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 8)
 
         let ws = HTTPServer.webSocketUpgrader(shouldUpgrade: { req in
             if req.url.path == "/deny" {

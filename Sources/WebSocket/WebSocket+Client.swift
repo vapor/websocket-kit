@@ -98,7 +98,7 @@ private final class WebSocketClientUpgrader: HTTPClientProtocolUpgrader {
 
     /// See `HTTPClientProtocolUpgrader`.
     func upgrade(ctx: ChannelHandlerContext, upgradeResponse: HTTPResponseHead) -> Future<WebSocket> {
-        let webSocket = WebSocket(channel: ctx.channel)
+        let webSocket = WebSocket(channel: ctx.channel, mode: .client)
         return ctx.channel.pipeline.addHandlers(WebSocketFrameEncoder(), WebSocketFrameDecoder(maxFrameSize: maxFrameSize), first: false).then {
             return ctx.channel.pipeline.add(webSocket: webSocket)
         }.map(to: WebSocket.self) {
