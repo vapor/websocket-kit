@@ -96,15 +96,13 @@ private final class WebSocketHandler: ChannelInboundHandler {
 
     /// Sends a pong frame in response to ping.
     private func pong(ctx: ChannelHandlerContext, frame: WebSocketFrame) {
-        var frameData = frame.data
-        let maskingKey = frame.maskKey
-
-        if let maskingKey = maskingKey {
-            frameData.webSocketUnmask(maskingKey)
-        }
-
-        let responseFrame = WebSocketFrame(fin: true, opcode: .pong, data: frameData)
-        ctx.write(self.wrapOutboundOut(responseFrame), promise: nil)
+        let responseFrame = WebSocketFrame(
+                fin: true,
+                opcode: .pong,
+                maskKey: webSocket.mode.makeMaskKey(),
+                data: frame.data
+        )
+        ctx.writeAndFlush(self.wrapOutboundOut(responseFrame), promise: nil)
     }
 
     /// Closes the connection with error frame.
@@ -114,7 +112,14 @@ private final class WebSocketHandler: ChannelInboundHandler {
         var data = ctx.channel.allocator.buffer(capacity: 2)
         let error = WebSocketErrorCode.protocolError
         data.write(webSocketErrorCode: error)
-        let frame = WebSocketFrame(fin: true, opcode: .connectionClose, data: data)
+
+        let frame = WebSocketFrame(
+                fin: true,
+                opcode: .connectionClose,
+                maskKey: webSocket.mode.makeMaskKey(),
+                data: data
+        )
+
         _ = ctx.write(self.wrapOutboundOut(frame)).then {
             ctx.close(mode: .output)
         }
