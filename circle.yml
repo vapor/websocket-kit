@@ -3,7 +3,7 @@ version: 2
 jobs:
   macos:
     macos:
-      xcode: "9.2"
+      xcode: "10.0.0"
     steps:
       - checkout
       - run: swift build
@@ -14,13 +14,13 @@ jobs:
       - image: codevapor/swift:4.1
     steps:
       - checkout
-      - run: 
+      - run:
           name: Compile code
           command: swift build
-      - run: 
+      - run:
           name: Run unit tests
           command: swift test
-      - run: 
+      - run:
           name: Compile code with optimizations
           command: swift build -c release
 
@@ -62,4 +62,3 @@ workflows:
     jobs:
       - linux
       # - macos
-      
