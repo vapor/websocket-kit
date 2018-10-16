@@ -62,13 +62,6 @@ class WebSocketTests: XCTestCase {
             }
         })
 
-        struct HelloResponder: HTTPServerResponder {
-            func respond(to request: HTTPRequest, on worker: Worker) -> EventLoopFuture<HTTPResponse> {
-                let res = HTTPResponse(status: .ok, body: "This is a WebSocket server")
-                return worker.eventLoop.newSucceededFuture(result: res)
-            }
-        }
-
         let server = try HTTPServer.start(
             hostname: "127.0.0.1",
             port: 8888,
@@ -83,10 +76,53 @@ class WebSocketTests: XCTestCase {
         // uncomment to test websocket server
         // try server.onClose.wait()
     }
+    
+    
+    func testServerContinuation() throws {
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+    
+        let ws = HTTPServer.webSocketUpgrader(shouldUpgrade: { req in
+            return [:]
+        }, onUpgrade: { ws, req in
+            ws.send(req.url.path)
+            ws.onText { ws, string in
+                ws.send(string.reversed())
+            }
+        })
+        
+        let server = try HTTPServer.start(
+            hostname: "127.0.0.1",
+            port: 8889,
+            responder: HelloResponder(),
+            upgraders: [ws],
+            on: group
+        ) { error in
+            XCTFail("\(error)")
+        }.wait()
+        
+        let client = try HTTPClient.webSocket(hostname: "127.0.0.1", port: 8889, on: group).wait()
+        
+        client.onText { ws, text in
+            XCTAssertEqual(text, "!dlrow ,olleH")
+            _ = server.close()
+        }
+        client.send(raw: "Hello, ", opcode: .text, fin: false)
+        client.send(raw: "world", opcode: .continuation, fin: false)
+        client.send(raw: "!", opcode: .continuation)
+        try server.onClose.wait()
+    }
 
     static let allTests = [
         ("testClient", testClient),
         ("testClientTLS", testClientTLS),
         ("testServer", testServer),
+        ("testServerContinuation", testServerContinuation),
     ]
+}
+
+struct HelloResponder: HTTPServerResponder {
+    func respond(to request: HTTPRequest, on worker: Worker) -> EventLoopFuture<HTTPResponse> {
+        let res = HTTPResponse(status: .ok, body: "This is a WebSocket server")
+        return worker.eventLoop.newSucceededFuture(result: res)
+    }
 }

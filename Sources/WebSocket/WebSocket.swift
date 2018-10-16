@@ -8,7 +8,6 @@ import Crypto
 ///      }
 ///
 public final class WebSocket: BasicWorker {
-    
     /// Available WebSocket modes. Either `Client` or `Server`.
     internal enum Mode {
         
@@ -47,7 +46,7 @@ public final class WebSocket: BasicWorker {
     }
 
     /// Outbound `WebSocketEventHandler`.
-    private let channel: Channel
+    internal let channel: Channel
     
     /// `WebSocket` processing mode.
     internal let mode: Mode
@@ -170,7 +169,7 @@ public final class WebSocket: BasicWorker {
     ///     - text: `LosslessDataConvertible` to send as text-formatted data to the client.
     ///     - promise: Optional `Promise` to complete when the send is finished.
     public func send(text: LosslessDataConvertible, promise: Promise<Void>? = nil) {
-        send(text, opcode: .text, promise: promise)
+        send(raw: text, opcode: .text, promise: promise)
     }
 
     /// Sends binary-formatted data to the connected client.
@@ -183,7 +182,27 @@ public final class WebSocket: BasicWorker {
     ///     - data: `LosslessDataConvertible` to send as binary-formatted data to the client.
     ///     - promise: Optional `Promise` to complete when the send is finished.
     public func send(binary: LosslessDataConvertible, promise: Promise<Void>? = nil) {
-        send(binary, opcode: .binary, promise: promise)
+        send(raw: binary, opcode: .binary, promise: promise)
+    }
+    
+    /// Sends raw-data to the connected client using the supplied WebSocket opcode.
+    ///
+    ///     // client will receive "Hello, world!" as one message
+    ///     ws.send(raw: "Hello, ", opcode: .text, fin: false)
+    ///     ws.send(raw: "world", opcode: .continuation, fin: false)
+    ///     ws.send(raw: "!", opcode: .continuation)
+    ///
+    /// - parameters:
+    ///     - data: `LosslessDataConvertible` to send to the client.
+    ///     - opcode: `WebSocketOpcode` indicating data format. Usually `.text` or `.binary`.
+    ///     - fine: If `false`, additional `.continuation` frames are expected.
+    ///     - promise: Optional `Promise` to complete when the send is finished.
+    public func send(raw data: LosslessDataConvertible, opcode: WebSocketOpcode, fin: Bool = true, promise: Promise<Void>? = nil) {
+        guard !isClosed else { return }
+        let data = data.convertToData()
+        var buffer = channel.allocator.buffer(capacity: data.count)
+        buffer.write(bytes: data)
+        send(buffer, opcode: opcode, fin: fin, promise: promise)
     }
 
     // MARK: Close
@@ -220,40 +239,17 @@ public final class WebSocket: BasicWorker {
     private func sendClose(code: WebSocketErrorCode) {
         var buffer = channel.allocator.buffer(capacity: 2)
         buffer.write(webSocketErrorCode: code)
-        send(buffer, opcode: .connectionClose, promise: nil)
-    }
-
-    /// Private send that accepts a raw `WebSocketOpcode`.
-    private func send(_ data: LosslessDataConvertible, opcode: WebSocketOpcode, promise: Promise<Void>?) {
-        guard !isClosed else { return }
-        let data = data.convertToData()
-        var buffer = channel.allocator.buffer(capacity: data.count)
-        buffer.write(bytes: data)
-        #warning("Make this dynamic")
-        let maskKey = WebSocketMaskingKey.generateRandom()
-        send(WebSocketFrame(fin: true, opcode: opcode, maskKey: maskKey, data: buffer), promise: promise)
+        send(buffer, opcode: .connectionClose, fin: true, promise: nil)
     }
 
     /// Private send that accepts a raw `WebSocketFrame`.
-    private func send(_ buffer: ByteBuffer, opcode: WebSocketOpcode, promise: Promise<Void>?) {
-        let maskKey = mode.makeMaskKey()
+    private func send(_ buffer: ByteBuffer, opcode: WebSocketOpcode, fin: Bool, promise: Promise<Void>?) {
         let frame = WebSocketFrame(
-            fin: true,
+            fin: fin,
             opcode: opcode,
-            maskKey: maskKey,
+            maskKey: mode.makeMaskKey(),
             data: buffer
         )
         channel.writeAndFlush(frame, promise: promise)
     }
-}
-
-fileprivate extension WebSocketMaskingKey {
-    
-    static func generateRandom() -> WebSocketMaskingKey? {
-        let randomValue: UnsafeBufferPointer? = try? CryptoRandom()
-            .generateData(count: 4)
-            .withByteBuffer { $0 }
-        return randomValue.flatMap(WebSocketMaskingKey.init)
-    }
-    
 }
