@@ -115,13 +115,13 @@ private final class WebSocketHandler: ChannelInboundHandler {
 
     /// Sends a pong frame in response to ping.
     private func pong(ctx: ChannelHandlerContext, frame: WebSocketFrame) {
-        let responseFrame = WebSocketFrame(
-                fin: true,
-                opcode: .pong,
-                maskKey: webSocket.mode.makeMaskKey(),
-                data: frame.data
+        let pongFrame = WebSocketFrame(
+            fin: true,
+            opcode: .pong,
+            maskKey: webSocket.mode.makeMaskKey(),
+            data: frame.data
         )
-        ctx.writeAndFlush(self.wrapOutboundOut(responseFrame), promise: nil)
+        ctx.writeAndFlush(self.wrapOutboundOut(pongFrame), promise: nil)
     }
 
     /// Closes the connection with error frame.
