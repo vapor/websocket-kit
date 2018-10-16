@@ -46,7 +46,7 @@ public final class WebSocket: BasicWorker {
     }
 
     /// Outbound `WebSocketEventHandler`.
-    internal let channel: Channel
+    private let channel: Channel
     
     /// `WebSocket` processing mode.
     internal let mode: Mode
