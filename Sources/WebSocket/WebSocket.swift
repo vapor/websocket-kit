@@ -229,7 +229,9 @@ public final class WebSocket: BasicWorker {
         let data = data.convertToData()
         var buffer = channel.allocator.buffer(capacity: data.count)
         buffer.write(bytes: data)
-        send(buffer, opcode: opcode, promise: promise)
+        #warning("Make this dynamic")
+        let maskKey = WebSocketMaskingKey.generateRandom()
+        send(WebSocketFrame(fin: true, opcode: opcode, maskKey: maskKey, data: buffer), promise: promise)
     }
 
     /// Private send that accepts a raw `WebSocketFrame`.
@@ -243,4 +245,15 @@ public final class WebSocket: BasicWorker {
         )
         channel.writeAndFlush(frame, promise: promise)
     }
+}
+
+fileprivate extension WebSocketMaskingKey {
+    
+    static func generateRandom() -> WebSocketMaskingKey? {
+        let randomValue: UnsafeBufferPointer? = try? CryptoRandom()
+            .generateData(count: 4)
+            .withByteBuffer { $0 }
+        return randomValue.flatMap(WebSocketMaskingKey.init)
+    }
+    
 }
