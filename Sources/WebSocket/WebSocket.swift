@@ -93,7 +93,7 @@ public final class WebSocket: BasicWorker {
             self.errorBuffer.append(error)
         }
     }
-    
+
     // MARK: Receive
 
     /// Adds a callback to this `WebSocket` to receive text-formatted messages.
