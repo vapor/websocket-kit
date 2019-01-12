@@ -53,12 +53,21 @@ public final class WebSocket: BasicWorker {
 
     /// See `onText(...)`.
     var onTextCallback: (WebSocket, String) -> ()
+    
+    /// Buffers text frames we get before a handler is connected
+    private var textBuffer = [String]()
 
     /// See `onBinary(...)`.
     var onBinaryCallback: (WebSocket, Data) -> ()
+    
+    /// Buffers data frames we get before a handler is connected
+    private var dataBuffer = [Data]()
 
     /// See `onError(...)`.
     var onErrorCallback: (WebSocket, Error) -> ()
+    
+    /// Buffers error frames we get before a handler is connected
+    private var errorBuffer = [Error]()
 
     /// See `onCloseCode(...)`.
     var onCloseCodeCallback: (WebSocketErrorCode) -> ()
@@ -73,8 +82,18 @@ public final class WebSocket: BasicWorker {
         self.onBinaryCallback = { _, _ in }
         self.onErrorCallback = { _, _ in }
         self.onCloseCodeCallback = { _ in }
+        
+        self.onTextCallback = { _, text in
+            self.textBuffer.append(text)
+        }
+        self.onBinaryCallback = { _, data in
+            self.dataBuffer.append(data)
+        }
+        self.onErrorCallback = { _, error in
+            self.errorBuffer.append(error)
+        }
     }
-
+    
     // MARK: Receive
 
     /// Adds a callback to this `WebSocket` to receive text-formatted messages.
@@ -90,6 +109,7 @@ public final class WebSocket: BasicWorker {
     ///                 This will be called every time the connected client sends text.
     public func onText(_ callback: @escaping (WebSocket, String) -> ()) {
         onTextCallback = callback
+        self.textBuffer.forEach { onTextCallback(self, $0) }
     }
 
     /// Adds a callback to this `WebSocket` to receive binary-formatted messages.
@@ -105,6 +125,7 @@ public final class WebSocket: BasicWorker {
     ///                 This will be called every time the connected client sends binary-data.
     public func onBinary(_ callback: @escaping (WebSocket, Data) -> ()) {
         onBinaryCallback = callback
+        self.dataBuffer.forEach { onBinaryCallback(self, $0) }
     }
 
     /// Adds a callback to this `WebSocket` to handle errors.
@@ -117,6 +138,7 @@ public final class WebSocket: BasicWorker {
     ///     - callback: Closure to handle error's caught during this connection.
     public func onError(_ callback: @escaping (WebSocket, Error) -> ()) {
         onErrorCallback = callback
+        self.errorBuffer.forEach { onErrorCallback(self, $0) }
     }
 
     /// Adds a callback to this `WebSocket` to handle incoming close codes.
