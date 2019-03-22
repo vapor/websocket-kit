@@ -112,11 +112,22 @@ class WebSocketTests: XCTestCase {
         try server.onClose.wait()
     }
 
+    func testDeallocation() throws {
+        let worker = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+
+        weak var ws = try HTTPClient.webSocket(hostname: "echo.websocket.org", on: worker).wait()
+        ws?.close()
+        try ws?.onClose.wait()
+
+        XCTAssertNil(ws, "Websocket not deallocated")
+    }
+
     static let allTests = [
         ("testClient", testClient),
         ("testClientTLS", testClientTLS),
         ("testServer", testServer),
         ("testServerContinuation", testServerContinuation),
+        ("testDeallocation", testDeallocation),
     ]
 }
 
