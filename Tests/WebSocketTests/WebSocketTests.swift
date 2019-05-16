@@ -84,7 +84,6 @@ class WebSocketTests: XCTestCase {
         let ws = HTTPServer.webSocketUpgrader(shouldUpgrade: { req in
             return [:]
         }, onUpgrade: { ws, req in
-            ws.send(req.url.path)
             ws.onText { ws, string in
                 ws.send(string.reversed())
             }
