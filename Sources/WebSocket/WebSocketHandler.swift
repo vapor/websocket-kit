@@ -44,6 +44,14 @@ private final class WebSocketHandler: ChannelInboundHandler {
                 pong(ctx: ctx, frame: frame)
             }
         case .unknownControl, .unknownNonControl: closeOnError(ctx: ctx)
+        case .pong:
+            if !frame.fin {
+                closeOnError(ctx: ctx) // control frames can't be fragmented it should be final
+            } else {
+                var frameSequence = WebSocketFrameSequence(type: frame.opcode)
+                frameSequence.append(frame)
+                self.frameSequence = frameSequence
+            }
         case .text, .binary:
             // create a new frame sequence or use existing
             var frameSequence: WebSocketFrameSequence
@@ -75,6 +83,7 @@ private final class WebSocketHandler: ChannelInboundHandler {
             switch frameSequence.type {
             case .binary: webSocket.onBinaryCallback(webSocket, frameSequence.dataBuffer)
             case .text: webSocket.onTextCallback(webSocket, frameSequence.textBuffer)
+            case .pong: webSocket.onPongCallback(webSocket, frameSequence.pongBuffer)
             default: break
             }
             self.frameSequence = nil

@@ -32,11 +32,13 @@
 struct WebSocketFrameSequence {
     var dataBuffer: Data
     var textBuffer: String
+    var pongBuffer: Data
     var type: WebSocketOpcode
     
     init(type: WebSocketOpcode) {
         self.dataBuffer = .init()
         self.textBuffer = .init()
+        self.pongBuffer = .init()
         self.type = type
     }
     
@@ -45,6 +47,7 @@ struct WebSocketFrameSequence {
         switch type {
         case .binary: dataBuffer.append(data.readData(length: data.readableBytes) ?? Data())
         case .text: textBuffer.append(data.readString(length: data.readableBytes) ?? "")
+        case .pong: pongBuffer.append(data.readData(length: data.readableBytes) ?? Data())
         default: break
         }
     }

@@ -63,6 +63,12 @@ public final class WebSocket: BasicWorker {
     /// Buffers data frames we get before a handler is connected
     private var binaryBuffer: [Data]?
 
+    /// See `onPong(...)`.
+    var onPongCallback: (WebSocket, Data) -> ()
+
+    /// Buffers data frames we get before a handler is connected
+    private var pongBuffer: [Data]?
+
     /// See `onError(...)`.
     var onErrorCallback: (WebSocket, Error) -> ()
     
@@ -80,6 +86,7 @@ public final class WebSocket: BasicWorker {
         self.isClosed = false
         self.onTextCallback = { _, _ in }
         self.onBinaryCallback = { _, _ in }
+        self.onPongCallback = { _, _ in }
         self.onErrorCallback = { _, _ in }
         self.onCloseCodeCallback = { _ in }
         
@@ -96,6 +103,13 @@ public final class WebSocket: BasicWorker {
                 return
             }
             self.binaryBuffer?.append(binary)
+        }
+        self.onPongCallback = { [unowned self] _, binary in
+            guard self.pongBuffer != nil else {
+                self.pongBuffer = [binary]
+                return
+            }
+            self.pongBuffer?.append(binary)
         }
         self.onErrorCallback = { [unowned self] _, error in
             guard self.errorBuffer != nil else {
@@ -140,6 +154,21 @@ public final class WebSocket: BasicWorker {
         onBinaryCallback = callback
         self.binaryBuffer?.forEach { onBinaryCallback(self, $0) }
         self.binaryBuffer = nil
+    }
+
+    /// Adds a callback to this `WebSocket` to receive pong messages.
+    ///
+    ///     ws.onPong { ws, data in
+    ///         print(data)
+    ///     }
+    ///
+    /// - parameters:
+    ///     - callback: Closure to accept incoming binary-formatted data attached to pong.
+    ///                 This will be called every time the connected client gets a pong.
+    public func onPong(_ callback: @escaping (WebSocket, Data) -> ()) {
+        onPongCallback = callback
+        self.pongBuffer?.forEach { onPongCallback(self, $0) }
+        self.pongBuffer = nil
     }
 
     /// Adds a callback to this `WebSocket` to handle errors.

@@ -122,12 +122,41 @@ class WebSocketTests: XCTestCase {
         XCTAssertNil(ws, "Websocket not deallocated")
     }
 
+    func testPingAndPong() throws {
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+    
+        let ws = HTTPServer.webSocketUpgrader(shouldUpgrade: { req in
+            return [:]
+        }, onUpgrade: { ws, req in
+        })
+        
+        let server = try HTTPServer.start(
+            hostname: "127.0.0.1",
+            port: 8890,
+            responder: HelloResponder(),
+            upgraders: [ws],
+            on: group
+        ) { error in
+            XCTFail("\(error)")
+        }.wait()
+        
+        let client = try HTTPClient.webSocket(hostname: "127.0.0.1", port: 8890, on: group).wait()
+        
+        client.onPong { ws, data in
+            let string = String(data: data, encoding: .utf8)
+            _ = server.close()
+        }
+        client.send(raw: "ping".data(using: .utf8)!, opcode: .ping)
+        try server.onClose.wait()
+    }
+
     static let allTests = [
         ("testClient", testClient),
         ("testClientTLS", testClientTLS),
         ("testServer", testServer),
         ("testServerContinuation", testServerContinuation),
         ("testDeallocation", testDeallocation),
+        ("testPingAndPong", testPingAndPong),
     ]
 }
 
