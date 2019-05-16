@@ -1,5 +1,4 @@
-// swift-tools-version:4.1
-import PackageDescription
+// swift-tools-version:5.0
 
 let package = Package(
     name: "WebSocket",

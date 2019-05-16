@@ -11,7 +11,7 @@ jobs:
 
   linux:
     docker:
-      - image: codevapor/swift:4.1
+      - image: codevapor/swift:5.0
     steps:
       - checkout
       - run:
@@ -27,7 +27,7 @@ jobs:
 
   linux-vapor:
     docker:
-      - image: codevapor/swift:4.1
+      - image: codevapor/swift:5.0
     steps:
       - run:
           name: Clone Vapor
