@@ -142,12 +142,15 @@ class WebSocketTests: XCTestCase {
         
         let client = try HTTPClient.webSocket(hostname: "127.0.0.1", port: 8890, on: group).wait()
         
+        var pongRecieved = false
         client.onPong { ws, data in
-            let string = String(data: data, encoding: .utf8)
+            pongRecieved = true            
             _ = server.close()
         }
         client.send(raw: "ping".data(using: .utf8)!, opcode: .ping)
         try server.onClose.wait()
+
+        XCTAssert(pongRecieved, "Pong not received")
     }
 
     static let allTests = [
