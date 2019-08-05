@@ -34,7 +34,7 @@ private final class WebSocketHandler: ChannelInboundHandler {
 
     /// See `ChannelInboundHandler`.
     func channelRead(ctx: ChannelHandlerContext, data: NIOAny) {
-        var frame = self.unwrapInboundIn(data)
+        let frame = self.unwrapInboundIn(data)
         switch frame.opcode {
         case .connectionClose: receivedClose(ctx: ctx, frame: frame)
         case .ping:
