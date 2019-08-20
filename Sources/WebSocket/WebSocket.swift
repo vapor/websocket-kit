@@ -86,21 +86,21 @@ public final class WebSocket: BasicWorker {
         self.onErrorCallback = { _, _ in }
         self.onCloseCodeCallback = { _ in }
         
-        self.onTextCallback = { _, text in
+        self.onTextCallback = { [unowned self] _, text in
             guard self.textBuffer != nil else {
                 self.textBuffer = [text]
                 return
             }
             self.textBuffer?.append(text)
         }
-        self.onBinaryCallback = { _, binary in
+        self.onBinaryCallback = { [unowned self] _, binary in
             guard self.binaryBuffer != nil else {
                 self.binaryBuffer = [binary]
                 return
             }
             self.binaryBuffer?.append(binary)
         }
-        self.onErrorCallback = { _, error in
+        self.onErrorCallback = { [unowned self] _, error in
             guard self.errorBuffer != nil else {
                 self.errorBuffer = [error]
                 return
