@@ -75,6 +75,17 @@ public final class WebSocket: BasicWorker {
     /// Allows for adding custom ID to a socket
     public var id: String?
 
+    public func requireID() throws -> String {
+    	guard self.id != nil else {
+            throw WebSocketError.NoID
+        }
+        return self.id!
+    }
+
+    enum WebSocketError: Error {
+        case NoID
+    }
+
     /// Creates a new `WebSocket` using the supplied `Channel` and `Mode`.
     /// Use `httpProtocolUpgrader(...)` to create a protocol upgrader that can create `WebSocket`s.
     internal init(channel: Channel, mode: Mode) {
