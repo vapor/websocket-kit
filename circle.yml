@@ -3,11 +3,18 @@ version: 2
 jobs:
   macos:
     macos:
-      xcode: "10.0.0"
+      xcode: "10.2"
     steps:
       - checkout
-      - run: swift build
-      - run: swift test
+      - run:
+          name: Compile code
+          command: swift build
+      - run:
+          name: Run unit tests
+          command: swift test
+      - run:
+          name: Compile code with optimizations
+          command: swift build -c release
 
   linux:
     docker:
@@ -24,32 +31,12 @@ jobs:
           name: Compile code with optimizations
           command: swift build -c release
 
-
-  linux-vapor:
-    docker:
-      - image: codevapor/swift:4.1
-    steps:
-      - run:
-          name: Clone Vapor
-          command: git clone -b master https://github.com/vapor/vapor.git
-          working_directory: ~/
-      - run:
-          name: Switch Vapor to this WebSocket revision
-          command: swift package edit WebSocket --revision $CIRCLE_SHA1
-          working_directory: ~/vapor
-      - run:
-          name: Run Vapor unit tests
-          command: swift test
-          working_directory: ~/vapor
-
-
 workflows:
   version: 2
   tests:
     jobs:
       - linux
-      - linux-vapor
-      # - macos
+      - macos
 
   nightly:
     triggers:
@@ -61,4 +48,4 @@ workflows:
                 - master
     jobs:
       - linux
-      # - macos
+      - macos
