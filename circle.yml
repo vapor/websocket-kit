@@ -3,7 +3,7 @@ version: 2
 jobs:
   macos:
     macos:
-      xcode: "10.0.0"
+      xcode: "11.0.0"
     steps:
       - checkout
       - run: swift build
@@ -11,7 +11,7 @@ jobs:
 
   linux:
     docker:
-      - image: codevapor/swift:4.1
+      - image: vapor/swift:5.1-bionic
     steps:
       - checkout
       - run:
@@ -27,7 +27,7 @@ jobs:
 
   linux-vapor:
     docker:
-      - image: codevapor/swift:4.1
+      - image: vapor/swift:5.1-bionic
     steps:
       - run:
           name: Clone Vapor
