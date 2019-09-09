@@ -7,6 +7,9 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Install libressl
+          command: brew install libressl
+      - run:
           name: Compile code
           command: swift build
       - run:
