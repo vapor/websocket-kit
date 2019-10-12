@@ -11,6 +11,9 @@ public final class WebSocket {
         case client
     }
 
+    public var onText: (WebSocket, String) -> ()
+    public var onBinary: (WebSocket, ByteBuffer) -> ()
+
     public var eventLoop: EventLoop {
         return channel.eventLoop
     }
@@ -22,25 +25,15 @@ public final class WebSocket {
     }
 
     private let channel: Channel
-    private var onTextCallback: (WebSocket, String) -> ()
-    private var onBinaryCallback: (WebSocket, ByteBuffer) -> ()
     private var frameSequence: WebSocketFrameSequence?
     private let type: PeerType
 
     init(channel: Channel, type: PeerType) {
         self.channel = channel
         self.type = type
-        self.onTextCallback = { _, _ in }
-        self.onBinaryCallback = { _, _ in }
+        self.onText = { _, _ in }
+        self.onBinary = { _, _ in }
         self.isClosed = false
-    }
-
-    public func onText(_ callback: @escaping (WebSocket, String) -> ()) {
-        self.onTextCallback = callback
-    }
-
-    public func onBinary(_ callback: @escaping (WebSocket, ByteBuffer) -> ()) {
-        self.onBinaryCallback = callback
     }
 
     public func send<S>(_ text: S, promise: EventLoopPromise<Void>? = nil)
@@ -165,9 +158,9 @@ public final class WebSocket {
         if let frameSequence = self.frameSequence, frame.fin {
             switch frameSequence.type {
             case .binary:
-                self.onBinaryCallback(self, frameSequence.binaryBuffer)
+                self.onBinary(self, frameSequence.binaryBuffer)
             case .text:
-                self.onTextCallback(self, frameSequence.textBuffer)
+                self.onText(self, frameSequence.textBuffer)
             default: break
             }
             self.frameSequence = nil

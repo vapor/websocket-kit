@@ -9,7 +9,7 @@ final class NIOWebSocketClientTests: XCTestCase {
         let promise = elg.next().makePromise(of: String.self)
         WebSocket.connect(to: "ws://echo.websocket.org", on: elg) { ws in
             ws.send("hello")
-            ws.onText { ws, string in
+            ws.onText = { ws, string in
                 promise.succeed(string)
                 ws.close(promise: nil)
             }
@@ -34,7 +34,7 @@ final class NIOWebSocketClientTests: XCTestCase {
                 upgradePipelineHandler: { channel, req in
                     return WebSocket.server(on: channel) { ws in
                         ws.send("hello")
-                        ws.onText { ws, string in
+                        ws.onText = { ws, string in
                             promise.succeed(string)
                             ws.close(promise: nil)
                         }
@@ -52,7 +52,7 @@ final class NIOWebSocketClientTests: XCTestCase {
         }.bind(host: "localhost", port: port).wait()
 
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
-            ws.onText { ws, string in
+            ws.onText = { ws, string in
                 ws.send("goodbye")
             }
         }.cascadeFailure(to: promise)
