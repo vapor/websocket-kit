@@ -3,3 +3,6 @@
 /Packages
 /*.xcodeproj
 DerivedData
+.swiftpm
+Package.resolved
+
