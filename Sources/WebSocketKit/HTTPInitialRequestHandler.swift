@@ -6,10 +6,12 @@ final class HTTPInitialRequestHandler: ChannelInboundHandler, RemovableChannelHa
     typealias OutboundOut = HTTPClientRequestPart
 
     let host: String
+    let path: String
     let upgradePromise: EventLoopPromise<Void>
 
-    init(host: String, upgradePromise: EventLoopPromise<Void>) {
+    init(host: String, path: String, upgradePromise: EventLoopPromise<Void>) {
         self.host = host
+        self.path = path
         self.upgradePromise = upgradePromise
     }
 
@@ -22,7 +24,7 @@ final class HTTPInitialRequestHandler: ChannelInboundHandler, RemovableChannelHa
         let requestHead = HTTPRequestHead(
             version: HTTPVersion(major: 1, minor: 1),
             method: .GET,
-            uri: "/",
+            uri: self.path.hasPrefix("/") ? self.path : "/" + self.path,
             headers: headers
         )
         context.write(self.wrapOutboundOut(.head(requestHead)), promise: nil)

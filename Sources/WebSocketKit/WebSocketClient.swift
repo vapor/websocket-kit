@@ -62,7 +62,11 @@ public final class WebSocketClient {
         let bootstrap = ClientBootstrap(group: self.group)
             .channelOption(ChannelOptions.socket(SocketOptionLevel(IPPROTO_TCP), TCP_NODELAY), value: 1)
             .channelInitializer { channel in
-                let httpHandler = HTTPInitialRequestHandler(host: host, upgradePromise: upgradePromise)
+                let httpHandler = HTTPInitialRequestHandler(
+                    host: host,
+                    path: path,
+                    upgradePromise: upgradePromise
+                )
 
                 var key: [UInt8] = []
                 for _ in 0..<16 {
