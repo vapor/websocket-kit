@@ -12,7 +12,12 @@ let package = Package(
     ],
     targets: [
         .target(name: "WebSocketKit", dependencies: [
-            "NIO", "NIOConcurrencyHelpers", "NIOHTTP1", "NIOSSL", "NIOWebSocket"
+            "NIO",
+            "NIOConcurrencyHelpers",
+            "NIOFoundationCompat",
+            "NIOHTTP1",
+            "NIOSSL",
+            "NIOWebSocket"
         ]),
         .testTarget(name: "WebSocketKitTests", dependencies: ["WebSocketKit"]),
     ]
