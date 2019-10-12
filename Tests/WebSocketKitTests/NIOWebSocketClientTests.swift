@@ -32,7 +32,7 @@ final class NIOWebSocketClientTests: XCTestCase {
                     return channel.eventLoop.makeSucceededFuture([:])
                 },
                 upgradePipelineHandler: { channel, req in
-                    return WebSocket.server(on: channel).map { ws in
+                    return WebSocket.server(on: channel) { ws in
                         ws.send("hello")
                         ws.onText { ws, string in
                             promise.succeed(string)

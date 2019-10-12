@@ -2,18 +2,28 @@ import NIO
 import NIOWebSocket
 
 extension WebSocket {
-    public static func client(on channel: Channel) -> EventLoopFuture<WebSocket> {
-        return self.handle(on: channel, as: .client)
+    public static func client(
+        on channel: Channel,
+        onUpgrade: @escaping (WebSocket) -> ()
+    ) -> EventLoopFuture<Void> {
+        return self.handle(on: channel, as: .client, onUpgrade: onUpgrade)
     }
 
-    public static func server(on channel: Channel) -> EventLoopFuture<WebSocket> {
-        return self.handle(on: channel, as: .server)
+    public static func server(
+        on channel: Channel,
+        onUpgrade: @escaping (WebSocket) -> ()
+    ) -> EventLoopFuture<Void> {
+        return self.handle(on: channel, as: .server, onUpgrade: onUpgrade)
     }
 
-    private static func handle(on channel: Channel, as type: PeerType) -> EventLoopFuture<WebSocket> {
+    private static func handle(
+        on channel: Channel,
+        as type: PeerType,
+        onUpgrade: @escaping (WebSocket) -> ()
+    ) -> EventLoopFuture<Void> {
         let webSocket = WebSocket(channel: channel, type: type)
         return channel.pipeline.addHandler(WebSocketHandler(webSocket: webSocket)).map { _ in
-            webSocket
+            onUpgrade(webSocket)
         }
     }
 }

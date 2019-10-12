@@ -73,7 +73,7 @@ public final class WebSocketClient {
                     maxFrameSize: self.configuration.maxFrameSize,
                     automaticErrorHandling: true,
                     upgradePipelineHandler: { channel, req in
-                        return WebSocket.client(on: channel).map { onUpgrade($0) }
+                        return WebSocket.client(on: channel, onUpgrade: onUpgrade)
                     }
                 )
 
