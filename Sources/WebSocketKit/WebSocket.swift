@@ -24,6 +24,7 @@ public final class WebSocket {
     private let channel: Channel
     private var onTextCallback: (WebSocket, String) -> ()
     private var onBinaryCallback: (WebSocket, ByteBuffer) -> ()
+    private var onPongCallback: (WebSocket) -> ()
     private var frameSequence: WebSocketFrameSequence?
     private let type: PeerType
 
@@ -32,6 +33,7 @@ public final class WebSocket {
         self.type = type
         self.onTextCallback = { _, _ in }
         self.onBinaryCallback = { _, _ in }
+        self.onPongCallback = { _ in }
         self.isClosed = false
     }
 
@@ -41,6 +43,10 @@ public final class WebSocket {
 
     public func onBinary(_ callback: @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onBinaryCallback = callback
+    }
+    
+    public func onPong(_ callback: @escaping (WebSocket) -> ()) {
+        self.onPongCallback = callback
     }
 
     public func send<S>(_ text: S, promise: EventLoopPromise<Void>? = nil)
@@ -135,7 +141,7 @@ public final class WebSocket {
             } else {
                 self.close(code: .protocolError, promise: nil)
             }
-        case .text, .binary:
+        case .text, .binary, .pong:
             // create a new frame sequence or use existing
             var frameSequence: WebSocketFrameSequence
             if let existing = self.frameSequence {
@@ -168,6 +174,8 @@ public final class WebSocket {
                 self.onBinaryCallback(self, frameSequence.binaryBuffer)
             case .text:
                 self.onTextCallback(self, frameSequence.textBuffer)
+            case .pong:
+                self.onPongCallback(self)
             default: break
             }
             self.frameSequence = nil

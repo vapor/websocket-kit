@@ -37,6 +37,7 @@ final class NIOWebSocketClientTests: XCTestCase {
         let port = Int.random(in: 8000..<9000)
 
         let promise = self.elg.next().makePromise(of: String.self)
+        let pongPromise = self.elg.next().makePromise(of: String.self)
 
         let server = try ServerBootstrap(group: self.elg).childChannelInitializer { channel in
             let webSocket = NIOWebSocketServerUpgrader(
@@ -64,13 +65,18 @@ final class NIOWebSocketClientTests: XCTestCase {
         }.bind(host: "localhost", port: port).wait()
 
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
+            ws.send(raw: Data(), opcode: .ping)
             ws.onText { ws, string in
                 ws.send("goodbye")
                 ws.close(promise: nil)
             }
+            ws.onPong { ws in
+                pongPromise.succeed("pong")
+            }
         }.cascadeFailure(to: promise)
 
         try XCTAssertEqual(promise.futureResult.wait(), "goodbye")
+        try XCTAssertEqual(pongPromise.futureResult.wait(), "pong")
         try server.close(mode: .all).wait()
     }
 
