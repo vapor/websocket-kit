@@ -16,6 +16,7 @@ public final class WebSocket {
     }
 
     public private(set) var isClosed: Bool
+    public private(set) var closedCode: WebSocketErrorCode
 
     public var onClose: EventLoopFuture<Void> {
         return self.channel.closeFuture
@@ -97,7 +98,8 @@ public final class WebSocket {
             return
         }
         self.isClosed = true
-
+        self.closedCode = code
+        
         var buffer = channel.allocator.buffer(capacity: 2)
         buffer.write(webSocketErrorCode: code)
 
