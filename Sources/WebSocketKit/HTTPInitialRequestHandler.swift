@@ -7,16 +7,18 @@ final class HTTPInitialRequestHandler: ChannelInboundHandler, RemovableChannelHa
 
     let host: String
     let path: String
+    let headers: HTTPHeaders
     let upgradePromise: EventLoopPromise<Void>
 
-    init(host: String, path: String, upgradePromise: EventLoopPromise<Void>) {
+    init(host: String, path: String, headers: HTTPHeaders, upgradePromise: EventLoopPromise<Void>) {
         self.host = host
         self.path = path
+        self.headers = headers
         self.upgradePromise = upgradePromise
     }
 
     func channelActive(context: ChannelHandlerContext) {
-        var headers = HTTPHeaders()
+        var headers = self.headers
         headers.add(name: "Content-Type", value: "text/plain; charset=utf-8")
         headers.add(name: "Content-Length", value: "\(0)")
         headers.add(name: "Host", value: self.host)
