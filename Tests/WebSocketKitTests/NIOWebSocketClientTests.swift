@@ -43,7 +43,7 @@ final class NIOWebSocketClientTests: XCTestCase {
             let webSocket = NIOWebSocketServerUpgrader(
                 shouldUpgrade: { channel, req in
                     return channel.eventLoop.makeSucceededFuture([:])
-            },
+                },
                 upgradePipelineHandler: { channel, req in
                     return WebSocket.server(on: channel) { ws in
                         ws.send("hello")
@@ -59,7 +59,7 @@ final class NIOWebSocketClientTests: XCTestCase {
                     upgraders: [webSocket],
                     completionHandler: { ctx in
                         // complete
-                }
+                    }
                 )
             )
         }.bind(host: "localhost", port: port).wait()
@@ -103,7 +103,6 @@ final class NIOWebSocketClientTests: XCTestCase {
         // needs to be at least two to avoid client / server on same EL timing issues
         self.elg = MultiThreadedEventLoopGroup(numberOfThreads: 2)
     }
-
     override func tearDown() {
         try! self.elg.syncShutdownGracefully()
     }
