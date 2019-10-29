@@ -94,9 +94,6 @@ final class NIOWebSocketClientTests: XCTestCase {
                 }
         }.cascadeFailure(to: pongPromise)
         
-        pongPromise.futureResult.whenFailure { (error) in
-            debugPrint("error: \(error)")
-        }
         try XCTAssertEqual(pongPromise.futureResult.wait(), "pong")
     }
     
