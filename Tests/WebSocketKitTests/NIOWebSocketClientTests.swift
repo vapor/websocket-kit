@@ -37,7 +37,6 @@ final class NIOWebSocketClientTests: XCTestCase {
         let port = Int.random(in: 8000..<9000)
 
         let promise = self.elg.next().makePromise(of: String.self)
-        let pongPromise = self.elg.next().makePromise(of: String.self)
 
         let server = try ServerBootstrap(group: self.elg).childChannelInitializer { channel in
             let webSocket = NIOWebSocketServerUpgrader(
@@ -70,12 +69,48 @@ final class NIOWebSocketClientTests: XCTestCase {
                 ws.send("goodbye")
                 ws.close(promise: nil)
             }
-            ws.onPong { ws in
-                pongPromise.succeed("pong")
-            }
         }.cascadeFailure(to: promise)
 
         try XCTAssertEqual(promise.futureResult.wait(), "goodbye")
+        try server.close(mode: .all).wait()
+    }
+
+    func testWebSocketPong() throws {
+        let port = Int.random(in: 8000..<9000)
+
+        let pongPromise = self.elg.next().makePromise(of: String.self)
+
+        let server = try ServerBootstrap(group: self.elg).childChannelInitializer { channel in
+            let webSocket = NIOWebSocketServerUpgrader(
+                shouldUpgrade: { channel, req in
+                    return channel.eventLoop.makeSucceededFuture([:])
+                },
+                upgradePipelineHandler: { channel, req in
+                    return WebSocket.server(on: channel) { ws in
+                        ws.onPing { ws in
+                            ws.close(promise: nil)
+                        }
+                    }
+                }
+            )
+            return channel.pipeline.configureHTTPServerPipeline(
+                withServerUpgrade: (
+                    upgraders: [webSocket],
+                    completionHandler: { ctx in
+                        // complete
+                    }
+                )
+            )
+        }.bind(host: "localhost", port: port).wait()
+
+        WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
+            ws.send(raw: Data(), opcode: .ping)
+            ws.onPong { ws in
+                pongPromise.succeed("pong")
+                ws.close(promise: nil)
+            }
+        }.cascadeFailure(to: pongPromise)
+
         try XCTAssertEqual(pongPromise.futureResult.wait(), "pong")
         try server.close(mode: .all).wait()
     }
