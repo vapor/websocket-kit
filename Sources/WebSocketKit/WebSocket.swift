@@ -18,8 +18,10 @@ public final class WebSocket {
     public private(set) var isClosed: Bool
     public private(set) var closedCode: WebSocketErrorCode?
 
-    public var onClose: EventLoopFuture<Void> {
-        return self.channel.closeFuture
+    public var onClose: EventLoopFuture<WebSocketErrorCode?> {
+        return self.channel.closeFuture.flatMapThrowing({ (_) in
+            return self.closedCode
+        })
     }
 
     private let channel: Channel

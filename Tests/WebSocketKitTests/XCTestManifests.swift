@@ -8,7 +8,8 @@ extension NIOWebSocketClientTests {
     static let __allTests__NIOWebSocketClientTests = [
         ("testBadHost", testBadHost),
         ("testWebSocketEcho", testWebSocketEcho),
-        ("testWebSocketPong", testWebSocketPong)
+        ("testWebSocketPong", testWebSocketPong),
+        ("testErrorCode", testErrorCode)
     ]
 }
 
