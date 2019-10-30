@@ -153,6 +153,44 @@ final class NIOWebSocketClientTests: XCTestCase {
         try XCTAssertEqual(promise.futureResult.wait(), WebSocketErrorCode.normalClosure)
     }
 
+    func testHeadersAreSent() throws {
+        let port = Int.random(in: 8000..<9000)
+
+        let promise = self.elg.next().makePromise(of: String.self)
+
+        let server = try ServerBootstrap(group: self.elg).childChannelInitializer { channel in
+            let webSocket = NIOWebSocketServerUpgrader(
+                shouldUpgrade: { channel, req in
+                    return channel.eventLoop.makeSucceededFuture([:])
+                },
+                upgradePipelineHandler: { channel, req in
+                    promise.succeed(req.headers["Auth"].first!)
+                    return WebSocket.server(on: channel) { ws in
+                        ws.close(promise: nil)
+                    }
+                }
+            )
+            return channel.pipeline.configureHTTPServerPipeline(
+                withServerUpgrade: (
+                    upgraders: [webSocket],
+                    completionHandler: { ctx in
+                        // complete
+                    }
+                )
+            )
+        }.bind(host: "localhost", port: port).wait()
+
+        WebSocket.connect(
+            to: "ws://localhost:\(port)",
+            headers: ["Auth": "supersecretsauce"],
+            on: self.elg) { ws in
+                _ = ws.close()
+        }.cascadeFailure(to: promise)
+
+        try XCTAssertEqual(promise.futureResult.wait(), "supersecretsauce")
+        try server.close(mode: .all).wait()
+    }
+
     var elg: EventLoopGroup!
     override func setUp() {
         // needs to be at least two to avoid client / server on same EL timing issues

@@ -9,7 +9,8 @@ extension NIOWebSocketClientTests {
         ("testBadHost", testBadHost),
         ("testWebSocketEcho", testWebSocketEcho),
         ("testWebSocketPong", testWebSocketPong),
-        ("testErrorCode", testErrorCode)
+        ("testErrorCode", testErrorCode),
+        ("testHeadersAreSent", testHeadersAreSent)
     ]
 }
 
