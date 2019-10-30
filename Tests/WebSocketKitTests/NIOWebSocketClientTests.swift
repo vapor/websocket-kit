@@ -1,9 +1,8 @@
+import XCTest
 import NIO
 import NIOHTTP1
 import NIOWebSocket
 @testable import WebSocketKit
-import XCTest
-import NIOSSL
 
 final class NIOWebSocketClientTests: XCTestCase {
     func testWebSocketEcho() throws {
@@ -79,27 +78,6 @@ final class NIOWebSocketClientTests: XCTestCase {
         try XCTAssertEqual(promise.futureResult.wait(), "goodbye")
         try XCTAssertEqual(pongPromise.futureResult.wait(), "pong")
         try server.close(mode: .all).wait()
-    }
-
-    func testJoinAWSWebsocket() {
-        let pongPromise = self.elg.next().makePromise(of: String.self)
-
-        WebSocket.connect(
-            scheme: "wss",
-            host: "6cfy865zo0.execute-api.us-east-1.amazonaws.com",
-            port: 443,
-            path: "/dev",
-            headers: ["Auth": "hello"],
-            on: elg
-        ) { ws in
-            ws.send(raw: Data(), opcode: .ping)
-            ws.onPong { _ in
-                pongPromise.succeed("pong")
-                _ = ws.close()
-            }
-        }.cascadeFailure(to: pongPromise)
-
-        try XCTAssertEqual(pongPromise.futureResult.wait(), "pong")
     }
 
     var elg: EventLoopGroup!

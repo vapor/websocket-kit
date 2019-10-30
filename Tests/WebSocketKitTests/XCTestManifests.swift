@@ -7,8 +7,7 @@ extension NIOWebSocketClientTests {
     // to regenerate.
     static let __allTests__NIOWebSocketClientTests = [
         ("testBadHost", testBadHost),
-        ("testWebSocketEcho", testWebSocketEcho),
-        ("testJoinAWSWebsocket", testJoinAWSWebsocket)
+        ("testWebSocketEcho", testWebSocketEcho)
     ]
 }
 
