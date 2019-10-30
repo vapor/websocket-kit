@@ -3,6 +3,7 @@ import NIOHTTP1
 import NIOWebSocket
 @testable import WebSocketKit
 import XCTest
+import NIOSSL
 
 final class NIOWebSocketClientTests: XCTestCase {
     func testWebSocketEcho() throws {
@@ -86,12 +87,15 @@ final class NIOWebSocketClientTests: XCTestCase {
         WebSocket.connect(
             scheme: "wss",
             host: "6cfy865zo0.execute-api.us-east-1.amazonaws.com",
-            port: 80,
-            path: "/dev", on: elg
+            port: 443,
+            path: "/dev",
+            headers: ["Auth": "hello"],
+            on: elg
         ) { ws in
             ws.send(raw: Data(), opcode: .ping)
             ws.onPong { _ in
                 pongPromise.succeed("pong")
+                _ = ws.close()
             }
         }.cascadeFailure(to: pongPromise)
 
