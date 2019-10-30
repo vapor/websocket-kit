@@ -64,7 +64,6 @@ final class NIOWebSocketClientTests: XCTestCase {
         }.bind(host: "localhost", port: port).wait()
 
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
-            ws.send(raw: Data(), opcode: .ping)
             ws.onText { ws, string in
                 ws.send("goodbye")
                 ws.close(promise: nil)
