@@ -24,6 +24,7 @@ public final class WebSocket {
     private let channel: Channel
     private var onTextCallback: (WebSocket, String) -> ()
     private var onBinaryCallback: (WebSocket, ByteBuffer) -> ()
+    private var onPongCallback: (WebSocket, ByteBuffer) -> ()
     private var frameSequence: WebSocketFrameSequence?
     private let type: PeerType
 
@@ -32,6 +33,7 @@ public final class WebSocket {
         self.type = type
         self.onTextCallback = { _, _ in }
         self.onBinaryCallback = { _, _ in }
+        self.onPongCallback = { _, _ in }
         self.isClosed = false
     }
 
@@ -42,7 +44,11 @@ public final class WebSocket {
     public func onBinary(_ callback: @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onBinaryCallback = callback
     }
-
+    
+    public func onPong(_ callback: @escaping (WebSocket, ByteBuffer) -> ()) {
+        self.onPongCallback = callback
+    }
+    
     public func send<S>(_ text: S, promise: EventLoopPromise<Void>? = nil)
         where S: Collection, S.Element == Character
     {
@@ -132,6 +138,12 @@ public final class WebSocket {
                     fin: true,
                     promise: nil
                 )
+            } else {
+                self.close(code: .protocolError, promise: nil)
+            }
+        case .pong:
+            if frame.fin {
+                self.onPongCallback(self, frame.unmaskedData)
             } else {
                 self.close(code: .protocolError, promise: nil)
             }

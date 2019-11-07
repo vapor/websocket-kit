@@ -61,6 +61,24 @@ final class NIOWebSocketClientTests: XCTestCase {
         try server.close(mode: .all).wait()
     }
 
+    func testClientPingPong() throws {
+        let echoServer = WebSocketEchoServer()
+
+        let promise = elg.next().makePromise(of: Data?.self)
+        WebSocket.connect(to: "ws://localhost:\(echoServer.port)", on: elg) { ws in
+            ws.onPong { ws, buf in
+                let data = buf.getData(at: 0, length: buf.readableBytes)
+                promise.succeed(data)
+                _ = ws.close().cascadeFailure(to: promise)
+            }
+
+            ws.send(raw: [UInt8](Data("foo".utf8)), opcode: .ping)
+        }.cascadeFailure(to: promise)
+
+        let data = try promise.futureResult.wait()
+        XCTAssertEqual(data, Data("foo".utf8))
+    }
+    
     var elg: EventLoopGroup!
     override func setUp() {
         // needs to be at least two to avoid client / server on same EL timing issues

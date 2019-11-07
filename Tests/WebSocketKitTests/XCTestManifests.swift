@@ -7,6 +7,8 @@ extension NIOWebSocketClientTests {
     // to regenerate.
     static let __allTests__NIOWebSocketClientTests = [
         ("testBadHost", testBadHost),
+        ("testClientPingPong", testClientPingPong),
+        ("testImmediateSend", testImmediateSend),
         ("testWebSocketEcho", testWebSocketEcho),
     ]
 }
