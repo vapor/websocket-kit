@@ -54,6 +54,7 @@ final class NIOWebSocketClientTests: XCTestCase {
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
             ws.onText { ws, string in
                 ws.send("goodbye")
+                ws.close(promise: nil)
             }
         }.cascadeFailure(to: promise)
 
