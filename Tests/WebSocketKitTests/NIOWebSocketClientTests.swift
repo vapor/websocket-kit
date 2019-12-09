@@ -16,6 +16,18 @@ final class NIOWebSocketClientTests: XCTestCase {
         }.cascadeFailure(to: promise)
         try XCTAssertEqual(promise.futureResult.wait(), "hello")
     }
+    
+    func testWebSocketWithTLSEcho() throws {
+        let promise = elg.next().makePromise(of: String.self)
+        WebSocket.connect(to: "wss://echo.websocket.org", on: elg) { ws in
+            ws.send("hello")
+            ws.onText { ws, string in
+                promise.succeed(string)
+                ws.close(promise: nil)
+            }
+        }.cascadeFailure(to: promise)
+        try XCTAssertEqual(promise.futureResult.wait(), "hello")
+    }
 
     func testBadHost() throws {
         XCTAssertThrowsError(try WebSocket.connect(host: "asdf", on: elg) { _  in }.wait())
