@@ -18,17 +18,15 @@ public final class WebSocket {
     public private(set) var isClosed: Bool
     public private(set) var closedCode: WebSocketErrorCode?
 
-    public var onClose: EventLoopFuture<WebSocketErrorCode?> {
-        return self.channel.closeFuture.flatMapThrowing({ (_) in
-            return self.closedCode
-        })
+    public var onClose: EventLoopFuture<Void> {
+        return self.channel.closeFuture
     }
 
     private let channel: Channel
     private var onTextCallback: (WebSocket, String) -> ()
     private var onBinaryCallback: (WebSocket, ByteBuffer) -> ()
-    private var onPongCallback: (WebSocket) -> ()
-    private var onPingCallback: (WebSocket) -> ()
+    private var didReceivePongCallback: (WebSocket) -> ()
+    private var didReceivePingCallback: (WebSocket) -> ()
     private var frameSequence: WebSocketFrameSequence?
     private let type: PeerType
 
@@ -37,8 +35,8 @@ public final class WebSocket {
         self.type = type
         self.onTextCallback = { _, _ in }
         self.onBinaryCallback = { _, _ in }
-        self.onPongCallback = { _ in }
-        self.onPingCallback = { _ in }
+        self.didReceivePongCallback = { _ in }
+        self.didReceivePingCallback = { _ in }
         self.isClosed = false
     }
 
@@ -50,12 +48,12 @@ public final class WebSocket {
         self.onBinaryCallback = callback
     }
     
-    public func onPong(_ callback: @escaping (WebSocket) -> ()) {
-        self.onPongCallback = callback
+    public func didReceivePong(_ callback: @escaping (WebSocket) -> ()) {
+        self.didReceivePongCallback = callback
     }
 
-    public func onPing(_ callback: @escaping (WebSocket) -> ()) {
-        self.onPingCallback = callback
+    public func didReceivePing(_ callback: @escaping (WebSocket) -> ()) {
+        self.didReceivePingCallback = callback
     }
 
     public func send<S>(_ text: S, promise: EventLoopPromise<Void>? = nil)
@@ -185,9 +183,9 @@ public final class WebSocket {
             case .text:
                 self.onTextCallback(self, frameSequence.textBuffer)
             case .pong:
-                self.onPongCallback(self)
+                self.didReceivePongCallback(self)
             case .ping:
-                self.onPingCallback(self)
+                self.didReceivePingCallback(self)
             default: break
             }
             self.frameSequence = nil

@@ -86,7 +86,7 @@ final class NIOWebSocketClientTests: XCTestCase {
                 },
                 upgradePipelineHandler: { channel, req in
                     return WebSocket.server(on: channel) { ws in
-                        ws.onPing { ws in
+                        ws.didReceivePing { ws in
                             ws.close(promise: nil)
                         }
                     }
@@ -104,7 +104,7 @@ final class NIOWebSocketClientTests: XCTestCase {
 
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
             ws.send(raw: Data(), opcode: .ping)
-            ws.onPong { ws in
+            ws.didReceivePong { ws in
                 pongPromise.succeed("pong")
                 ws.close(promise: nil)
             }
@@ -144,8 +144,8 @@ final class NIOWebSocketClientTests: XCTestCase {
             ws.onText { ws, string in
                 ws.send("goodbye")
             }
-            ws.onClose.whenSuccess { (errorCode) in
-                promise.succeed(errorCode!)
+            ws.onClose.whenSuccess {
+                promise.succeed(ws.closedCode!)
                 XCTAssertEqual(ws.closedCode, WebSocketErrorCode.normalClosure)
             }
         }.cascadeFailure(to: promise)
