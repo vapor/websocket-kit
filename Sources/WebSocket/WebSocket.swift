@@ -71,6 +71,9 @@ public final class WebSocket: BasicWorker {
 
     /// See `onCloseCode(...)`.
     var onCloseCodeCallback: (WebSocketErrorCode) -> ()
+    
+    /// Can be set to uniquely identify the WebSocket
+    public var id: String?
 
     /// Creates a new `WebSocket` using the supplied `Channel` and `Mode`.
     /// Use `httpProtocolUpgrader(...)` to create a protocol upgrader that can create `WebSocket`s.
