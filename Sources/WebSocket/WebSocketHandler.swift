@@ -43,6 +43,8 @@ private final class WebSocketHandler: ChannelInboundHandler {
             } else {
                 pong(ctx: ctx, frame: frame)
             }
+        case .pong:
+            webSocket.onPongCallback(webSocket, frameSequence?.dataBuffer)
         case .unknownControl, .unknownNonControl: closeOnError(ctx: ctx)
         case .text, .binary:
             // create a new frame sequence or use existing

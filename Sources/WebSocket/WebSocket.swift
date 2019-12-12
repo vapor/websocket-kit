@@ -66,6 +66,9 @@ public final class WebSocket: BasicWorker {
     /// See `onError(...)`.
     var onErrorCallback: (WebSocket, Error) -> ()
     
+    /// See `onPong(...)`.
+    var onPongCallback: (WebSocket, Data?) -> ()
+    
     /// Buffers error frames we get before a handler is connected
     private var errorBuffer: [Error]?
 
@@ -96,6 +99,7 @@ public final class WebSocket: BasicWorker {
         self.onBinaryCallback = { _, _ in }
         self.onErrorCallback = { _, _ in }
         self.onCloseCodeCallback = { _ in }
+        self.onPongCallback = { _, _ in }
         
         self.onTextCallback = { [unowned self] _, text in
             guard self.textBuffer != nil else {
@@ -168,6 +172,18 @@ public final class WebSocket: BasicWorker {
         onErrorCallback = callback
         self.errorBuffer?.forEach { onErrorCallback(self, $0) }
         self.errorBuffer = nil
+    }
+    
+    /// Adds a callback to this `WebSocket` to handle ping responses.
+    ///
+    ///     ws.onPong { ws, data
+    ///         print("pong")
+    ///     }
+    ///
+    /// - parameters:
+    ///     - callback: Closure to handle incoming ping responses.
+    public func onPong(_ callback: @escaping (WebSocket, Data?) -> ()) {
+        onPongCallback = callback
     }
 
     /// Adds a callback to this `WebSocket` to handle incoming close codes.
@@ -254,6 +270,10 @@ public final class WebSocket: BasicWorker {
         var buffer = channel.allocator.buffer(capacity: data.count)
         buffer.write(bytes: data)
         send(buffer, opcode: opcode, fin: fin, promise: promise)
+    }
+    
+    public func ping(_ data: LosslessDataConvertible) {
+        send(raw: data, opcode: .ping, fin: true, promise: nil)
     }
 
     // MARK: Close
