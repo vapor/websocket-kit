@@ -65,6 +65,7 @@ public final class WebSocketClient {
                 let httpHandler = HTTPInitialRequestHandler(
                     host: host,
                     path: path,
+                    headers: headers,
                     upgradePromise: upgradePromise
                 )
 
