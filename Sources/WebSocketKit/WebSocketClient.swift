@@ -95,7 +95,7 @@ public final class WebSocketClient {
                     )
                     let tlsHandler = try! NIOSSLClientHandler(context: context, serverHostname: host)
                     return channel.pipeline.addHandler(tlsHandler).flatMap {
-                        channel.pipeline.addHTTPClientHandlers(withClientUpgrade: config)
+                        channel.pipeline.addHTTPClientHandlers(leftOverBytesStrategy: .forwardBytes, withClientUpgrade: config)
                     }.flatMap {
                         channel.pipeline.addHandler(httpHandler)
                     }

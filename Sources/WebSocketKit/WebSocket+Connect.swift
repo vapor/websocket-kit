@@ -25,10 +25,11 @@ extension WebSocket {
         on eventLoopGroup: EventLoopGroup,
         onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
+        let scheme = url.scheme ?? "ws"
         return self.connect(
-            scheme: url.scheme ?? "ws",
+            scheme: scheme,
             host: url.host ?? "localhost",
-            port: url.port ?? 80,
+            port: url.port ?? (scheme == "wss" ? 443 : 80),
             path: url.path,
             headers: headers,
             configuration: configuration,
