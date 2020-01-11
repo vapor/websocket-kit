@@ -34,7 +34,7 @@ private final class WebSocketHandler: ChannelInboundHandler {
 
     /// See `ChannelInboundHandler`.
     func channelRead(ctx: ChannelHandlerContext, data: NIOAny) {
-        var frame = self.unwrapInboundIn(data)
+        let frame = self.unwrapInboundIn(data)
         switch frame.opcode {
         case .connectionClose: receivedClose(ctx: ctx, frame: frame)
         case .ping:
@@ -66,9 +66,6 @@ private final class WebSocketHandler: ChannelInboundHandler {
             } else {
                 closeOnError(ctx: ctx)
             }
-        default:
-            // We ignore all other frames.
-            break
         }
         
         // if this frame was final and we have a non-nil frame sequence,

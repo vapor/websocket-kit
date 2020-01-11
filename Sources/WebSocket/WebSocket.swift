@@ -205,7 +205,7 @@ public final class WebSocket: BasicWorker {
     /// Sends binary-formatted data to the connected client.
     ///
     ///     ws.onText { ws, string in
-    ///         ws.send([0x68, 0x69])
+    ///         ws.send([0x68, 0x69])vap
     ///     }
     ///
     /// - parameters:
@@ -315,7 +315,12 @@ public final class WebSocket: BasicWorker {
 }
 
 extension WebSocket: Hashable {
+    
     public static func == (lhs: WebSocket, rhs: WebSocket) -> Bool {
         return ObjectIdentifier(lhs.channel) == ObjectIdentifier(rhs.channel)
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self.channel))
     }
 }
