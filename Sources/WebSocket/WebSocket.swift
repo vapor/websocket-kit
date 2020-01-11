@@ -293,3 +293,9 @@ public final class WebSocket: BasicWorker {
         channel.writeAndFlush(frame, promise: promise)
     }
 }
+
+extension WebSocket: Hashable {
+    public static func == (lhs: WebSocket, rhs: WebSocket) -> Bool {
+        return ObjectIdentifier(lhs.channel) == ObjectIdentifier(rhs.channel)
+    }
+}
