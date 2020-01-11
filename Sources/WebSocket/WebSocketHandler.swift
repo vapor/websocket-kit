@@ -35,6 +35,7 @@ private final class WebSocketHandler: ChannelInboundHandler {
     /// See `ChannelInboundHandler`.
     func channelRead(ctx: ChannelHandlerContext, data: NIOAny) {
         let frame = self.unwrapInboundIn(data)
+        
         switch frame.opcode {
         case .connectionClose: receivedClose(ctx: ctx, frame: frame)
         case .ping:
@@ -44,7 +45,9 @@ private final class WebSocketHandler: ChannelInboundHandler {
                 pong(ctx: ctx, frame: frame)
             }
         case .pong:
-            webSocket.onPongCallback(webSocket, frameSequence?.dataBuffer)
+            var frameSequence = WebSocketFrameSequence(type: .pong)
+            frameSequence.append(frame)
+            webSocket.onPongCallback(webSocket, frameSequence.dataBuffer)
         case .unknownControl, .unknownNonControl: closeOnError(ctx: ctx)
         case .text, .binary:
             // create a new frame sequence or use existing
