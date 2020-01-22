@@ -36,7 +36,7 @@ public final class WebSocketClient {
     let eventLoopGroupProvider: EventLoopGroupProvider
     let group: EventLoopGroup
     let configuration: Configuration
-    let isShutdown = Atomic<Bool>(value: false)
+    let isShutdown = NIOAtomic.makeAtomic(value: false)
 
     public init(eventLoopGroupProvider: EventLoopGroupProvider, configuration: Configuration = .init()) {
         self.eventLoopGroupProvider = eventLoopGroupProvider
@@ -73,7 +73,7 @@ public final class WebSocketClient {
                 for _ in 0..<16 {
                     key.append(.random(in: .min ..< .max))
                 }
-                let websocketUpgrader = NIOWebClientSocketUpgrader(
+                let websocketUpgrader = NIOWebSocketClientUpgrader(
                     requestKey:  Data(key).base64EncodedString(),
                     maxFrameSize: self.configuration.maxFrameSize,
                     automaticErrorHandling: true,
