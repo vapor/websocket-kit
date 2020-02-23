@@ -55,7 +55,7 @@ private final class WebSocketHandler: ChannelInboundHandler {
         self.webSocket.handle(incoming: frame)
     }
 
-    public func errorCaught(context: ChannelHandlerContext, error: Error) {
+    func errorCaught(context: ChannelHandlerContext, error: Error) {
         let errorCode: WebSocketErrorCode
         if let error = error as? NIOWebSocketError {
             errorCode = WebSocketErrorCode(error)
