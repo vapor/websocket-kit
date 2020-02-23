@@ -28,6 +28,18 @@ extension WebSocket {
     }
 }
 
+extension WebSocketErrorCode {
+    init(_ error: NIOWebSocketError) {
+        switch error {
+        case .invalidFrameLength:
+            self = .messageTooLarge
+        case .fragmentedControlFrame,
+             .multiByteControlFrameLength:
+            self = .protocolError
+        }
+    }
+}
+
 private final class WebSocketHandler: ChannelInboundHandler {
     typealias InboundIn = WebSocketFrame
     typealias OutboundOut = WebSocketFrame
@@ -41,5 +53,18 @@ private final class WebSocketHandler: ChannelInboundHandler {
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         let frame = self.unwrapInboundIn(data)
         self.webSocket.handle(incoming: frame)
+    }
+
+    func errorCaught(context: ChannelHandlerContext, error: Error) {
+        let errorCode: WebSocketErrorCode
+        if let error = error as? NIOWebSocketError {
+            errorCode = WebSocketErrorCode(error)
+        } else {
+            errorCode = .unexpectedServerError
+        }
+        _ = webSocket.close(code: errorCode)
+
+        // We always forward the error on to let others see it.
+        context.fireErrorCaught(error)
     }
 }
