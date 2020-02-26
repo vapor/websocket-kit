@@ -42,4 +42,12 @@ private final class WebSocketHandler: ChannelInboundHandler {
         let frame = self.unwrapInboundIn(data)
         self.webSocket.handle(incoming: frame)
     }
+
+    func channelInactive(context: ChannelHandlerContext) {
+        let closedAbnormally = WebSocketErrorCode.unknown(1005)
+        _ = webSocket.close(code: closedAbnormally)
+
+        // We always forward the error on to let others see it.
+        context.fireChannelInactive()
+    }
 }
