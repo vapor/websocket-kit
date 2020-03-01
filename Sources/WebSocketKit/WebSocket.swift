@@ -29,6 +29,8 @@ public final class WebSocket {
     private var onPingCallback: (WebSocket) -> ()
     private var frameSequence: WebSocketFrameSequence?
     private let type: PeerType
+    private var waitingForPong = false
+    private var scheduledTimeoutTask: Scheduled<Void>?
 
     init(channel: Channel, type: PeerType) {
         self.channel = channel
@@ -56,6 +58,25 @@ public final class WebSocket {
         self.onPingCallback = callback
     }
 
+    /// If set, this will trigger automatic pings on the connection. If ping is not answered before
+    /// the next ping is sent, then the WebSocket will be presumed innactive and will be closed
+    /// automatically.
+    /// These pings can also be used to keep the WebSocket alive if there is some other timeout
+    /// mechanism shutting down innactive connections, such as a Load Balancer deployed in
+    /// front of the server.
+    public var pingInterval: TimeAmount? {
+        didSet {
+            if pingInterval != nil {
+                if scheduledTimeoutTask == nil {
+                    waitingForPong = false
+                    self.pingAndScheduleNextTimeoutTask()
+                }
+            } else {
+                scheduledTimeoutTask?.cancel()
+            }
+        }
+    }
+
     public func send<S>(_ text: S, promise: EventLoopPromise<Void>? = nil)
         where S: Collection, S.Element == Character
     {
@@ -68,6 +89,15 @@ public final class WebSocket {
 
     public func send(_ binary: [UInt8], promise: EventLoopPromise<Void>? = nil) {
         self.send(raw: binary, opcode: .binary, fin: true, promise: promise)
+    }
+
+    public func sendPing(promise: EventLoopPromise<Void>? = nil) {
+        self.send(
+            raw: Data(),
+            opcode: .ping,
+            fin: true,
+            promise: promise
+        )
     }
 
     public func send<Data>(
@@ -196,12 +226,39 @@ public final class WebSocket {
             case .text:
                 self.onTextCallback(self, frameSequence.textBuffer)
             case .pong:
+                self.waitingForPong = false
                 self.onPongCallback(self)
             case .ping:
                 self.onPingCallback(self)
             default: break
             }
             self.frameSequence = nil
+        }
+    }
+
+    private func pingAndScheduleNextTimeoutTask() {
+        guard channel.isActive, let pingInterval = pingInterval else {
+            return
+        }
+
+        if waitingForPong {
+            // We never received a pong from our last ping, so the connection has timed out
+            let promise = self.eventLoop.makePromise(of: Void.self)
+            self.close(code: .unknown(1006), promise: promise)
+            promise.futureResult.whenComplete { _ in
+                // Usually, closing a WebSocket is done by sending the close frame and waiting
+                // for the peer to respond with their close frame. We are in a timeout situation,
+                // so the other side likely will never send the close frame. We just close the
+                // channel ourselves.
+                self.channel.close(mode: .all, promise: nil)
+            }
+        } else {
+            self.sendPing()
+            self.waitingForPong = true
+            self.scheduledTimeoutTask = self.eventLoop.scheduleTask(
+                deadline: .now() + pingInterval,
+                self.pingAndScheduleNextTimeoutTask
+            )
         }
     }
 
