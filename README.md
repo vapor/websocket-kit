@@ -1,6 +1,6 @@
 <p align="center">
     <img 
-        src="https://user-images.githubusercontent.com/1342803/75630246-f329cd80-5bb6-11ea-8d2c-8d6e2c406f60.png"
+        src="https://user-images.githubusercontent.com/1342803/75630258-105e9c00-5bb7-11ea-81b8-86afa000e188.png"
         height="64" 
         alt="NIOWebSocketClient"
     >
