@@ -140,8 +140,13 @@ public final class WebSocket {
             }
         case .ping:
             if frame.fin {
+                var frameData = frame.data
+                let maskingKey = frame.maskKey
+                if let maskingKey = maskingKey {
+                    frameData.webSocketUnmask(maskingKey)
+                }
                 self.send(
-                    raw: frame.data.readableBytesView,
+                    raw: frameData,
                     opcode: .pong,
                     fin: true,
                     promise: nil
