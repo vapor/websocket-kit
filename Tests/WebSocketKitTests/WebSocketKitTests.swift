@@ -4,7 +4,7 @@ import NIOHTTP1
 import NIOWebSocket
 @testable import WebSocketKit
 
-final class NIOWebSocketClientTests: XCTestCase {
+final class WebSocketKitTests: XCTestCase {
     func testWebSocketEcho() throws {
         let promise = elg.next().makePromise(of: String.self)
         WebSocket.connect(to: "ws://echo.websocket.org", on: elg) { ws in
