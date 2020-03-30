@@ -146,7 +146,7 @@ public final class WebSocket {
                     frameData.webSocketUnmask(maskingKey)
                 }
                 self.send(
-                    raw: frameData,
+                    raw: frameData.readableBytesView,
                     opcode: .pong,
                     fin: true,
                     promise: nil
