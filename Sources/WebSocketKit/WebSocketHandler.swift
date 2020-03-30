@@ -49,7 +49,6 @@ private final class WebSocketHandler: ChannelInboundHandler {
         self.webSocket = webSocket
     }
 
-    /// See `ChannelInboundHandler`.
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         let frame = self.unwrapInboundIn(data)
         self.webSocket.handle(incoming: frame)
