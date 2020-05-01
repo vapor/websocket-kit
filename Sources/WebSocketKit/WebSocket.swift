@@ -105,9 +105,19 @@ public final class WebSocket {
         }
         self.isClosed = true
         self.closeCode = code
-        
+
+        let codeAsInt = UInt16(webSocketErrorCode: code)
+        let codeToSend: WebSocketErrorCode
+        if codeAsInt == 1005 || codeAsInt == 1006 {
+            /// Code 1005 and 1006 are used to report errors to the application, but must never be sent over
+            /// the wire (per https://tools.ietf.org/html/rfc6455#section-7.4)
+            codeToSend = .normalClosure
+        } else {
+            codeToSend = code
+        }
+
         var buffer = channel.allocator.buffer(capacity: 2)
-        buffer.write(webSocketErrorCode: code)
+        buffer.write(webSocketErrorCode: codeToSend)
 
         self.send(raw: buffer.readableBytesView, opcode: .connectionClose, fin: true, promise: promise)
     }
@@ -133,8 +143,11 @@ public final class WebSocket {
                 self.channel.close(mode: .all, promise: nil)
             } else {
                 // peer asking for close, confirm and close channel
+                let promise = self.eventLoop.makePromise(of: Void.self)
                 var data = frame.data
-                self.close(code: data.readWebSocketErrorCode() ?? .goingAway).whenComplete { _ in
+                self.close(code: data.readWebSocketErrorCode() ?? .unknown(1005),
+                           promise: promise)
+                promise.futureResult.whenComplete { _ in
                     self.channel.close(mode: .all, promise: nil)
                 }
             }
