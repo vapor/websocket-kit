@@ -101,8 +101,7 @@ public final class WebSocketClient {
                         }.flatMap {
                             channel.pipeline.addHandler(httpHandler)
                         }
-                    } catch let error {
-                        debugPrint("WebSocketClient error: \(error.localizedDescription)")
+                    } catch {
                         return channel.pipeline.close(mode: .all)
                     }
                 } else {
