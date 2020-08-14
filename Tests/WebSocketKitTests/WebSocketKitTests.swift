@@ -6,17 +6,17 @@ import NIOWebSocket
 
 final class WebSocketKitTests: XCTestCase {
     func testWebSocketEcho() throws {
-            let promise = elg.next().makePromise(of: String.self)
-            let closePromise = elg.next().makePromise(of: Void.self)
-            WebSocket.connect(to: "ws://echo.websocket.org", on: elg) { ws in
-                ws.send("hello")
-                ws.onText { ws, string in
-                    promise.succeed(string)
-                    ws.close(promise: closePromise)
-                }
-            }.cascadeFailure(to: promise)
-            try XCTAssertEqual(promise.futureResult.wait(), "hello")
-            XCTAssertNoThrow(try closePromise.futureResult.wait())
+        let promise = elg.next().makePromise(of: String.self)
+        let closePromise = elg.next().makePromise(of: Void.self)
+        WebSocket.connect(to: "ws://echo.websocket.org", on: elg) { ws in
+            ws.send("hello")
+            ws.onText { ws, string in
+                promise.succeed(string)
+                ws.close(promise: closePromise)
+            }
+        }.cascadeFailure(to: promise)
+        try XCTAssertEqual(promise.futureResult.wait(), "hello")
+        XCTAssertNoThrow(try closePromise.futureResult.wait())
     }
     
     func testWebSocketWithTLSEcho() throws {
@@ -179,7 +179,7 @@ final class WebSocketKitTests: XCTestCase {
 
     func testLocally() throws {
         // swap to test websocket server against local client
-        try XCTSkipIf(true)
+        try XCTSkipIf(false)
 
         let port = Int(1337)
         let shutdownPromise = self.elg.next().makePromise(of: Void.self)
