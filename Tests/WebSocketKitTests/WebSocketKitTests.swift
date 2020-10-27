@@ -179,7 +179,7 @@ final class WebSocketKitTests: XCTestCase {
 
     func testLocally() throws {
         // swap to test websocket server against local client
-        try XCTSkipIf(false)
+        try XCTSkipIf(true)
 
         let port = Int(1337)
         let shutdownPromise = self.elg.next().makePromise(of: Void.self)
