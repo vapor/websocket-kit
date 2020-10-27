@@ -15,11 +15,13 @@ public final class WebSocket {
         return channel.eventLoop
     }
 
-    public private(set) var isClosed: Bool
+    public var isClosed: Bool {
+        !self.channel.isActive
+    }
     public private(set) var closeCode: WebSocketErrorCode?
 
     public var onClose: EventLoopFuture<Void> {
-        return self.channel.closeFuture
+        self.channel.closeFuture
     }
 
     private let channel: Channel
@@ -29,7 +31,8 @@ public final class WebSocket {
     private var onPingCallback: (WebSocket) -> ()
     private var frameSequence: WebSocketFrameSequence?
     private let type: PeerType
-    private var waitingForPong = false
+    private var waitingForPong: Bool
+    private var waitingForClose: Bool
     private var scheduledTimeoutTask: Scheduled<Void>?
 
     init(channel: Channel, type: PeerType) {
@@ -39,7 +42,9 @@ public final class WebSocket {
         self.onBinaryCallback = { _, _ in }
         self.onPongCallback = { _ in }
         self.onPingCallback = { _ in }
-        self.isClosed = false
+        self.waitingForPong = false
+        self.waitingForClose = false
+        self.scheduledTimeoutTask = nil
     }
 
     public func onText(_ callback: @escaping (WebSocket, String) -> ()) {
@@ -133,7 +138,11 @@ public final class WebSocket {
             promise?.succeed(())
             return
         }
-        self.isClosed = true
+        guard !self.waitingForClose else {
+            promise?.succeed(())
+            return
+        }
+        self.waitingForClose = true
         self.closeCode = code
 
         let codeAsInt = UInt16(webSocketErrorCode: code)
@@ -168,17 +177,23 @@ public final class WebSocket {
     func handle(incoming frame: WebSocketFrame) {
         switch frame.opcode {
         case .connectionClose:
-            if self.isClosed {
+            if self.waitingForClose {
                 // peer confirmed close, time to close channel
-                self.channel.close(mode: .all, promise: nil)
+                self.channel.close(mode: .output, promise: nil)
             } else {
-                // peer asking for close, confirm and close channel
+                // peer asking for close, confirm and close output side channel
                 let promise = self.eventLoop.makePromise(of: Void.self)
                 var data = frame.data
-                self.close(code: data.readWebSocketErrorCode() ?? .unknown(1005),
-                           promise: promise)
+                let maskingKey = frame.maskKey
+                if let maskingKey = maskingKey {
+                    data.webSocketUnmask(maskingKey)
+                }
+                self.close(
+                    code: data.readWebSocketErrorCode() ?? .unknown(1005),
+                    promise: promise
+                )
                 promise.futureResult.whenComplete { _ in
-                    self.channel.close(mode: .all, promise: nil)
+                    self.channel.close(mode: .output, promise: nil)
                 }
             }
         case .ping:
