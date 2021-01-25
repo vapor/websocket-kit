@@ -1,4 +1,4 @@
-// swift-tools-version:5.2
+// swift-tools-version:5.3
 import PackageDescription
 
 let package = Package(
@@ -12,6 +12,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.11.1"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.0.0"),
+        .package(url: "https://github.com/apple/swift-nio-transport-services.git", from: "1.5.1"),
     ],
     targets: [
         .target(name: "WebSocketKit", dependencies: [
@@ -21,6 +22,13 @@ let package = Package(
             .product(name: "NIOHTTP1", package: "swift-nio"),
             .product(name: "NIOSSL", package: "swift-nio-ssl"),
             .product(name: "NIOWebSocket", package: "swift-nio"),
+            .product(
+                name: "NIOTransportServices",
+                package: "swift-nio-transport-services",
+                condition: .when(
+                    platforms: [Platform.iOS, Platform.macOS, Platform.tvOS, Platform.watchOS]
+                )
+            )
         ]),
         .testTarget(name: "WebSocketKitTests", dependencies: [
             .target(name: "WebSocketKit"),

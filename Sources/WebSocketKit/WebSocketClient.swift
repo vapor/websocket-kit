@@ -4,6 +4,21 @@ import NIOConcurrencyHelpers
 import NIOHTTP1
 import NIOWebSocket
 import NIOSSL
+#if canImport(Network)
+import NIOTransportServices
+#endif
+
+internal extension String {
+    var isIPAddress: Bool {
+        var ipv4Addr = in_addr()
+        var ipv6Addr = in6_addr()
+
+        return self.withCString { ptr in
+            inet_pton(AF_INET, ptr, &ipv4Addr) == 1 ||
+                inet_pton(AF_INET6, ptr, &ipv6Addr) == 1
+        }
+    }
+}
 
 public final class WebSocketClient {
     public enum Error: Swift.Error, LocalizedError {
@@ -44,11 +59,64 @@ public final class WebSocketClient {
         case .shared(let group):
             self.group = group
         case .createNew:
-            self.group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+            #if canImport(Network)
+                if #available(OSX 10.14, iOS 12.0, tvOS 12.0, watchOS 6.0, *) {
+                    self.group = NIOTSEventLoopGroup()
+                } else {
+                    self.group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+                }
+            #else
+                self.group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+            #endif
         }
         self.configuration = configuration
     }
 
+    
+    fileprivate static func makeBootstrap(
+        on eventLoop: EventLoopGroup,
+        host: String,
+        requiresTLS: Bool,
+        configuration: Configuration
+    ) throws -> NIOClientTCPBootstrap {
+        var bootstrap: NIOClientTCPBootstrap
+        #if canImport(Network)
+            // if eventLoop is compatible with NIOTransportServices create a NIOTSConnectionBootstrap
+            if #available(OSX 10.14, iOS 12.0, tvOS 12.0, watchOS 6.0, *), let tsBootstrap = NIOTSConnectionBootstrap(validatingGroup: eventLoop) {
+                // if there is a proxy don't create TLS provider as it will be added at a later point
+                // create NIOClientTCPBootstrap with NIOTS TLS provider
+                let tlsConfiguration = configuration.tlsConfiguration ?? TLSConfiguration.forClient()
+                let parameters = tlsConfiguration.getNWProtocolTLSOptions()
+                let tlsProvider = NIOTSClientTLSProvider(tlsOptions: parameters)
+                bootstrap = NIOClientTCPBootstrap(tsBootstrap, tls: tlsProvider)
+            } else if let clientBootstrap = ClientBootstrap(validatingGroup: eventLoop) {
+                let tlsConfiguration = configuration.tlsConfiguration ?? TLSConfiguration.forClient()
+                let sslContext = try NIOSSLContext(configuration: tlsConfiguration)
+                let hostname = (!requiresTLS || host.isIPAddress || host.isEmpty) ? nil : host
+                let tlsProvider = try NIOSSLClientTLSProvider<ClientBootstrap>(context: sslContext, serverHostname: hostname)
+                bootstrap = NIOClientTCPBootstrap(clientBootstrap, tls: tlsProvider)
+            } else {
+                preconditionFailure("Cannot create bootstrap for the supplied EventLoop")
+            }
+        #else
+            if let clientBootstrap = ClientBootstrap(validatingGroup: eventLoop) {
+                let tlsConfiguration = configuration.tlsConfiguration ?? TLSConfiguration.forClient()
+                let sslContext = try NIOSSLContext(configuration: tlsConfiguration)
+                let hostname = (!requiresTLS || host.isIPAddress || host.isEmpty) ? nil : host
+                let tlsProvider = try NIOSSLClientTLSProvider<ClientBootstrap>(context: sslContext, serverHostname: hostname)
+                bootstrap = NIOClientTCPBootstrap(clientBootstrap, tls: tlsProvider)
+            } else {
+                preconditionFailure("Cannot create bootstrap for the supplied EventLoop")
+            }
+        #endif
+
+        if requiresTLS {
+            return bootstrap.enableTLS()
+        }
+
+        return bootstrap
+    }
+    
     public func connect(
         scheme: String,
         host: String,
@@ -59,7 +127,13 @@ public final class WebSocketClient {
     ) -> EventLoopFuture<Void> {
         assert(["ws", "wss"].contains(scheme))
         let upgradePromise = self.group.next().makePromise(of: Void.self)
-        let bootstrap = ClientBootstrap(group: self.group)
+        
+        let bootstrap = try! Self.makeBootstrap(
+            on: self.group,
+            host: host,
+            requiresTLS: scheme == "wss",
+            configuration: self.configuration
+        )
             .channelOption(ChannelOptions.socket(SocketOptionLevel(IPPROTO_TCP), TCP_NODELAY), value: 1)
             .channelInitializer { channel in
                 let httpHandler = HTTPInitialRequestHandler(
@@ -90,27 +164,11 @@ public final class WebSocketClient {
                     }
                 )
 
-                if scheme == "wss" {
-                    do {
-                        let context = try NIOSSLContext(
-                            configuration: self.configuration.tlsConfiguration ?? .forClient()
-                        )
-                        let tlsHandler = try NIOSSLClientHandler(context: context, serverHostname: host)
-                        return channel.pipeline.addHandler(tlsHandler).flatMap {
-                            channel.pipeline.addHTTPClientHandlers(leftOverBytesStrategy: .forwardBytes, withClientUpgrade: config)
-                        }.flatMap {
-                            channel.pipeline.addHandler(httpHandler)
-                        }
-                    } catch {
-                        return channel.pipeline.close(mode: .all)
-                    }
-                } else {
-                    return channel.pipeline.addHTTPClientHandlers(
-                        leftOverBytesStrategy: .forwardBytes,
-                        withClientUpgrade: config
-                    ).flatMap {
-                        channel.pipeline.addHandler(httpHandler)
-                    }
+                return channel.pipeline.addHTTPClientHandlers(
+                    leftOverBytesStrategy: .forwardBytes,
+                    withClientUpgrade: config
+                ).flatMap {
+                    channel.pipeline.addHandler(httpHandler)
                 }
             }
 
