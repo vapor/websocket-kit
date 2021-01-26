@@ -123,7 +123,8 @@ public final class WebSocketClient {
         port: Int,
         path: String = "/",
         headers: HTTPHeaders = [:],
-        onUpgrade: @escaping (WebSocket, HTTPResponseHead) -> ()
+        onUpgrade: @escaping (WebSocket, HTTPResponseHead) -> (),
+        onRequest: @escaping (HTTPRequestHead) -> () = {_ in }
     ) -> EventLoopFuture<Void> {
         assert(["ws", "wss"].contains(scheme))
         let upgradePromise = self.group.next().makePromise(of: Void.self)
@@ -168,7 +169,12 @@ public final class WebSocketClient {
 
                 return channel.pipeline.addHTTPClientHandlers(
                     leftOverBytesStrategy: .forwardBytes,
-                    withClientUpgrade: config
+                    withServerUpgrade: config,
+                    withExtraHandlers: [
+                        HTTPChannelIntercepter(writeInterceptHandler: { (head) in
+                            onRequest(head)
+                        })
+                    ]
                 ).flatMap {
                     channel.pipeline.addHandler(httpHandler)
                 }

@@ -19,6 +19,21 @@ extension WebSocket {
             onUpgrade: onUpgrade
         )
     }
+    
+    public static func connect(
+        to url: String,
+        headers: HTTPHeaders = [:],
+        configuration: WebSocketClient.Configuration = .init(),
+        on eventLoopGroup: EventLoopGroup,
+        onUpgrade: @escaping (WebSocket) -> ()
+    ) -> EventLoopFuture<Void> {
+        return self.connect(
+            to: url,
+            headers: headers,
+            configuration: configuration,
+            on: eventLoopGroup
+        ) { (ws, _ ) in onUpgrade(ws) }
+    }
 
     public static func connect(
         to url: URL,
@@ -38,6 +53,21 @@ extension WebSocket {
             on: eventLoopGroup,
             onUpgrade: onUpgrade
         )
+    }
+    
+    public static func connect(
+        to url: URL,
+        headers: HTTPHeaders = [:],
+        configuration: WebSocketClient.Configuration = .init(),
+        on eventLoopGroup: EventLoopGroup,
+        onUpgrade: @escaping (WebSocket) -> ()
+    ) -> EventLoopFuture<Void> {
+        return self.connect(
+            to: url,
+            headers: headers,
+            configuration: configuration,
+            on: eventLoopGroup
+        ) { (ws, _) in onUpgrade(ws) }
     }
 
     public static func connect(
@@ -61,5 +91,26 @@ extension WebSocket {
             headers: headers,
             onUpgrade: onUpgrade
         )
+    }
+    
+    public static func connect(
+        scheme: String = "ws",
+        host: String,
+        port: Int = 80,
+        path: String = "/",
+        headers: HTTPHeaders = [:],
+        configuration: WebSocketClient.Configuration = .init(),
+        on eventLoopGroup: EventLoopGroup,
+        onUpgrade: @escaping (WebSocket) -> ()
+    ) -> EventLoopFuture<Void> {
+        return self.connect(
+            scheme: scheme,
+            host: host,
+            port: port,
+            path: path,
+            headers: headers,
+            configuration: configuration,
+            on: eventLoopGroup
+        ) { (ws, _) in onUpgrade(ws) }
     }
 }
