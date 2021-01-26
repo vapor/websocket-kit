@@ -1,10 +1,12 @@
+import NIOHTTP1
+
 extension WebSocket {
     public static func connect(
         to url: String,
         headers: HTTPHeaders = [:],
         configuration: WebSocketClient.Configuration = .init(),
         on eventLoopGroup: EventLoopGroup,
-        onUpgrade: @escaping (WebSocket) -> ()
+        onUpgrade: @escaping (WebSocket, HTTPResponseHead) -> ()
     ) -> EventLoopFuture<Void> {
         guard let url = URL(string: url) else {
             return eventLoopGroup.next().makeFailedFuture(WebSocketClient.Error.invalidURL)
@@ -23,7 +25,7 @@ extension WebSocket {
         headers: HTTPHeaders = [:],
         configuration: WebSocketClient.Configuration = .init(),
         on eventLoopGroup: EventLoopGroup,
-        onUpgrade: @escaping (WebSocket) -> ()
+        onUpgrade: @escaping (WebSocket, HTTPResponseHead) -> ()
     ) -> EventLoopFuture<Void> {
         let scheme = url.scheme ?? "ws"
         return self.connect(
@@ -46,7 +48,7 @@ extension WebSocket {
         headers: HTTPHeaders = [:],
         configuration: WebSocketClient.Configuration = .init(),
         on eventLoopGroup: EventLoopGroup,
-        onUpgrade: @escaping (WebSocket) -> ()
+        onUpgrade: @escaping (WebSocket, HTTPResponseHead) -> ()
     ) -> EventLoopFuture<Void> {
         return WebSocketClient(
             eventLoopGroupProvider: .shared(eventLoopGroup),

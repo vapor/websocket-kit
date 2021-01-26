@@ -123,7 +123,7 @@ public final class WebSocketClient {
         port: Int,
         path: String = "/",
         headers: HTTPHeaders = [:],
-        onUpgrade: @escaping (WebSocket) -> ()
+        onUpgrade: @escaping (WebSocket, HTTPResponseHead) -> ()
     ) -> EventLoopFuture<Void> {
         assert(["ws", "wss"].contains(scheme))
         let upgradePromise = self.group.next().makePromise(of: Void.self)
@@ -152,7 +152,9 @@ public final class WebSocketClient {
                     maxFrameSize: self.configuration.maxFrameSize,
                     automaticErrorHandling: true,
                     upgradePipelineHandler: { channel, req in
-                        return WebSocket.client(on: channel, onUpgrade: onUpgrade)
+                        return WebSocket.client(on: channel) { ws in
+                            onUpgrade(ws, req)
+                        }
                     }
                 )
 
