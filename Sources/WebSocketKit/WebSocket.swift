@@ -179,7 +179,7 @@ public final class WebSocket {
         case .connectionClose:
             if self.waitingForClose {
                 // peer confirmed close, time to close channel
-                self.channel.close(mode: .output, promise: nil)
+                self.channel.close(mode: .all, promise: nil)
             } else {
                 // peer asking for close, confirm and close output side channel
                 let promise = self.eventLoop.makePromise(of: Void.self)
@@ -193,7 +193,7 @@ public final class WebSocket {
                     promise: promise
                 )
                 promise.futureResult.whenComplete { _ in
-                    self.channel.close(mode: .output, promise: nil)
+                    self.channel.close(mode: .all, promise: nil)
                 }
             }
         case .ping:
