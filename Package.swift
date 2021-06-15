@@ -22,11 +22,6 @@ let package = Package(
             .product(name: "NIOSSL", package: "swift-nio-ssl"),
             .product(name: "NIOWebSocket", package: "swift-nio"),
             .product(name: "_NIOConcurrency", package: "swift-nio"),
-        ], swiftSettings: [
-            .unsafeFlags([
-                "-Xfrontend", "-enable-experimental-concurrency",
-                "-Xfrontend", "-disable-availability-checking",
-            ])
         ]),
         .testTarget(name: "WebSocketKitTests", dependencies: [
             .target(name: "WebSocketKit"),
