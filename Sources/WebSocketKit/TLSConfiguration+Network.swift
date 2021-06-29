@@ -13,7 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if canImport(Network)
+#if canImport(Network) && swift(>=5.3)
 
     import Foundation
     import Network

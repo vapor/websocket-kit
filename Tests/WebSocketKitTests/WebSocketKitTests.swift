@@ -2,7 +2,7 @@ import XCTest
 import NIO
 import NIOHTTP1
 import NIOWebSocket
-#if canImport(Network)
+#if canImport(Network) && swift(>=5.3)
 import NIOTransportServices
 #endif
 @testable import WebSocketKit
@@ -229,7 +229,7 @@ final class WebSocketKitTests: XCTestCase {
         // needs to be at least two to avoid client / server on same EL timing issues
         self.elg = MultiThreadedEventLoopGroup(numberOfThreads: 2)
         
-        #if canImport(Network)
+        #if canImport(Network) && swift(>=5.3)
             if #available(OSX 10.14, iOS 12.0, tvOS 12.0, watchOS 6.0, *) {
                 self.remoteEventGroup = NIOTSEventLoopGroup()
             } else {
@@ -242,7 +242,7 @@ final class WebSocketKitTests: XCTestCase {
     
     override func tearDown() {
         try! self.elg.syncShutdownGracefully()
-        #if canImport(Network)
+        #if canImport(Network) && swift(>=5.3)
             if #available(OSX 10.14, iOS 12.0, tvOS 12.0, watchOS 6.0, *) {
                 try! self.remoteEventGroup.syncShutdownGracefully()
             }

@@ -4,7 +4,7 @@ import NIOConcurrencyHelpers
 import NIOHTTP1
 import NIOWebSocket
 import NIOSSL
-#if canImport(Network)
+#if canImport(Network) && swift(>=5.3)
 import NIOTransportServices
 #endif
 
@@ -59,7 +59,7 @@ public final class WebSocketClient {
         case .shared(let group):
             self.group = group
         case .createNew:
-            #if canImport(Network)
+            #if canImport(Network) && swift(>=5.3)
                 if #available(OSX 10.14, iOS 12.0, tvOS 12.0, watchOS 6.0, *) {
                     self.group = NIOTSEventLoopGroup()
                 } else {
@@ -80,7 +80,7 @@ public final class WebSocketClient {
         configuration: Configuration
     ) throws -> NIOClientTCPBootstrap {
         var bootstrap: NIOClientTCPBootstrap
-        #if canImport(Network)
+        #if canImport(Network) && swift(>=5.3)
             // if eventLoop is compatible with NIOTransportServices create a NIOTSConnectionBootstrap
             if #available(OSX 10.14, iOS 12.0, tvOS 12.0, watchOS 6.0, *), let tsBootstrap = NIOTSConnectionBootstrap(validatingGroup: eventLoop) {
                 // if there is a proxy don't create TLS provider as it will be added at a later point
