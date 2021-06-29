@@ -1,10 +1,12 @@
+import NIOHTTP1
+
 extension WebSocket {
     public static func connect(
         to url: String,
         headers: HTTPHeaders = [:],
         configuration: WebSocketClient.Configuration = .init(),
         on eventLoopGroup: EventLoopGroup,
-        onUpgrade: @escaping (WebSocket) -> ()
+        onUpgrade: @escaping (WebSocket, HTTPResponseHead) -> ()
     ) -> EventLoopFuture<Void> {
         guard let url = URL(string: url) else {
             return eventLoopGroup.next().makeFailedFuture(WebSocketClient.Error.invalidURL)
@@ -17,13 +19,28 @@ extension WebSocket {
             onUpgrade: onUpgrade
         )
     }
+    
+    public static func connect(
+        to url: String,
+        headers: HTTPHeaders = [:],
+        configuration: WebSocketClient.Configuration = .init(),
+        on eventLoopGroup: EventLoopGroup,
+        onUpgrade: @escaping (WebSocket) -> ()
+    ) -> EventLoopFuture<Void> {
+        return self.connect(
+            to: url,
+            headers: headers,
+            configuration: configuration,
+            on: eventLoopGroup
+        ) { (ws, _ ) in onUpgrade(ws) }
+    }
 
     public static func connect(
         to url: URL,
         headers: HTTPHeaders = [:],
         configuration: WebSocketClient.Configuration = .init(),
         on eventLoopGroup: EventLoopGroup,
-        onUpgrade: @escaping (WebSocket) -> ()
+        onUpgrade: @escaping (WebSocket, HTTPResponseHead) -> ()
     ) -> EventLoopFuture<Void> {
         let scheme = url.scheme ?? "ws"
         return self.connect(
@@ -37,6 +54,21 @@ extension WebSocket {
             onUpgrade: onUpgrade
         )
     }
+    
+    public static func connect(
+        to url: URL,
+        headers: HTTPHeaders = [:],
+        configuration: WebSocketClient.Configuration = .init(),
+        on eventLoopGroup: EventLoopGroup,
+        onUpgrade: @escaping (WebSocket) -> ()
+    ) -> EventLoopFuture<Void> {
+        return self.connect(
+            to: url,
+            headers: headers,
+            configuration: configuration,
+            on: eventLoopGroup
+        ) { (ws, _) in onUpgrade(ws) }
+    }
 
     public static func connect(
         scheme: String = "ws",
@@ -46,7 +78,7 @@ extension WebSocket {
         headers: HTTPHeaders = [:],
         configuration: WebSocketClient.Configuration = .init(),
         on eventLoopGroup: EventLoopGroup,
-        onUpgrade: @escaping (WebSocket) -> ()
+        onUpgrade: @escaping (WebSocket, HTTPResponseHead) -> ()
     ) -> EventLoopFuture<Void> {
         return WebSocketClient(
             eventLoopGroupProvider: .shared(eventLoopGroup),
@@ -59,5 +91,26 @@ extension WebSocket {
             headers: headers,
             onUpgrade: onUpgrade
         )
+    }
+    
+    public static func connect(
+        scheme: String = "ws",
+        host: String,
+        port: Int = 80,
+        path: String = "/",
+        headers: HTTPHeaders = [:],
+        configuration: WebSocketClient.Configuration = .init(),
+        on eventLoopGroup: EventLoopGroup,
+        onUpgrade: @escaping (WebSocket) -> ()
+    ) -> EventLoopFuture<Void> {
+        return self.connect(
+            scheme: scheme,
+            host: host,
+            port: port,
+            path: path,
+            headers: headers,
+            configuration: configuration,
+            on: eventLoopGroup
+        ) { (ws, _) in onUpgrade(ws) }
     }
 }

@@ -2,13 +2,17 @@ import XCTest
 import NIO
 import NIOHTTP1
 import NIOWebSocket
+#if canImport(Network) && swift(>=5.3)
+import NIOTransportServices
+#endif
 @testable import WebSocketKit
 
 final class WebSocketKitTests: XCTestCase {
+    
     func testWebSocketEcho() throws {
-        let promise = elg.next().makePromise(of: String.self)
-        let closePromise = elg.next().makePromise(of: Void.self)
-        WebSocket.connect(to: "ws://echo.websocket.org", on: elg) { ws in
+        let promise = self.remoteEventGroup.next().makePromise(of: String.self)
+        let closePromise = self.remoteEventGroup.next().makePromise(of: Void.self)
+        WebSocket.connect(to: "ws://echo.websocket.org", on: self.remoteEventGroup) { ws in
             ws.send("hello")
             ws.onText { ws, string in
                 promise.succeed(string)
@@ -17,11 +21,12 @@ final class WebSocketKitTests: XCTestCase {
         }.cascadeFailure(to: promise)
         try XCTAssertEqual(promise.futureResult.wait(), "hello")
         XCTAssertNoThrow(try closePromise.futureResult.wait())
+        
     }
     
     func testWebSocketWithTLSEcho() throws {
-        let promise = elg.next().makePromise(of: String.self)
-        WebSocket.connect(to: "wss://echo.websocket.org", on: elg) { ws in
+        let promise = self.remoteEventGroup.next().makePromise(of: String.self)
+        WebSocket.connect(to: "wss://echo.websocket.org", on: self.remoteEventGroup) { ws in
             ws.send("hello")
             ws.onText { ws, string in
                 promise.succeed(string)
@@ -32,7 +37,12 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     func testBadHost() throws {
-        XCTAssertThrowsError(try WebSocket.connect(host: "asdf", on: elg) { _  in }.wait())
+        XCTAssertThrowsError(
+            try WebSocket.connect(
+                host: "asdf",
+                on: self.remoteEventGroup
+            ) { _  in }.wait()
+        )
     }
 
     func testServerClose() throws {
@@ -214,12 +224,29 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     var elg: EventLoopGroup!
+    var remoteEventGroup: EventLoopGroup!
     override func setUp() {
         // needs to be at least two to avoid client / server on same EL timing issues
         self.elg = MultiThreadedEventLoopGroup(numberOfThreads: 2)
+        
+        #if canImport(Network) && swift(>=5.3)
+            if #available(OSX 10.14, iOS 12.0, tvOS 12.0, watchOS 6.0, *) {
+                self.remoteEventGroup = NIOTSEventLoopGroup()
+            } else {
+                self.remoteEventGroup = self.elg
+            }
+        #else
+            self.remoteEventGroup = self.elg
+        #endif
     }
+    
     override func tearDown() {
         try! self.elg.syncShutdownGracefully()
+        #if canImport(Network) && swift(>=5.3)
+            if #available(OSX 10.14, iOS 12.0, tvOS 12.0, watchOS 6.0, *) {
+                try! self.remoteEventGroup.syncShutdownGracefully()
+            }
+        #endif
     }
 }
 
