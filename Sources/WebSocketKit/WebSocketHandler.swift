@@ -4,24 +4,42 @@ import NIOWebSocket
 extension WebSocket {
     public static func client(
         on channel: Channel,
+        outboundMaxFrameSize: WebSocketMaxFrameSize = .default,
         onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
-        return self.handle(on: channel, as: .client, onUpgrade: onUpgrade)
+        return self.handle(
+            on: channel,
+            as: .client,
+            outboundMaxFrameSize: outboundMaxFrameSize,
+            onUpgrade: onUpgrade
+        )
     }
 
     public static func server(
         on channel: Channel,
+        outboundMaxFrameSize: WebSocketMaxFrameSize = .default,
         onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
-        return self.handle(on: channel, as: .server, onUpgrade: onUpgrade)
+        return self.handle(
+            on: channel,
+            as: .server,
+            outboundMaxFrameSize: outboundMaxFrameSize,
+            onUpgrade: onUpgrade
+        )
     }
 
     private static func handle(
         on channel: Channel,
         as type: PeerType,
+        outboundMaxFrameSize: WebSocketMaxFrameSize = .default,
         onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
-        let webSocket = WebSocket(channel: channel, type: type)
+        let webSocket = WebSocket(
+            channel: channel,
+            type: type,
+            outboundMaxFrameSize: outboundMaxFrameSize
+        )
+        
         return channel.pipeline.addHandler(WebSocketHandler(webSocket: webSocket)).map { _ in
             onUpgrade(webSocket)
         }

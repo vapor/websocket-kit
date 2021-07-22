@@ -34,6 +34,33 @@ final class WebSocketKitTests: XCTestCase {
     func testBadHost() throws {
         XCTAssertThrowsError(try WebSocket.connect(host: "asdf", on: elg) { _  in }.wait())
     }
+    
+    
+    func testLargeTextFrame() throws {
+        let port = Int.random(in: 8000..<9000)
+
+        let sendPromise = self.elg.next().makePromise(of: Void.self)
+        let serverClose = self.elg.next().makePromise(of: Void.self)
+        let clientClose = self.elg.next().makePromise(of: Void.self)
+        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+            ws.onText { ws, text in
+                if text == "close" {
+                    ws.close(promise: serverClose)
+                }
+            }
+        }.bind(host: "localhost", port: port).wait()
+        let config = WebSocketClient.Configuration(tlsConfiguration: nil, maxFrameSize: 2)
+        WebSocket.connect(to: "ws://localhost:\(port)", configuration: config, on: self.elg) { ws in
+            ws.send("close", promise: sendPromise)
+            ws.onClose.cascade(to: clientClose)
+        }.cascadeFailure(to: sendPromise)
+
+        XCTAssertNoThrow(try sendPromise.futureResult.wait())
+        XCTAssertNoThrow(try serverClose.futureResult.wait())
+        XCTAssertNoThrow(try clientClose.futureResult.wait())
+        try server.close(mode: .all).wait()
+    }
+    
 
     func testServerClose() throws {
         let port = Int.random(in: 8000..<9000)

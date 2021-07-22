@@ -34,8 +34,13 @@ public final class WebSocket {
     private var waitingForPong: Bool
     private var waitingForClose: Bool
     private var scheduledTimeoutTask: Scheduled<Void>?
-
-    init(channel: Channel, type: PeerType) {
+    private var outboundMaxFrameSize: WebSocketMaxFrameSize
+    
+    init(
+        channel: Channel,
+        type: PeerType,
+        outboundMaxFrameSize: WebSocketMaxFrameSize = .default
+    ) {
         self.channel = channel
         self.type = type
         self.onTextCallback = { _, _ in }
@@ -45,6 +50,7 @@ public final class WebSocket {
         self.waitingForPong = false
         self.waitingForClose = false
         self.scheduledTimeoutTask = nil
+        self.outboundMaxFrameSize = outboundMaxFrameSize
     }
 
     public func onText(_ callback: @escaping (WebSocket, String) -> ()) {
@@ -88,12 +94,78 @@ public final class WebSocket {
         let string = String(text)
         var buffer = channel.allocator.buffer(capacity: text.count)
         buffer.writeString(string)
-        self.send(raw: buffer.readableBytesView, opcode: .text, fin: true, promise: promise)
 
+        self.send(buffer: buffer, opcode: .text, promise: promise)
     }
 
     public func send(_ binary: [UInt8], promise: EventLoopPromise<Void>? = nil) {
-        self.send(raw: binary, opcode: .binary, fin: true, promise: promise)
+        var buffer = channel.allocator.buffer(capacity: binary.count)
+        buffer.writeBytes(binary)
+        self.send(buffer: buffer, opcode: .binary, promise: promise)
+    }
+    
+    public func send(
+        buffer: NIO.ByteBuffer,
+        opcode: WebSocketOpcode,
+        promise: EventLoopPromise<Void>? = nil
+    ) {
+        
+        guard buffer.readableBytes > self.outboundMaxFrameSize.value else {
+            let frame = WebSocketFrame(
+                fin: true,
+                opcode: opcode,
+                maskKey: self.makeMaskKey(),
+                data: buffer
+            )
+            self.channel.writeAndFlush(frame, promise: promise)
+            return
+        }
+        
+        var buffer = buffer
+                
+        // We need to ensure we write all of these items in order on the event loop without other writes interrupting the frames.
+        self.channel.eventLoop.execute {
+            // Send the first frame with the opcode
+            let frameBuffer = buffer.readSlice(length: self.outboundMaxFrameSize.value)!
+            let frame = WebSocketFrame(
+                fin: false,
+                opcode: opcode,
+                maskKey: self.makeMaskKey(),
+                data: frameBuffer
+            )
+            
+            self.channel.write(frame, promise: nil)
+            
+            
+            while let frameBuffer = buffer.readSlice(length: self.outboundMaxFrameSize.value) {
+
+                let isFinalFrame = buffer.readableBytes == 0
+                
+                let frame = WebSocketFrame(
+                    fin: isFinalFrame,
+                    opcode: .continuation,
+                    maskKey: self.makeMaskKey(),
+                    data: frameBuffer
+                )
+                
+                if isFinalFrame {
+                    self.channel.writeAndFlush(frame, promise: promise)
+                    return
+                } else {
+                    // write operations that happen when already on the event loop go directly through without any `delay`.
+                    self.channel.write(frame, promise: nil)
+                }
+            }
+            // we will end up here if the number bytes is not a multiple of the `outboundMaxFrameSize`
+            let finalFrame = WebSocketFrame(
+                fin: true,
+                opcode: .continuation,
+                maskKey: self.makeMaskKey(),
+                data: buffer
+            )
+            
+            self.channel.writeAndFlush(finalFrame, promise: promise)
+        }
     }
 
     public func sendPing(promise: EventLoopPromise<Void>? = nil) {
@@ -115,6 +187,7 @@ public final class WebSocket {
     {
         var buffer = channel.allocator.buffer(capacity: data.count)
         buffer.writeBytes(data)
+        
         let frame = WebSocketFrame(
             fin: fin,
             opcode: opcode,
@@ -213,16 +286,16 @@ public final class WebSocket {
                 self.close(code: .protocolError, promise: nil)
             }
         case .text, .binary, .pong:
-            // create a new frame sequence or use existing
-            var frameSequence: WebSocketFrameSequence
-            if let existing = self.frameSequence {
-                frameSequence = existing
+            if self.frameSequence != nil {
+                // we should not have an existing sequence
+                self.close(code: .protocolError, promise: nil)
             } else {
-                frameSequence = WebSocketFrameSequence(type: frame.opcode)
+                // Create a new frame sequence
+                var frameSequence = WebSocketFrameSequence(type: frame.opcode)
+                // Append this frame and update the sequence
+                frameSequence.append(frame)
+                self.frameSequence = frameSequence
             }
-            // append this frame and update the sequence
-            frameSequence.append(frame)
-            self.frameSequence = frameSequence
         case .continuation:
             // we must have an existing sequence
             if var frameSequence = self.frameSequence {
