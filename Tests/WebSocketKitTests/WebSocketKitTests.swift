@@ -36,7 +36,7 @@ final class WebSocketKitTests: XCTestCase {
     }
     
     
-    func testLargeTextFrame() throws {
+    func testMutliFrameMessage() throws {
         let port = Int.random(in: 8000..<9000)
 
         let sendPromise = self.elg.next().makePromise(of: Void.self)
@@ -58,6 +58,84 @@ final class WebSocketKitTests: XCTestCase {
         XCTAssertNoThrow(try sendPromise.futureResult.wait())
         XCTAssertNoThrow(try serverClose.futureResult.wait())
         XCTAssertNoThrow(try clientClose.futureResult.wait())
+        try server.close(mode: .all).wait()
+    }
+    
+    func testMultiFrameMessageOrdering() throws {
+        let port = Int.random(in: 8000..<9000)
+
+        // Sending from client to server
+        let sendMultiFrameMessagePromise = self.elg.next().makePromise(of: Void.self)
+        let sendSingleFrameMessagePromise = self.elg.next().makePromise(of: Void.self)
+        
+        // received on server
+        let receivedMultiFrameMessagePromise = self.elg.next().makePromise(of: Void.self)
+        let receivedSingleFrameMessagePromise = self.elg.next().makePromise(of: Void.self)
+        
+        // received echo on client
+        let receivedMultiFrameMessageEchoPromise = self.elg.next().makePromise(of: Void.self)
+        let receivedSingleFrameMessageEchoPromise = self.elg.next().makePromise(of: Void.self)
+
+        
+        let clientClose = self.elg.next().makePromise(of: Void.self)
+        let serverClose = self.elg.next().makePromise(of: Void.self)
+        
+        let maxFrameSize: WebSocketMaxFrameSize = 13
+
+        let server = try ServerBootstrap.webSocket(
+            on: self.elg,
+            outboundMaxFrameSize: maxFrameSize,
+            inboundMaxFrameSize: maxFrameSize
+        ) { req, ws in
+            ws.onClose.cascade(to: serverClose)
+            
+            ws.onText { ws, text in
+                receivedSingleFrameMessagePromise.succeed(())
+                ws.send(text, promise: nil)
+            }
+            
+            ws.onBinary { ws, buffer in
+                receivedMultiFrameMessagePromise.succeed(())
+                ws.send(buffer: buffer, opcode: .binary, promise: nil)
+            }
+        }.bind(host: "localhost", port: port).wait()
+        
+        let config = WebSocketClient.Configuration(tlsConfiguration: nil, maxFrameSize: maxFrameSize)
+        
+        WebSocket.connect(to: "ws://localhost:\(port)", configuration: config, on: self.elg) { ws in
+            ws.onBinary { ws, buffer in
+                XCTAssertEqual(buffer.readableBytes, 10000)
+                receivedMultiFrameMessageEchoPromise.succeed(())
+            }
+            
+            ws.onText { ws, str in
+                XCTAssertEqual(str, "singleFrame")
+                receivedSingleFrameMessageEchoPromise.succeed(())
+            }
+                        
+            ws.send(buffer: ByteBuffer(repeating: 1, count: 10000), opcode: .binary, promise: sendMultiFrameMessagePromise)
+
+            sendMultiFrameMessagePromise.futureResult.whenSuccess { _ in
+                ws.send("singleFrame", promise: sendSingleFrameMessagePromise)
+            }
+            
+            // Send close after Multi frame response has arrived.
+            receivedMultiFrameMessageEchoPromise.futureResult.whenComplete { _ in
+                ws.close(promise: clientClose)
+            }
+        }.cascadeFailure(to: clientClose)
+        
+        XCTAssertNoThrow(try sendMultiFrameMessagePromise.futureResult.wait())
+        XCTAssertNoThrow(try sendSingleFrameMessagePromise.futureResult.wait())
+
+        XCTAssertNoThrow(try receivedMultiFrameMessagePromise.futureResult.wait())
+        XCTAssertNoThrow(try receivedSingleFrameMessagePromise.futureResult.wait())
+        
+        XCTAssertNoThrow(try receivedMultiFrameMessageEchoPromise.futureResult.wait())
+        XCTAssertNoThrow(try receivedSingleFrameMessageEchoPromise.futureResult.wait())
+        
+        XCTAssertNoThrow(try clientClose.futureResult.wait())
+
         try server.close(mode: .all).wait()
     }
     
@@ -253,15 +331,19 @@ final class WebSocketKitTests: XCTestCase {
 extension ServerBootstrap {
     static func webSocket(
         on eventLoopGroup: EventLoopGroup,
+        outboundMaxFrameSize: WebSocketMaxFrameSize = .default,
+        inboundMaxFrameSize: WebSocketMaxFrameSize = .default,
         onUpgrade: @escaping (HTTPRequestHead, WebSocket) -> ()
+        
     ) -> ServerBootstrap {
         ServerBootstrap(group: eventLoopGroup).childChannelInitializer { channel in
             let webSocket = NIOWebSocketServerUpgrader(
+                maxFrameSize: inboundMaxFrameSize.value,
                 shouldUpgrade: { channel, req in
                     return channel.eventLoop.makeSucceededFuture([:])
                 },
                 upgradePipelineHandler: { channel, req in
-                    return WebSocket.server(on: channel) { ws in
+                    return WebSocket.server(on: channel, outboundMaxFrameSize: outboundMaxFrameSize) { ws in
                         onUpgrade(req, ws)
                     }
                 }
