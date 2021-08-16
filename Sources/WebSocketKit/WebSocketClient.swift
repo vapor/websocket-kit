@@ -93,7 +93,7 @@ public final class WebSocketClient {
                 if scheme == "wss" {
                     do {
                         let context = try NIOSSLContext(
-                            configuration: self.configuration.tlsConfiguration ?? .forClient()
+                            configuration: self.configuration.tlsConfiguration ?? .makeClientConfiguration()
                         )
                         let tlsHandler = try NIOSSLClientHandler(context: context, serverHostname: host)
                         return channel.pipeline.addHandler(tlsHandler).flatMap {
