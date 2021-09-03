@@ -54,6 +54,7 @@ public final class WebSocketClient {
         host: String,
         port: Int,
         path: String = "/",
+        query: String? = nil,
         headers: HTTPHeaders = [:],
         onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
@@ -65,6 +66,7 @@ public final class WebSocketClient {
                 let httpHandler = HTTPInitialRequestHandler(
                     host: host,
                     path: path,
+                    query: query,
                     headers: headers,
                     upgradePromise: upgradePromise
                 )
