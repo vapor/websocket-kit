@@ -194,6 +194,29 @@ final class WebSocketKitTests: XCTestCase {
         try XCTAssertEqual(promise.futureResult.wait(), "supersecretsauce")
         try server.close(mode: .all).wait()
     }
+    
+    func testQueryParamsAreSent() throws {
+        let promise = self.elg.next().makePromise(of: String.self)
+
+        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+            promise.succeed(req.uri)
+            ws.close(promise: nil)
+        }.bind(host: "localhost", port: 0).wait()
+
+        guard let port = server.localAddress?.port else {
+            XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
+            return
+        }
+
+        WebSocket.connect(
+            to: "ws://localhost:\(port)?foo=bar&bar=baz",
+            on: self.elg) { ws in
+                _ = ws.close()
+        }.cascadeFailure(to: promise)
+
+        try XCTAssertEqual(promise.futureResult.wait(), "/?foo=bar&bar=baz")
+        try server.close(mode: .all).wait()
+    }
 
     func testLocally() throws {
         // swap to test websocket server against local client
