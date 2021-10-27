@@ -54,6 +54,7 @@ public final class WebSocketClient {
         host: String,
         port: Int,
         path: String = "/",
+        query: String? = nil,
         headers: HTTPHeaders = [:],
         onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
@@ -65,6 +66,7 @@ public final class WebSocketClient {
                 let httpHandler = HTTPInitialRequestHandler(
                     host: host,
                     path: path,
+                    query: query,
                     headers: headers,
                     upgradePromise: upgradePromise
                 )
@@ -93,7 +95,7 @@ public final class WebSocketClient {
                 if scheme == "wss" {
                     do {
                         let context = try NIOSSLContext(
-                            configuration: self.configuration.tlsConfiguration ?? .forClient()
+                            configuration: self.configuration.tlsConfiguration ?? .makeClientConfiguration()
                         )
                         let tlsHandler = try NIOSSLClientHandler(context: context, serverHostname: host)
                         return channel.pipeline.addHandler(tlsHandler).flatMap {
