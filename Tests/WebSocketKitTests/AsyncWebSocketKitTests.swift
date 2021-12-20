@@ -1,5 +1,4 @@
 #if compiler(>=5.5) && canImport(_Concurrency)
-#if !os(Linux)
 import XCTest
 import NIO
 import NIOHTTP1
@@ -53,5 +52,4 @@ final class AsyncWebSocketKitTests: XCTestCase {
     }
 }
 
-#endif
 #endif
