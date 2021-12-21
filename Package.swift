@@ -10,12 +10,13 @@ let package = Package(
         .library(name: "WebSocketKit", targets: ["WebSocketKit"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.11.1"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.33.0"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.14.0"),
     ],
     targets: [
         .target(name: "WebSocketKit", dependencies: [
             .product(name: "NIO", package: "swift-nio"),
+            .product(name: "NIOCore", package: "swift-nio"),
             .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
             .product(name: "NIOFoundationCompat", package: "swift-nio"),
             .product(name: "NIOHTTP1", package: "swift-nio"),
