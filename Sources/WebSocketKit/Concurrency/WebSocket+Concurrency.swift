@@ -19,6 +19,12 @@ extension WebSocket {
         return try await promise.futureResult.get()
     }
 
+    public func send<T>(_ data: T, type: WebSocketSendType = .text) async throws where T: Codable {
+        let promise = eventLoop.makePromise(of: Void.self)
+        send(data, type: type, promise: promise)
+        return try await promise.futureResult.get()
+    }
+
     public func sendPing() async throws {
         let promise = eventLoop.makePromise(of: Void.self)
         sendPing(promise: promise)

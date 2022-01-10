@@ -42,6 +42,50 @@ final class AsyncWebSocketKitTests: XCTestCase {
         try await server.close(mode: .all)
     }
 
+    func testWebSocketSendCodable() async throws {
+        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+            ws.onEvent("hello", User.self) { ws, user in
+                ws.send("Hello \(user.firstName) \(user.lastName)")
+            }
+        }.bind(host: "localhost", port: 0).wait()
+
+        guard let port = server.localAddress?.port else {
+            XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
+            return
+        }
+
+        let promise = elg.next().makePromise(of: String.self)
+
+        try await WebSocket.connect(to: "ws://localhost:\(port)", on: elg) { ws in
+            do {
+                try await ws.send(Response(event: "hello", data: User(firstName: "Vapor", lastName: "WebSocket")))
+                ws.onText { ws, string in
+                    promise.succeed(string)
+                    do {
+                        try await ws.close()
+                    } catch {
+                        XCTFail("Failed to close websocket, error: \(error)")
+                    }
+                }
+            } catch {
+                promise.fail(error)
+            }
+        }
+
+        let result = try await promise.futureResult.get()
+        XCTAssertEqual(result, "Hello Vapor WebSocket")
+        try await server.close(mode: .all)
+
+        struct Response: Codable {
+            let event: String
+            let data: User
+        }
+
+        struct User: Codable {
+            let firstName, lastName: String
+        }
+    }
+
     var elg: EventLoopGroup!
     override func setUp() {
         // needs to be at least two to avoid client / server on same EL timing issues

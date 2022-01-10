@@ -120,6 +120,65 @@ final class WebSocketKitTests: XCTestCase {
         try server.close(mode: .all).wait()
     }
 
+    func testSendEvent() throws {
+        let promise = self.elg.next().makePromise(of: String.self)
+        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+            ws.onEvent("hello") { ws in
+                promise.succeed("hello event recieved")
+                ws.close(promise: nil)
+            }
+        }.bind(host: "localhost", port: 0).wait()
+
+        guard let port = server.localAddress?.port else {
+            XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
+            return
+        }
+
+        WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
+            ws.send(Response(event: "hello"))
+            ws.close(promise: nil)
+        }.cascadeFailure(to: promise)
+
+        try XCTAssertEqual(promise.futureResult.wait(), "hello event recieved")
+        try server.close(mode: .all).wait()
+
+        struct Response: Codable {
+            let event: String
+        }
+    }
+
+    func testSendEventWithData() throws {
+        let promise = self.elg.next().makePromise(of: String.self)
+        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+            ws.onEvent("hello", User.self) { ws, user in
+                promise.succeed("Hello \(user.firstName) \(user.lastName)")
+                ws.close(promise: nil)
+            }
+        }.bind(host: "localhost", port: 0).wait()
+
+        guard let port = server.localAddress?.port else {
+            XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
+            return
+        }
+
+        WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
+            ws.send(Response(event: "hello", data: User(firstName: "Vapor", lastName: "WebSocket")))
+            ws.close(promise: nil)
+        }.cascadeFailure(to: promise)
+
+        try XCTAssertEqual(promise.futureResult.wait(), "Hello Vapor WebSocket")
+        try server.close(mode: .all).wait()
+
+        struct Response: Codable {
+            let event: String
+            let data: User
+        }
+
+        struct User: Codable {
+            let firstName, lastName: String
+        }
+    }
+
     func testWebSocketPong() throws {
         let pongPromise = self.elg.next().makePromise(of: String.self)
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in

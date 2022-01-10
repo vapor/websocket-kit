@@ -12,6 +12,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.33.0"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.14.0"),
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
     ],
     targets: [
         .target(name: "WebSocketKit", dependencies: [
@@ -22,6 +23,7 @@ let package = Package(
             .product(name: "NIOHTTP1", package: "swift-nio"),
             .product(name: "NIOSSL", package: "swift-nio-ssl"),
             .product(name: "NIOWebSocket", package: "swift-nio"),
+            .product(name: "Logging", package: "swift-log")
         ]),
         .testTarget(name: "WebSocketKitTests", dependencies: [
             .target(name: "WebSocketKit"),

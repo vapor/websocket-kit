@@ -4,11 +4,17 @@ import NIOHTTP1
 import NIOSSL
 import Foundation
 import NIOFoundationCompat
+import Logging
 
 public final class WebSocket {
     enum PeerType {
         case server
         case client
+    }
+
+    public enum WebSocketSendType {
+        case text
+        case binary
     }
 
     public var eventLoop: EventLoop {
@@ -24,7 +30,11 @@ public final class WebSocket {
         self.channel.closeFuture
     }
 
+    public var jsonDecoder = JSONDecoder()
+    public var jsonEncoder = JSONEncoder()
+
     private let channel: Channel
+    private let logger: Logger
     private var onTextCallback: (WebSocket, String) -> ()
     private var onBinaryCallback: (WebSocket, ByteBuffer) -> ()
     private var onPongCallback: (WebSocket) -> ()
@@ -34,6 +44,7 @@ public final class WebSocket {
     private var waitingForPong: Bool
     private var waitingForClose: Bool
     private var scheduledTimeoutTask: Scheduled<Void>?
+    private var events: [String : (WebSocket, Data) -> Void] = [:]
 
     init(channel: Channel, type: PeerType) {
         self.channel = channel
@@ -45,6 +56,7 @@ public final class WebSocket {
         self.waitingForPong = false
         self.waitingForClose = false
         self.scheduledTimeoutTask = nil
+        self.logger = Logger(label: "codes.vapor.websocket")
     }
 
     public func onText(_ callback: @escaping (WebSocket, String) -> ()) {
@@ -61,6 +73,32 @@ public final class WebSocket {
 
     public func onPing(_ callback: @escaping (WebSocket) -> ()) {
         self.onPingCallback = callback
+    }
+
+    public func onEvent(_ identifier: String, _ handler: @escaping (WebSocket) -> Void) {
+        events[identifier] = { ws, data in
+            handler(ws)
+        }
+    }
+
+    public func onEvent<T>(_ identifier: String, _ type: T.Type, _ handler: @escaping (WebSocket, T) -> Void) where T: Codable {
+        onEvent(identifier, handler)
+    }
+
+    public func onEvent<T>(_ identifier: String, _ handler: @escaping (WebSocket, T) -> Void) where T: Codable {
+        events[identifier] = { [weak self] ws, data in
+            guard let self = self else { return }
+            do {
+                let res = try JSONDecoder().decode(WebSocketEvent<T>.self, from: data)
+                if let data = res.data {
+                    handler(ws, data)
+                } else {
+                    self.logger.warning("Unable to unwrap data for event `\(identifier)`, because it is unexpectedly nil. Please use another `bind` method which support optional payload to avoid this message.")
+                }
+            } catch {
+                self.logger.error("Unable to decode incoming event `\(identifier)`: \(error)")
+            }
+        }
     }
 
     /// If set, this will trigger automatic pings on the connection. If ping is not answered before
@@ -94,6 +132,18 @@ public final class WebSocket {
 
     public func send(_ binary: [UInt8], promise: EventLoopPromise<Void>? = nil) {
         self.send(raw: binary, opcode: .binary, fin: true, promise: promise)
+    }
+
+    public func send<T>(_ data: T, type: WebSocketSendType = .text, promise: EventLoopPromise<Void>? = nil) where T: Codable {
+        guard let data = try? jsonEncoder.encode(data), let dataString = String(data: data, encoding: .utf8) else {
+            return
+        }
+        switch type {
+        case .text:
+            self.send(dataString, promise: promise)
+        case .binary:
+            self.send(String(dataString).utf8.map{ UInt8($0) }, promise: promise)
+        }
     }
 
     public func sendPing(promise: EventLoopPromise<Void>? = nil) {
@@ -242,9 +292,13 @@ public final class WebSocket {
         if let frameSequence = self.frameSequence, frame.fin {
             switch frameSequence.type {
             case .binary:
-                self.onBinaryCallback(self, frameSequence.binaryBuffer)
+                if !proceedEventData(self, frameSequence.binaryBuffer) {
+                    self.onBinaryCallback(self, frameSequence.binaryBuffer)
+                }
             case .text:
-                self.onTextCallback(self, frameSequence.textBuffer)
+                if !proceedEventData(self, frameSequence.textBuffer) {
+                    self.onTextCallback(self, frameSequence.textBuffer)
+                }
             case .pong:
                 self.waitingForPong = false
                 self.onPongCallback(self)
@@ -254,6 +308,37 @@ public final class WebSocket {
             }
             self.frameSequence = nil
         }
+    }
+
+    private func proceedEventData(_ socket: WebSocket, _ text: String) -> Bool {
+        guard !events.isEmpty, let data = text.data(using: .utf8) else { return false }
+        do {
+            let prototype = try jsonDecoder.decode(WebSocketEventPrototype.self, from: data)
+            if let bind = events.first(where: { $0.0 == prototype.event }) {
+                bind.value(socket, data)
+                return true
+            }
+        } catch {
+            logger.trace("Unable to decode incoming event cause it doesn't conform to `WebSocketEventPrototype` model: \(error)")
+        }
+        return false
+    }
+
+    private func proceedEventData(_ socket: WebSocket, _ byteBuffer: ByteBuffer) -> Bool {
+        guard !events.isEmpty, byteBuffer.readableBytes > 0 else { return false }
+        do {
+            var bytes: [UInt8] = byteBuffer.getBytes(at: byteBuffer.readerIndex, length: byteBuffer.readableBytes) ?? []
+            let data = Data(bytes: &bytes, count: byteBuffer.readableBytes)
+
+            let prototype = try jsonDecoder.decode(WebSocketEventPrototype.self, from: data)
+            if let bind = events.first(where: { $0.0 == prototype.event }) {
+                bind.value(socket, data)
+                return true
+            }
+        } catch {
+            logger.trace("Unable to decode incoming event cause it doesn't conform to `WebSocketEventPrototype` model: \(error)")
+        }
+        return false
     }
 
     private func pingAndScheduleNextTimeoutTask() {
@@ -310,4 +395,17 @@ private struct WebSocketFrameSequence {
         default: break
         }
     }
+}
+
+private struct WebSocketEvent<T: Codable>: Codable {
+    public let event: String
+    public let data: T?
+    public init (event: String, data: T? = nil) {
+        self.event = event
+        self.data = data
+    }
+}
+
+private struct WebSocketEventPrototype: Codable {
+    public var event: String
 }
