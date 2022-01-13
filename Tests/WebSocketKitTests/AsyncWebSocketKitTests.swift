@@ -3,12 +3,13 @@ import XCTest
 import NIO
 import NIOHTTP1
 import NIOWebSocket
+import Logging
 @testable import WebSocketKit
 
 @available(macOS 12, iOS 15, watchOS 8, tvOS 15, *)
 final class AsyncWebSocketKitTests: XCTestCase {
     func testWebSocketEcho() async throws {
-        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+        let server = try ServerBootstrap.webSocket(on: self.elg, logger: self.logger) { req, ws in
             ws.onText { ws, text in
                 ws.send(text)
             }
@@ -43,7 +44,7 @@ final class AsyncWebSocketKitTests: XCTestCase {
     }
 
     func testWebSocketSendCodable() async throws {
-        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+        let server = try ServerBootstrap.webSocket(on: self.elg, logger: self.logger) { req, ws in
             ws.onEvent("hello", User.self) { ws, user in
                 ws.send("Hello \(user.firstName) \(user.lastName)")
             }
@@ -87,9 +88,11 @@ final class AsyncWebSocketKitTests: XCTestCase {
     }
 
     var elg: EventLoopGroup!
+    var logger: Logger!
     override func setUp() {
         // needs to be at least two to avoid client / server on same EL timing issues
         self.elg = MultiThreadedEventLoopGroup(numberOfThreads: 2)
+        self.logger = Logger(label: "com.vapor.websocketkit.tests")
     }
     override func tearDown() {
         try! self.elg.syncShutdownGracefully()

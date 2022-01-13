@@ -2,11 +2,12 @@ import XCTest
 import NIO
 import NIOHTTP1
 import NIOWebSocket
+import Logging
 @testable import WebSocketKit
 
 final class WebSocketKitTests: XCTestCase {
     func testWebSocketEcho() throws {
-        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+        let server = try ServerBootstrap.webSocket(on: self.elg, logger: self.logger) { req, ws in
             ws.onText { ws, text in
                 ws.send(text)
             }
@@ -39,7 +40,7 @@ final class WebSocketKitTests: XCTestCase {
         let sendPromise = self.elg.next().makePromise(of: Void.self)
         let serverClose = self.elg.next().makePromise(of: Void.self)
         let clientClose = self.elg.next().makePromise(of: Void.self)
-        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+        let server = try ServerBootstrap.webSocket(on: self.elg, logger: self.logger) { req, ws in
             ws.onText { ws, text in
                 if text == "close" {
                     ws.close(promise: serverClose)
@@ -67,7 +68,7 @@ final class WebSocketKitTests: XCTestCase {
         let sendPromise = self.elg.next().makePromise(of: Void.self)
         let serverClose = self.elg.next().makePromise(of: Void.self)
         let clientClose = self.elg.next().makePromise(of: Void.self)
-        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+        let server = try ServerBootstrap.webSocket(on: self.elg, logger: self.logger) { req, ws in
             ws.onText { ws, text in
                 ws.send(text)
             }
@@ -96,7 +97,7 @@ final class WebSocketKitTests: XCTestCase {
 
     func testImmediateSend() throws {
         let promise = self.elg.next().makePromise(of: String.self)
-        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+        let server = try ServerBootstrap.webSocket(on: self.elg, logger: self.logger) { req, ws in
             ws.send("hello")
             ws.onText { ws, string in
                 promise.succeed(string)
@@ -122,7 +123,7 @@ final class WebSocketKitTests: XCTestCase {
 
     func testSendEvent() throws {
         let promise = self.elg.next().makePromise(of: String.self)
-        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+        let server = try ServerBootstrap.webSocket(on: self.elg, logger: self.logger) { req, ws in
             ws.onEvent("hello") { ws in
                 promise.succeed("hello event recieved")
                 ws.close(promise: nil)
@@ -149,7 +150,7 @@ final class WebSocketKitTests: XCTestCase {
 
     func testSendEventWithData() throws {
         let promise = self.elg.next().makePromise(of: String.self)
-        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+        let server = try ServerBootstrap.webSocket(on: self.elg, logger: self.logger) { req, ws in
             ws.onEvent("hello", User.self) { ws, user in
                 promise.succeed("Hello \(user.firstName) \(user.lastName)")
                 ws.close(promise: nil)
@@ -181,7 +182,7 @@ final class WebSocketKitTests: XCTestCase {
 
     func testWebSocketPong() throws {
         let pongPromise = self.elg.next().makePromise(of: String.self)
-        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+        let server = try ServerBootstrap.webSocket(on: self.elg, logger: self.logger) { req, ws in
             ws.onPing { ws in
                 ws.close(promise: nil)
             }
@@ -207,7 +208,7 @@ final class WebSocketKitTests: XCTestCase {
     func testErrorCode() throws {
         let promise = self.elg.next().makePromise(of: WebSocketErrorCode.self)
 
-        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+        let server = try ServerBootstrap.webSocket(on: self.elg, logger: self.logger) { req, ws in
             ws.close(code: .normalClosure, promise: nil)
         }.bind(host: "localhost", port: 0).wait()
 
@@ -232,11 +233,11 @@ final class WebSocketKitTests: XCTestCase {
 
     func testHeadersAreSent() throws {
         let promiseAuth = self.elg.next().makePromise(of: String.self)
-        
+
         // make sure there is no content-length header
         let promiseNoContentLength = self.elg.next().makePromise(of: Bool.self)
-        
-        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+
+        let server = try ServerBootstrap.webSocket(on: self.elg, logger: self.logger) { req, ws in
             promiseAuth.succeed(req.headers.first(name: "Auth")!)
             promiseNoContentLength.succeed(req.headers.contains(name: "content-length"))
             ws.close(promise: nil)
@@ -262,7 +263,7 @@ final class WebSocketKitTests: XCTestCase {
     func testQueryParamsAreSent() throws {
         let promise = self.elg.next().makePromise(of: String.self)
 
-        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+        let server = try ServerBootstrap.webSocket(on: self.elg, logger: self.logger) { req, ws in
             promise.succeed(req.uri)
             ws.close(promise: nil)
         }.bind(host: "localhost", port: 0).wait()
@@ -289,7 +290,7 @@ final class WebSocketKitTests: XCTestCase {
         let port = Int(1337)
         let shutdownPromise = self.elg.next().makePromise(of: Void.self)
 
-        let server = try! ServerBootstrap.webSocket(on: self.elg) { req, ws in
+        let server = try! ServerBootstrap.webSocket(on: self.elg, logger: self.logger) { req, ws in
             ws.send("welcome!")
 
             ws.onClose.whenComplete {
@@ -319,9 +320,11 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     var elg: EventLoopGroup!
+    var logger: Logger!
     override func setUp() {
         // needs to be at least two to avoid client / server on same EL timing issues
         self.elg = MultiThreadedEventLoopGroup(numberOfThreads: 2)
+        self.logger = Logger(label: "codes.vapor.websocket.tests")
     }
     override func tearDown() {
         try! self.elg.syncShutdownGracefully()
@@ -331,6 +334,7 @@ final class WebSocketKitTests: XCTestCase {
 extension ServerBootstrap {
     static func webSocket(
         on eventLoopGroup: EventLoopGroup,
+        logger: Logger,
         onUpgrade: @escaping (HTTPRequestHead, WebSocket) -> ()
     ) -> ServerBootstrap {
         ServerBootstrap(group: eventLoopGroup).childChannelInitializer { channel in
@@ -339,7 +343,7 @@ extension ServerBootstrap {
                     return channel.eventLoop.makeSucceededFuture([:])
                 },
                 upgradePipelineHandler: { channel, req in
-                    return WebSocket.server(on: channel) { ws in
+                    return WebSocket.server(on: channel, logger: logger) { ws in
                         onUpgrade(req, ws)
                     }
                 }

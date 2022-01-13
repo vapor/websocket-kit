@@ -1,27 +1,50 @@
 import NIO
 import NIOWebSocket
+import Logging
 
 extension WebSocket {
+
+    @available(*, deprecated, message: "use Websocket.client(on:logger:onUpgrade:)")
     public static func client(
         on channel: Channel,
         onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
-        return self.handle(on: channel, as: .client, onUpgrade: onUpgrade)
+        let logger = Logger(label: "codes.vapor.websocket")
+        return self.handle(on: channel, as: .client, logger: logger, onUpgrade: onUpgrade)
     }
 
+    @available(*, deprecated, message: "use Websocket.server(on:logger:onUpgrade:)")
     public static func server(
         on channel: Channel,
         onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
-        return self.handle(on: channel, as: .server, onUpgrade: onUpgrade)
+        let logger = Logger(label: "codes.vapor.websocket")
+        return self.handle(on: channel, as: .server, logger: logger, onUpgrade: onUpgrade)
+    }
+
+    public static func client(
+        on channel: Channel,
+        logger: Logger,
+        onUpgrade: @escaping (WebSocket) -> ()
+    ) -> EventLoopFuture<Void> {
+        return self.handle(on: channel, as: .client, logger: logger, onUpgrade: onUpgrade)
+    }
+
+    public static func server(
+        on channel: Channel,
+        logger: Logger,
+        onUpgrade: @escaping (WebSocket) -> ()
+    ) -> EventLoopFuture<Void> {
+        return self.handle(on: channel, as: .server, logger: logger, onUpgrade: onUpgrade)
     }
 
     private static func handle(
         on channel: Channel,
         as type: PeerType,
+        logger: Logger,
         onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
-        let webSocket = WebSocket(channel: channel, type: type)
+        let webSocket = WebSocket(channel: channel, type: type, logger: logger)
         return channel.pipeline.addHandler(WebSocketHandler(webSocket: webSocket)).map { _ in
             onUpgrade(webSocket)
         }

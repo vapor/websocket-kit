@@ -46,7 +46,7 @@ public final class WebSocket {
     private var scheduledTimeoutTask: Scheduled<Void>?
     private var events: [String : (WebSocket, Data) -> Void] = [:]
 
-    init(channel: Channel, type: PeerType) {
+    init(channel: Channel, type: PeerType, logger: Logger) {
         self.channel = channel
         self.type = type
         self.onTextCallback = { _, _ in }
@@ -56,7 +56,7 @@ public final class WebSocket {
         self.waitingForPong = false
         self.waitingForClose = false
         self.scheduledTimeoutTask = nil
-        self.logger = Logger(label: "codes.vapor.websocket")
+        self.logger = logger
     }
 
     public func onText(_ callback: @escaping (WebSocket, String) -> ()) {

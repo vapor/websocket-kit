@@ -4,6 +4,7 @@ import NIOConcurrencyHelpers
 import NIOHTTP1
 import NIOWebSocket
 import NIOSSL
+import Logging
 
 public final class WebSocketClient {
     public enum Error: Swift.Error, LocalizedError {
@@ -37,8 +38,9 @@ public final class WebSocketClient {
     let group: EventLoopGroup
     let configuration: Configuration
     let isShutdown = NIOAtomic.makeAtomic(value: false)
+    let logger: Logger
 
-    public init(eventLoopGroupProvider: EventLoopGroupProvider, configuration: Configuration = .init()) {
+    public init(eventLoopGroupProvider: EventLoopGroupProvider, configuration: Configuration = .init(), logger: Logger = Logger(label: "codes.vapor.websocket")) {
         self.eventLoopGroupProvider = eventLoopGroupProvider
         switch self.eventLoopGroupProvider {
         case .shared(let group):
@@ -47,6 +49,7 @@ public final class WebSocketClient {
             self.group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         }
         self.configuration = configuration
+        self.logger = logger
     }
 
     public func connect(
@@ -80,7 +83,7 @@ public final class WebSocketClient {
                     maxFrameSize: self.configuration.maxFrameSize,
                     automaticErrorHandling: true,
                     upgradePipelineHandler: { channel, req in
-                        return WebSocket.client(on: channel, onUpgrade: onUpgrade)
+                        return WebSocket.client(on: channel, logger: self.logger, onUpgrade: onUpgrade)
                     }
                 )
 
