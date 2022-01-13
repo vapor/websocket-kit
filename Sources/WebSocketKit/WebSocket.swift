@@ -30,8 +30,8 @@ public final class WebSocket {
         self.channel.closeFuture
     }
 
-    public var jsonDecoder = JSONDecoder()
-    public var jsonEncoder = JSONEncoder()
+    private let jsonDecoder = JSONDecoder()
+    private let jsonEncoder = JSONEncoder()
 
     private let channel: Channel
     private let logger: Logger
@@ -66,7 +66,7 @@ public final class WebSocket {
     public func onBinary(_ callback: @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onBinaryCallback = callback
     }
-    
+
     public func onPong(_ callback: @escaping (WebSocket) -> ()) {
         self.onPongCallback = callback
     }
@@ -86,17 +86,16 @@ public final class WebSocket {
     }
 
     public func onEvent<T>(_ identifier: String, _ handler: @escaping (WebSocket, T) -> Void) where T: Codable {
-        events[identifier] = { [weak self] ws, data in
-            guard let self = self else { return }
+        events[identifier] = { ws, data in
             do {
-                let res = try JSONDecoder().decode(WebSocketEvent<T>.self, from: data)
+                let res = try self.jsonDecoder.decode(WebSocketEvent<T>.self, from: data)
                 if let data = res.data {
                     handler(ws, data)
                 } else {
-                    self.logger.warning("Unable to unwrap data for event `\(identifier)`, because it is unexpectedly nil. Please use another `bind` method which support optional payload to avoid this message.")
+                    self.logger.trace("Unable to unwrap data for event `\(identifier)`, because it is unexpectedly nil. Please use another `bind` method which support optional payload to avoid this message.")
                 }
             } catch {
-                self.logger.error("Unable to decode incoming event `\(identifier)`: \(error)")
+                self.logger.debug("Unable to decode incoming event `\(identifier)`: \(error)")
             }
         }
     }
@@ -336,7 +335,7 @@ public final class WebSocket {
                 return true
             }
         } catch {
-            logger.trace("Unable to decode incoming event cause it doesn't conform to `WebSocketEventPrototype` model: \(error)")
+            logger.trace("Unable to decode incoming event because it doesn't conform to `WebSocketEventPrototype` model: \(error)")
         }
         return false
     }
@@ -407,5 +406,6 @@ private struct WebSocketEvent<T: Codable>: Codable {
 }
 
 private struct WebSocketEventPrototype: Codable {
-    public var event: String
+    var event: String
 }
+

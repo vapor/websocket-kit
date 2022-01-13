@@ -8,5 +8,3 @@
 @_exported import struct NIOHTTP1.HTTPHeaders
 
 @_exported import struct Foundation.URL
-
-@_exported import Logging

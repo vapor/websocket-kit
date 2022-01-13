@@ -55,13 +55,11 @@ final class AsyncWebSocketKitTests: XCTestCase {
             return
         }
 
-        let promise = elg.next().makePromise(of: String.self)
-
         try await WebSocket.connect(to: "ws://localhost:\(port)", on: elg) { ws in
             do {
                 try await ws.send(Response(event: "hello", data: User(firstName: "Vapor", lastName: "WebSocket")))
                 ws.onText { ws, string in
-                    promise.succeed(string)
+                    XCTAssertEqual(string, "Hello Vapor WebSocket")
                     do {
                         try await ws.close()
                     } catch {
@@ -69,12 +67,10 @@ final class AsyncWebSocketKitTests: XCTestCase {
                     }
                 }
             } catch {
-                promise.fail(error)
+                XCTFail("Failed to connect, error: \(error)")
             }
         }
 
-        let result = try await promise.futureResult.get()
-        XCTAssertEqual(result, "Hello Vapor WebSocket")
         try await server.close(mode: .all)
 
         struct Response: Codable {
