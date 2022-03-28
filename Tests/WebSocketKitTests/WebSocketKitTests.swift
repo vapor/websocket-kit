@@ -172,10 +172,14 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     func testHeadersAreSent() throws {
-        let promise = self.elg.next().makePromise(of: String.self)
-
+        let promiseAuth = self.elg.next().makePromise(of: String.self)
+        
+        // make sure there is no content-length header
+        let promiseNoContentLength = self.elg.next().makePromise(of: Bool.self)
+        
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
-            promise.succeed(req.headers.first(name: "Auth")!)
+            promiseAuth.succeed(req.headers.first(name: "Auth")!)
+            promiseNoContentLength.succeed(req.headers.contains(name: "content-length"))
             ws.close(promise: nil)
         }.bind(host: "localhost", port: 0).wait()
 
@@ -189,9 +193,10 @@ final class WebSocketKitTests: XCTestCase {
             headers: ["Auth": "supersecretsauce"],
             on: self.elg) { ws in
                 _ = ws.close()
-        }.cascadeFailure(to: promise)
+            }.cascadeFailure(to: promiseAuth)
 
-        try XCTAssertEqual(promise.futureResult.wait(), "supersecretsauce")
+        try XCTAssertEqual(promiseAuth.futureResult.wait(), "supersecretsauce")
+        try XCTAssertFalse(promiseNoContentLength.futureResult.wait())
         try server.close(mode: .all).wait()
     }
     
