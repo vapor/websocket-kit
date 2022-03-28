@@ -22,7 +22,6 @@ final class HTTPInitialRequestHandler: ChannelInboundHandler, RemovableChannelHa
     func channelActive(context: ChannelHandlerContext) {
         var headers = self.headers
         headers.add(name: "Content-Type", value: "text/plain; charset=utf-8")
-        headers.add(name: "Content-Length", value: "\(0)")
         headers.add(name: "Host", value: self.host)
 
         var uri = self.path.hasPrefix("/") ? self.path : "/" + self.path
