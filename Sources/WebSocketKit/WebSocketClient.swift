@@ -4,6 +4,7 @@ import NIOConcurrencyHelpers
 import NIOHTTP1
 import NIOWebSocket
 import NIOSSL
+import NIOTransportServices
 
 public final class WebSocketClient {
     public enum Error: Swift.Error, LocalizedError {
@@ -44,7 +45,11 @@ public final class WebSocketClient {
         case .shared(let group):
             self.group = group
         case .createNew:
+            #if canImport(Network)
+            self.group = NIOTSEventLoopGroup(loopCount: 1, defaultQoS: .default)
+            #else
             self.group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+            #endif
         }
         self.configuration = configuration
     }
@@ -60,7 +65,7 @@ public final class WebSocketClient {
     ) -> EventLoopFuture<Void> {
         assert(["ws", "wss"].contains(scheme))
         let upgradePromise = self.group.next().makePromise(of: Void.self)
-        let bootstrap = ClientBootstrap(group: self.group)
+        let bootstrap = WebSocketClient.makeBootstrap(on: self.group)
             .channelOption(ChannelOptions.socket(SocketOptionLevel(IPPROTO_TCP), TCP_NODELAY), value: 1)
             .channelInitializer { channel in
                 let httpHandler = HTTPInitialRequestHandler(
@@ -135,6 +140,20 @@ public final class WebSocketClient {
                 throw WebSocketClient.Error.alreadyShutdown
             }
         }
+    }
+    
+    private static func makeBootstrap(on eventLoop: EventLoopGroup) -> NIOClientTCPBootstrapProtocol {
+        #if canImport(Network)
+        if let tsBootstrap = NIOTSConnectionBootstrap(validatingGroup: eventLoop) {
+            return tsBootstrap
+        }
+       #endif
+
+       if let nioBootstrap = ClientBootstrap(validatingGroup: eventLoop) {
+           return nioBootstrap
+       }
+
+       fatalError("No matching bootstrap found")
     }
 
     deinit {
