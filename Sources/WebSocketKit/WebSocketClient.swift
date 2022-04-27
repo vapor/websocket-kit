@@ -45,11 +45,7 @@ public final class WebSocketClient {
         case .shared(let group):
             self.group = group
         case .createNew:
-            #if canImport(Network)
-            self.group = NIOTSEventLoopGroup(loopCount: 1, defaultQoS: .default)
-            #else
             self.group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-            #endif
         }
         self.configuration = configuration
     }
