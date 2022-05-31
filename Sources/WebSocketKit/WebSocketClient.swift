@@ -22,14 +22,26 @@ public final class WebSocketClient {
 
     public struct Configuration {
         public var tlsConfiguration: TLSConfiguration?
-        public var maxFrameSize: Int
+        public var inboundMaxFrameSize: WebSocketMaxFrameSize
+        public var outboundMaxFrameSize: WebSocketMaxFrameSize
 
         public init(
             tlsConfiguration: TLSConfiguration? = nil,
-            maxFrameSize: Int = 1 << 14
+            maxFrameSize: WebSocketMaxFrameSize = WebSocketMaxFrameSize.default
         ) {
             self.tlsConfiguration = tlsConfiguration
-            self.maxFrameSize = maxFrameSize
+            self.inboundMaxFrameSize = maxFrameSize
+            self.outboundMaxFrameSize = maxFrameSize
+        }
+        
+        public init(
+            tlsConfiguration: TLSConfiguration? = nil,
+            inboundMaxFrameSize: WebSocketMaxFrameSize = WebSocketMaxFrameSize.default,
+            outboundMaxFrameSize: WebSocketMaxFrameSize = WebSocketMaxFrameSize.default
+        ) {
+            self.tlsConfiguration = tlsConfiguration
+            self.inboundMaxFrameSize = inboundMaxFrameSize
+            self.outboundMaxFrameSize = outboundMaxFrameSize
         }
     }
 
@@ -77,10 +89,14 @@ public final class WebSocketClient {
                 }
                 let websocketUpgrader = NIOWebSocketClientUpgrader(
                     requestKey:  Data(key).base64EncodedString(),
-                    maxFrameSize: self.configuration.maxFrameSize,
+                    maxFrameSize: self.configuration.inboundMaxFrameSize.value,
                     automaticErrorHandling: true,
                     upgradePipelineHandler: { channel, req in
-                        return WebSocket.client(on: channel, onUpgrade: onUpgrade)
+                        return WebSocket.client(
+                            on: channel,
+                            outboundMaxFrameSize: self.configuration.outboundMaxFrameSize,
+                            onUpgrade: onUpgrade
+                        )
                     }
                 )
 
