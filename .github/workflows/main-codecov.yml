@@ -1,0 +1,9 @@
+name: Update code coverage baselines
+on:
+  push: { branches: [ main ] }
+jobs:
+  update-main-codecov:
+    uses: vapor/ci/.github/workflows/run-unit-tests.yml@reusable-workflows
+    with:
+      with_coverage: true
+      with_tsan: true
