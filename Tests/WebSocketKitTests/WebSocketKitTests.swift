@@ -120,11 +120,15 @@ final class WebSocketKitTests: XCTestCase {
         try server.close(mode: .all).wait()
     }
 
-    func testWebSocketPong() throws {
+    func testWebSocketPingPong() throws {
+        let pingPromise = self.elg.next().makePromise(of: String.self)
         let pongPromise = self.elg.next().makePromise(of: String.self)
+        let pingPongData = ByteBuffer(bytes: "Vapor rules".utf8)
+        
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
-            ws.onPing { ws in
-                ws.close(promise: nil)
+            ws.onPing { ws, frame in
+                XCTAssertEqual(frame, pingPongData)
+                pingPromise.succeed("ping")
             }
         }.bind(host: "localhost", port: 0).wait()
 
@@ -134,13 +138,15 @@ final class WebSocketKitTests: XCTestCase {
         }
 
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
-            ws.send(raw: Data(), opcode: .ping)
-            ws.onPong { ws in
+            ws.send(raw: pingPongData.readableBytesView, opcode: .ping)
+            ws.onPong { ws, frame in
+                XCTAssertEqual(frame, pingPongData)
                 pongPromise.succeed("pong")
                 ws.close(promise: nil)
             }
         }.cascadeFailure(to: pongPromise)
 
+        try XCTAssertEqual(pingPromise.futureResult.wait(), "ping")
         try XCTAssertEqual(pongPromise.futureResult.wait(), "pong")
         try server.close(mode: .all).wait()
     }

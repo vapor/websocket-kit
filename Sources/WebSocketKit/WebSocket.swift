@@ -27,8 +27,8 @@ public final class WebSocket {
     private let channel: Channel
     private var onTextCallback: (WebSocket, String) -> ()
     private var onBinaryCallback: (WebSocket, ByteBuffer) -> ()
-    private var onPongCallback: (WebSocket) -> ()
-    private var onPingCallback: (WebSocket) -> ()
+    private var onPongCallback: (WebSocket, ByteBuffer) -> ()
+    private var onPingCallback: (WebSocket, ByteBuffer) -> ()
     private var frameSequence: WebSocketFrameSequence?
     private let type: PeerType
     private var waitingForPong: Bool
@@ -40,8 +40,8 @@ public final class WebSocket {
         self.type = type
         self.onTextCallback = { _, _ in }
         self.onBinaryCallback = { _, _ in }
-        self.onPongCallback = { _ in }
-        self.onPingCallback = { _ in }
+        self.onPongCallback = { _, _ in }
+        self.onPingCallback = { _, _ in }
         self.waitingForPong = false
         self.waitingForClose = false
         self.scheduledTimeoutTask = nil
@@ -55,11 +55,11 @@ public final class WebSocket {
         self.onBinaryCallback = callback
     }
     
-    public func onPong(_ callback: @escaping (WebSocket) -> ()) {
+    public func onPong(_ callback: @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onPongCallback = callback
     }
 
-    public func onPing(_ callback: @escaping (WebSocket) -> ()) {
+    public func onPing(_ callback: @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onPingCallback = callback
     }
 
@@ -203,6 +203,7 @@ public final class WebSocket {
                 if let maskingKey = maskingKey {
                     frameData.webSocketUnmask(maskingKey)
                 }
+                self.onPingCallback(self, ByteBuffer(buffer: frameData))
                 self.send(
                     raw: frameData.readableBytesView,
                     opcode: .pong,
@@ -212,7 +213,19 @@ public final class WebSocket {
             } else {
                 self.close(code: .protocolError, promise: nil)
             }
-        case .text, .binary, .pong:
+        case .pong:
+            if frame.fin {
+                var frameData = frame.data
+                let maskingKey = frame.maskKey
+                if let maskingKey = maskingKey {
+                    frameData.webSocketUnmask(maskingKey)
+                }
+                self.waitingForPong = false
+                self.onPongCallback(self, ByteBuffer(buffer: frameData))
+            } else {
+                self.close(code: .protocolError, promise: nil)
+            }
+        case .text, .binary:
             // create a new frame sequence or use existing
             var frameSequence: WebSocketFrameSequence
             if let existing = self.frameSequence {
@@ -245,11 +258,8 @@ public final class WebSocket {
                 self.onBinaryCallback(self, frameSequence.binaryBuffer)
             case .text:
                 self.onTextCallback(self, frameSequence.textBuffer)
-            case .pong:
-                self.waitingForPong = false
-                self.onPongCallback(self)
-            case .ping:
-                self.onPingCallback(self)
+            case .ping, .pong:
+                assertionFailure("Control frames never have a frameSequence")
             default: break
             }
             self.frameSequence = nil
