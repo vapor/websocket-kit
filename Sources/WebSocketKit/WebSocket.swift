@@ -27,8 +27,8 @@ public final class WebSocket {
     private let channel: Channel
     private var onTextCallback: (WebSocket, String) -> ()
     private var onBinaryCallback: (WebSocket, ByteBuffer) -> ()
-    private var onPongCallback: (WebSocket, ByteBuffer) -> ()
-    private var onPingCallback: (WebSocket, ByteBuffer) -> ()
+    private var onPongCallback: (WebSocket) -> ()
+    private var onPingCallback: (WebSocket) -> ()
     private var frameSequence: WebSocketFrameSequence?
     private let type: PeerType
     private var waitingForPong: Bool
@@ -40,8 +40,8 @@ public final class WebSocket {
         self.type = type
         self.onTextCallback = { _, _ in }
         self.onBinaryCallback = { _, _ in }
-        self.onPongCallback = { _, _ in }
-        self.onPingCallback = { _, _ in }
+        self.onPongCallback = { _ in }
+        self.onPingCallback = { _ in }
         self.waitingForPong = false
         self.waitingForClose = false
         self.scheduledTimeoutTask = nil
@@ -55,11 +55,11 @@ public final class WebSocket {
         self.onBinaryCallback = callback
     }
     
-    public func onPong(_ callback: @escaping (WebSocket, ByteBuffer) -> ()) {
+    public func onPong(_ callback: @escaping (WebSocket) -> ()) {
         self.onPongCallback = callback
     }
 
-    public func onPing(_ callback: @escaping (WebSocket, ByteBuffer) -> ()) {
+    public func onPing(_ callback: @escaping (WebSocket) -> ()) {
         self.onPingCallback = callback
     }
 
@@ -203,7 +203,7 @@ public final class WebSocket {
                 if let maskingKey = maskingKey {
                     frameData.webSocketUnmask(maskingKey)
                 }
-                self.onPingCallback(self, ByteBuffer(buffer: frameData))
+                self.onPingCallback(self)
                 self.send(
                     raw: frameData.readableBytesView,
                     opcode: .pong,
@@ -221,7 +221,7 @@ public final class WebSocket {
                     frameData.webSocketUnmask(maskingKey)
                 }
                 self.waitingForPong = false
-                self.onPongCallback(self, ByteBuffer(buffer: frameData))
+                self.onPongCallback(self)
             } else {
                 self.close(code: .protocolError, promise: nil)
             }
