@@ -2,19 +2,40 @@ name: test
 on:
 - pull_request
 jobs:
-  unit-tests:
-     uses: vapor/ci/.github/workflows/run-unit-tests.yml@reusable-workflows
-     with:
-       with_coverage: false
-       with_tsan: true
-  vapor:
+  vapor-integration:
+    runs-on: ubuntu-latest
     container: 
       image: swift:5.6-focal
-    runs-on: ubuntu-latest
     steps:
-    - run: git clone -b main https://github.com/vapor/vapor.git
-      working-directory: ./
-    - run: swift package edit websocket-kit --revision ${{ github.sha }}
-      working-directory: ./vapor
-    - run: swift test --enable-test-discovery --sanitize=thread
-      working-directory: ./vapor
+      - name: Check out package
+        uses: actions/checkout@v3
+        with: { path: 'websocket-kit' }
+      - name: Check out Vapor
+        uses: actions/checkout@v3
+        with: { repository: 'vapor/vapor', path: 'vapor' }
+      - name: Use local package in Vapor
+        run: |
+          swift package --package-path vapor edit websocket-kit --path websocket-kit
+      - name: Run Vapor tests
+        run: swift test --package-path vapor
+
+  unit-tests:
+    uses: vapor/ci/.github/workflows/run-unit-tests.yml@reusable-workflows
+    with:
+      with_coverage: true
+      with_tsan: false
+      coverage_ignores: '/Tests/'
+      
+  api-breakage:
+    runs-on: ubuntu-latest
+    container:
+      image: swift:5.6-focal
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: Mark the workspace as safe
+      run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+    - name: API breaking changes
+      run: swift package diagnose-api-breaking-changes origin/main
