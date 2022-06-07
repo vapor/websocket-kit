@@ -60,21 +60,21 @@ extension WebSocket {
         }
     }
 
-    @preconcurrency public func onPong(_ callback: @Sendable @escaping (WebSocket) async -> ()) {
+    @preconcurrency public func onPong(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) async -> ()) {
         self.eventLoop.execute {
-            self.onPong { socket in
+            self.onPong { socket, data in
                 Task {
-                    await callback(socket)
+                    await callback(socket, data)
                 }
             }
         }
     }
 
-    @preconcurrency public func onPing(_ callback: @Sendable @escaping (WebSocket) async -> ()) {
+    @preconcurrency public func onPing(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) async -> ()) {
         self.eventLoop.execute {
-            self.onPing { socket in
+            self.onPing { socket, data in
                 Task {
-                    await callback(socket)
+                    await callback(socket, data)
                 }
             }
         }
