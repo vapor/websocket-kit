@@ -203,6 +203,7 @@ public final class WebSocket {
                 if let maskingKey = maskingKey {
                     frameData.webSocketUnmask(maskingKey)
                 }
+                self.onPingCallback(self)
                 self.send(
                     raw: frameData.readableBytesView,
                     opcode: .pong,
@@ -212,7 +213,19 @@ public final class WebSocket {
             } else {
                 self.close(code: .protocolError, promise: nil)
             }
-        case .text, .binary, .pong:
+        case .pong:
+            if frame.fin {
+                var frameData = frame.data
+                let maskingKey = frame.maskKey
+                if let maskingKey = maskingKey {
+                    frameData.webSocketUnmask(maskingKey)
+                }
+                self.waitingForPong = false
+                self.onPongCallback(self)
+            } else {
+                self.close(code: .protocolError, promise: nil)
+            }
+        case .text, .binary:
             // create a new frame sequence or use existing
             var frameSequence: WebSocketFrameSequence
             if let existing = self.frameSequence {
@@ -245,11 +258,8 @@ public final class WebSocket {
                 self.onBinaryCallback(self, frameSequence.binaryBuffer)
             case .text:
                 self.onTextCallback(self, frameSequence.textBuffer)
-            case .pong:
-                self.waitingForPong = false
-                self.onPongCallback(self)
-            case .ping:
-                self.onPingCallback(self)
+            case .ping, .pong:
+                assertionFailure("Control frames never have a frameSequence")
             default: break
             }
             self.frameSequence = nil
