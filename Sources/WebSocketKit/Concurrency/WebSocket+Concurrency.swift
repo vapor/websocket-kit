@@ -69,12 +69,34 @@ extension WebSocket {
             }
         }
     }
+    
+    @available(*, deprecated, message: "Please use `onPong { socket, data in /* … */ }` with the additional `data` parameter.")
+    @preconcurrency public func onPong(_ callback: @Sendable @escaping (WebSocket) async -> ()) {
+        self.eventLoop.execute {
+            self.onPong { socket, _ in
+                Task {
+                    await callback(socket)
+                }
+            }
+        }
+    }
 
     @preconcurrency public func onPing(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) async -> ()) {
         self.eventLoop.execute {
             self.onPing { socket, data in
                 Task {
                     await callback(socket, data)
+                }
+            }
+        }
+    }
+    
+    @available(*, deprecated, message: "Please use `onPing { socket, data in /* … */ }` with the additional `data` parameter.")
+    @preconcurrency public func onPing(_ callback: @Sendable @escaping (WebSocket) async -> ()) {
+        self.eventLoop.execute {
+            self.onPing { socket, _ in
+                Task {
+                    await callback(socket)
                 }
             }
         }

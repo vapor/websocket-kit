@@ -69,9 +69,19 @@ public final class WebSocket: Sendable {
     @preconcurrency public func onPong(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onPongCallback.value = callback
     }
+    
+    @available(*, deprecated, message: "Please use `onPong { socket, data in /* … */ }` with the additional `data` parameter.")
+    @preconcurrency public func onPong(_ callback: @Sendable @escaping (WebSocket) -> ()) {
+        self.onPongCallback.value = { ws, _ in callback(ws) }
+    }
 
     @preconcurrency public func onPing(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onPingCallback.value = callback
+    }
+    
+    @available(*, deprecated, message: "Please use `onPing { socket, data in /* … */ }` with the additional `data` parameter.")
+    @preconcurrency public func onPing(_ callback: @Sendable @escaping (WebSocket) -> ()) {
+        self.onPingCallback.value = { ws, _ in callback(ws) }
     }
 
     /// If set, this will trigger automatic pings on the connection. If ping is not answered before
