@@ -145,7 +145,7 @@ final class WebSocketKitTests: XCTestCase {
         }
 
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
-            ws.send(raw: pingPongData.readableBytesView, opcode: .ping)
+            ws.sendPing(Data(pingPongData.readableBytesView))
             ws.onPong { ws, data in
                 XCTAssertEqual(pingPongData, data)
                 pongPromise.succeed("pong")

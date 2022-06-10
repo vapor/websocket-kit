@@ -121,9 +121,9 @@ public final class WebSocket: Sendable {
         self.send(raw: binary, opcode: .binary, fin: true, promise: promise)
     }
 
-    public func sendPing(promise: EventLoopPromise<Void>? = nil) {
+    public func sendPing(_ data: Data = Data(), promise: EventLoopPromise<Void>? = nil) {
         self.send(
-            raw: Data(),
+            raw: data,
             opcode: .ping,
             fin: true,
             promise: promise
