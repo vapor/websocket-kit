@@ -1,6 +1,7 @@
 import XCTest
 import NIO
 import NIOHTTP1
+import NIOSSL
 import NIOWebSocket
 @testable import WebSocketKit
 
@@ -261,6 +262,23 @@ final class WebSocketKitTests: XCTestCase {
 
         print("Waiting for server close...")
         try server.close(mode: .all).wait()
+    }
+    
+    func testIP() throws {
+        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+            ws.close(promise: nil)
+        }.bind(host: "127.0.0.1", port: 1111).wait()
+
+        var tlsConfiguration = TLSConfiguration.makeClientConfiguration()
+        tlsConfiguration.certificateVerification = .none
+
+        let client = WebSocketClient(eventLoopGroupProvider: .shared(self.elg), configuration: .init(
+            tlsConfiguration: tlsConfiguration
+        ))
+
+        try client.connect(scheme: "wss", host: "127.0.0.1", port: 1111) { ws in
+            ws.close(promise: nil)
+        }.wait()
     }
 
     var elg: EventLoopGroup!
