@@ -80,21 +80,6 @@ func generateRSAPrivateKey() -> UnsafeMutablePointer<EVP_PKEY> {
     return pkey
 }
 
-func generateECPrivateKey(curveNID: CInt = NID_X9_62_prime256v1) -> UnsafeMutablePointer<EVP_PKEY> {
-    let ctx = CNIOBoringSSL_EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nil)!
-    defer {
-        CNIOBoringSSL_EVP_PKEY_CTX_free(ctx)
-    }
-
-    precondition(CNIOBoringSSL_EVP_PKEY_keygen_init(ctx) == 1)
-    precondition(CNIOBoringSSL_EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, curveNID) == 1)
-
-    var pkey: UnsafeMutablePointer<EVP_PKEY>? = nil
-    precondition(CNIOBoringSSL_EVP_PKEY_keygen(ctx, &pkey) == 1)
-
-    return pkey!
-}
-
 func addExtension(x509: OpaquePointer, nid: CInt, value: String) {
     var extensionContext = X509V3_CTX()
     
