@@ -264,21 +264,30 @@ final class WebSocketKitTests: XCTestCase {
         try server.close(mode: .all).wait()
     }
     
-    func testIP() throws {
-        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
-            ws.close(promise: nil)
-        }.bind(host: "127.0.0.1", port: 1111).wait()
+    func testIPWithTLS() throws {
+        let port = 1337
+        
+        let server = try ServerBootstrap.webSocket(on: self.elg, tls: true) { req, ws in
+            _ = ws.close()
+        }.bind(host: "127.0.0.1", port: port).wait()
+        print("Serving at ws://localhost:\(port)")
 
         var tlsConfiguration = TLSConfiguration.makeClientConfiguration()
         tlsConfiguration.certificateVerification = .none
+        
+        let client = WebSocketClient(
+            eventLoopGroupProvider: .shared(self.elg),
+            configuration: .init(
+                tlsConfiguration: tlsConfiguration
+            )
+        )
 
-        let client = WebSocketClient(eventLoopGroupProvider: .shared(self.elg), configuration: .init(
-            tlsConfiguration: tlsConfiguration
-        ))
-
-        try client.connect(scheme: "wss", host: "127.0.0.1", port: 1111) { ws in
+        try client.connect(scheme: "wss", host: "127.0.0.1", port: port) { ws in
             ws.close(promise: nil)
         }.wait()
+        
+        print("Waiting for server close...")
+        try server.close(mode: .all).wait()
     }
 
     var elg: EventLoopGroup!
@@ -294,9 +303,20 @@ final class WebSocketKitTests: XCTestCase {
 extension ServerBootstrap {
     static func webSocket(
         on eventLoopGroup: EventLoopGroup,
+        tls: Bool = false,
         onUpgrade: @escaping (HTTPRequestHead, WebSocket) -> ()
     ) -> ServerBootstrap {
-        ServerBootstrap(group: eventLoopGroup).childChannelInitializer { channel in
+        return ServerBootstrap(group: eventLoopGroup).childChannelInitializer { channel in
+            if tls {
+                let (cert, key) = generateSelfSignedCert()
+                let configuration = TLSConfiguration.makeServerConfiguration(
+                    certificateChain: [.certificate(cert)],
+                    privateKey: .privateKey(key)
+                )
+                let sslContext = try! NIOSSLContext(configuration: configuration)
+                let handler = NIOSSLServerHandler(context: sslContext)
+                _ = channel.pipeline.addHandler(handler)
+            }
             let webSocket = NIOWebSocketServerUpgrader(
                 shouldUpgrade: { channel, req in
                     return channel.eventLoop.makeSucceededFuture([:])
