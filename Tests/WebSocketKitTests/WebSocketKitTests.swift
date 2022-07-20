@@ -265,12 +265,9 @@ final class WebSocketKitTests: XCTestCase {
     }
     
     func testIPWithTLS() throws {
-        let port = 1337
-        
         let server = try ServerBootstrap.webSocket(on: self.elg, tls: true) { req, ws in
             _ = ws.close()
-        }.bind(host: "127.0.0.1", port: port).wait()
-        print("Serving at ws://localhost:\(port)")
+        }.bind(host: "127.0.0.1", port: 0).wait()
 
         var tlsConfiguration = TLSConfiguration.makeClientConfiguration()
         tlsConfiguration.certificateVerification = .none
@@ -282,11 +279,15 @@ final class WebSocketKitTests: XCTestCase {
             )
         )
 
+        guard let port = server.localAddress?.port else {
+            XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
+            return
+        }
+
         try client.connect(scheme: "wss", host: "127.0.0.1", port: port) { ws in
             ws.close(promise: nil)
         }.wait()
         
-        print("Waiting for server close...")
         try server.close(mode: .all).wait()
     }
 
