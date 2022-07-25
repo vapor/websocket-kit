@@ -1,6 +1,7 @@
 import XCTest
 import NIO
 import NIOHTTP1
+import NIOSSL
 import NIOWebSocket
 @testable import WebSocketKit
 
@@ -120,11 +121,14 @@ final class WebSocketKitTests: XCTestCase {
         try server.close(mode: .all).wait()
     }
 
-    func testWebSocketPong() throws {
+    func testWebSocketPingPong() throws {
+        let pingPromise = self.elg.next().makePromise(of: String.self)
         let pongPromise = self.elg.next().makePromise(of: String.self)
+        let pingPongData = ByteBuffer(bytes: "Vapor rules".utf8)
+        
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
             ws.onPing { ws in
-                ws.close(promise: nil)
+                pingPromise.succeed("ping")
             }
         }.bind(host: "localhost", port: 0).wait()
 
@@ -134,13 +138,14 @@ final class WebSocketKitTests: XCTestCase {
         }
 
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
-            ws.send(raw: Data(), opcode: .ping)
+            ws.send(raw: pingPongData.readableBytesView, opcode: .ping)
             ws.onPong { ws in
                 pongPromise.succeed("pong")
                 ws.close(promise: nil)
             }
         }.cascadeFailure(to: pongPromise)
 
+        try XCTAssertEqual(pingPromise.futureResult.wait(), "ping")
         try XCTAssertEqual(pongPromise.futureResult.wait(), "pong")
         try server.close(mode: .all).wait()
     }
@@ -258,6 +263,33 @@ final class WebSocketKitTests: XCTestCase {
         print("Waiting for server close...")
         try server.close(mode: .all).wait()
     }
+    
+    func testIPWithTLS() throws {
+        let server = try ServerBootstrap.webSocket(on: self.elg, tls: true) { req, ws in
+            _ = ws.close()
+        }.bind(host: "127.0.0.1", port: 0).wait()
+
+        var tlsConfiguration = TLSConfiguration.makeClientConfiguration()
+        tlsConfiguration.certificateVerification = .none
+        
+        let client = WebSocketClient(
+            eventLoopGroupProvider: .shared(self.elg),
+            configuration: .init(
+                tlsConfiguration: tlsConfiguration
+            )
+        )
+
+        guard let port = server.localAddress?.port else {
+            XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
+            return
+        }
+
+        try client.connect(scheme: "wss", host: "127.0.0.1", port: port) { ws in
+            ws.close(promise: nil)
+        }.wait()
+        
+        try server.close(mode: .all).wait()
+    }
 
     var elg: EventLoopGroup!
     override func setUp() {
@@ -272,9 +304,20 @@ final class WebSocketKitTests: XCTestCase {
 extension ServerBootstrap {
     static func webSocket(
         on eventLoopGroup: EventLoopGroup,
+        tls: Bool = false,
         onUpgrade: @escaping (HTTPRequestHead, WebSocket) -> ()
     ) -> ServerBootstrap {
-        ServerBootstrap(group: eventLoopGroup).childChannelInitializer { channel in
+        return ServerBootstrap(group: eventLoopGroup).childChannelInitializer { channel in
+            if tls {
+                let (cert, key) = generateSelfSignedCert()
+                let configuration = TLSConfiguration.makeServerConfiguration(
+                    certificateChain: [.certificate(cert)],
+                    privateKey: .privateKey(key)
+                )
+                let sslContext = try! NIOSSLContext(configuration: configuration)
+                let handler = NIOSSLServerHandler(context: sslContext)
+                _ = channel.pipeline.addHandler(handler)
+            }
             let webSocket = NIOWebSocketServerUpgrader(
                 shouldUpgrade: { channel, req in
                     return channel.eventLoop.makeSucceededFuture([:])
