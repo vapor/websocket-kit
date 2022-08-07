@@ -1,6 +1,6 @@
+import Atomics
 import Foundation
 import NIO
-import NIOConcurrencyHelpers
 import NIOHTTP1
 import NIOWebSocket
 import NIOSSL
@@ -37,7 +37,7 @@ public final class WebSocketClient {
     let eventLoopGroupProvider: EventLoopGroupProvider
     let group: EventLoopGroup
     let configuration: Configuration
-    let isShutdown = NIOAtomic.makeAtomic(value: false)
+    let isShutdown = ManagedAtomic<Bool>(false)
 
     public init(eventLoopGroupProvider: EventLoopGroupProvider, configuration: Configuration = .init()) {
         self.eventLoopGroupProvider = eventLoopGroupProvider
@@ -135,7 +135,7 @@ public final class WebSocketClient {
         case .shared:
             return
         case .createNew:
-            if self.isShutdown.compareAndExchange(expected: false, desired: true) {
+			if self.isShutdown.compareExchange(expected: false, desired: true, ordering: .sequentiallyConsistent).0 {
                 try self.group.syncShutdownGracefully()
             } else {
                 throw WebSocketClient.Error.alreadyShutdown
@@ -162,7 +162,7 @@ public final class WebSocketClient {
         case .shared:
             return
         case .createNew:
-            assert(self.isShutdown.load(), "WebSocketClient not shutdown before deinit.")
+            assert(self.isShutdown.load(ordering: .relaxed), "WebSocketClient not shutdown before deinit.")
         }
     }
 }
