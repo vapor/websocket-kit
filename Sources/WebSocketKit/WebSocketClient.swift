@@ -5,6 +5,7 @@ import NIOHTTP1
 import NIOWebSocket
 import NIOSSL
 import NIOTransportServices
+import Atomics
 
 public final class WebSocketClient {
     public enum Error: Swift.Error, LocalizedError {
@@ -37,7 +38,7 @@ public final class WebSocketClient {
     let eventLoopGroupProvider: EventLoopGroupProvider
     let group: EventLoopGroup
     let configuration: Configuration
-    let isShutdown = NIOAtomic.makeAtomic(value: false)
+    let isShutdown = ManagedAtomic(false)
 
     public init(eventLoopGroupProvider: EventLoopGroupProvider, configuration: Configuration = .init()) {
         self.eventLoopGroupProvider = eventLoopGroupProvider
@@ -135,7 +136,11 @@ public final class WebSocketClient {
         case .shared:
             return
         case .createNew:
-            if self.isShutdown.compareAndExchange(expected: false, desired: true) {
+            if self.isShutdown.compareExchange(
+                expected: false,
+                desired: true,
+                ordering: .relaxed
+            ).exchanged {
                 try self.group.syncShutdownGracefully()
             } else {
                 throw WebSocketClient.Error.alreadyShutdown
@@ -162,7 +167,7 @@ public final class WebSocketClient {
         case .shared:
             return
         case .createNew:
-            assert(self.isShutdown.load(), "WebSocketClient not shutdown before deinit.")
+            assert(self.isShutdown.load(ordering: .relaxed), "WebSocketClient not shutdown before deinit.")
         }
     }
 }
