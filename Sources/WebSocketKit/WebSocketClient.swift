@@ -25,13 +25,25 @@ public final class WebSocketClient {
     public struct Configuration {
         public var tlsConfiguration: TLSConfiguration?
         public var maxFrameSize: Int
-
+        public var compression: Compression.Configuration?
+        
         public init(
             tlsConfiguration: TLSConfiguration? = nil,
             maxFrameSize: Int = 1 << 14
         ) {
             self.tlsConfiguration = tlsConfiguration
             self.maxFrameSize = maxFrameSize
+            self.compression = nil
+        }
+        
+        public init(
+            tlsConfiguration: TLSConfiguration? = nil,
+            maxFrameSize: Int = 1 << 14,
+            compression: Compression.Configuration?
+        ) {
+            self.tlsConfiguration = tlsConfiguration
+            self.maxFrameSize = maxFrameSize
+            self.compression = compression
         }
     }
 
@@ -82,7 +94,11 @@ public final class WebSocketClient {
                     maxFrameSize: self.configuration.maxFrameSize,
                     automaticErrorHandling: true,
                     upgradePipelineHandler: { channel, req in
-                        return WebSocket.client(on: channel, onUpgrade: onUpgrade)
+                        return WebSocket.client(
+                            on: channel,
+                            compression: self.configuration.compression,
+                            onUpgrade: onUpgrade
+                        )
                     }
                 )
 
@@ -129,7 +145,6 @@ public final class WebSocketClient {
             return upgradePromise.futureResult
         }
     }
-
 
     public func syncShutdown() throws {
         switch self.eventLoopGroupProvider {

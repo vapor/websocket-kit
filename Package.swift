@@ -19,6 +19,7 @@ let package = Package(
     ],
     targets: [
         .target(name: "WebSocketKit", dependencies: [
+            "CZlib",
             .product(name: "NIO", package: "swift-nio"),
             .product(name: "NIOCore", package: "swift-nio"),
             .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
@@ -29,6 +30,12 @@ let package = Package(
             .product(name: "NIOTransportServices", package: "swift-nio-transport-services"),
             .product(name: "Atomics", package: "swift-atomics")
         ]),
+        .target(
+            name: "CZlib",
+            dependencies: [],
+            linkerSettings: [
+                .linkedLibrary("z")
+            ]),
         .testTarget(name: "WebSocketKitTests", dependencies: [
             .target(name: "WebSocketKit"),
         ]),
