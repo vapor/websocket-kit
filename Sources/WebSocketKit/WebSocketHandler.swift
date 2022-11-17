@@ -4,7 +4,14 @@ import NIOWebSocket
 extension WebSocket {
     public static func client(
         on channel: Channel,
-        compression: Compression.Configuration? = nil,
+        onUpgrade: @escaping (WebSocket) -> ()
+    ) -> EventLoopFuture<Void> {
+        return self.handle(on: channel, as: .client, compression: nil, onUpgrade: onUpgrade)
+    }
+    
+    public static func client(
+        on channel: Channel,
+        compression: Compression.Configuration?,
         onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         return self.handle(on: channel, as: .client, compression: compression, onUpgrade: onUpgrade)
