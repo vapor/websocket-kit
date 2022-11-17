@@ -126,12 +126,14 @@ public enum Compression {
             let compressedLength = part.readableBytes
             var isComplete = false
             
+            let calculatedCapacity = Int(pow(Double(compressedLength), maxLogarithmicRatio))
+            let minimumCapacity = min(max(calculatedCapacity, 128), 16_384)
             while part.readableBytes > 0 && !isComplete {
                 try self.stream.inflatePart(
                     input: &part,
                     output: &buffer,
                     isComplete: &isComplete,
-                    minimumCapacity: Int(pow(Double(compressedLength), maxLogarithmicRatio))
+                    minimumCapacity: minimumCapacity
                 )
                 
                 if self.limit.exceeded(
@@ -140,7 +142,6 @@ public enum Compression {
                 ) {
                     throw Compression.DecompressionError.limit
                 }
-                
             }
             
             let ratio = log(Double(buffer.readableBytes)) / log(Double(compressedLength))
