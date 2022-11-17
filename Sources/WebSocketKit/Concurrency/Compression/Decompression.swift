@@ -1,74 +1,37 @@
 import CZlib
-import NIOCore
 
-/// Namespace for compression code
-public enum Compression {
+public enum Decompression {
     
     public struct Configuration {
+        public var algorithm: Compression.Algorithm
+        public var limit: Limit
         
-        public struct Decompression {
-            public var limit: DecompressionLimit
-            
-            public init(limit: DecompressionLimit) {
-                self.limit = limit
-            }
-        }
-        
-        public var algorithm: Algorithm
-        public var decompression: Decompression?
-        
-        public init(algorithm: Algorithm, decompression: Decompression) {
+        public init(algorithm: Compression.Algorithm, limit: Limit) {
             self.algorithm = algorithm
-            self.decompression = decompression
+            self.limit = limit
         }
-    }
-    
-    /// The compression algorithm
-    public struct Algorithm {
-        enum Base {
-            case gzip
-            case deflate
-        }
-        
-        private let base: Base
-        
-        var window: CInt {
-            switch base {
-            case .deflate:
-                return 15
-            case .gzip:
-                return 15 + 16
-            }
-        }
-        
-        private init(_ base: Base) {
-            self.base = base
-        }
-        
-        public static let gzip = Self(.gzip)
-        public static let deflate = Self(.deflate)
     }
     
     /// Specifies how to limit decompression inflation.
-    public struct DecompressionLimit: Sendable {
-        private enum Limit {
+    public struct Limit: Sendable {
+        private enum Base {
             case none
             case size(Int)
             case ratio(Int)
         }
         
-        private var limit: Limit
+        private var limit: Base
         
         /// No limit will be set.
         /// - warning: Setting `limit` to `.none` leaves you vulnerable to denial of service attacks.
-        public static let none = DecompressionLimit(limit: .none)
+        public static let none = Limit(limit: .none)
         /// Limit will be set on the request body size.
-        public static func size(_ value: Int) -> DecompressionLimit {
-            return DecompressionLimit(limit: .size(value))
+        public static func size(_ value: Int) -> Limit {
+            return Limit(limit: .size(value))
         }
         /// Limit will be set on a ratio between compressed body size and decompressed result.
-        public static func ratio(_ value: Int) -> DecompressionLimit {
-            return DecompressionLimit(limit: .ratio(value))
+        public static func ratio(_ value: Int) -> Limit {
+            return Limit(limit: .ratio(value))
         }
         
         func exceeded(compressed: Int, decompressed: Int) -> Bool {
@@ -120,10 +83,10 @@ public enum Compression {
     }
     
     struct Decompressor {
-        private let limit: DecompressionLimit
+        private let limit: Limit
         private var stream = z_stream()
         
-        init(limit: Compression.DecompressionLimit) {
+        init(limit: Limit) {
             self.limit = limit
         }
         
@@ -143,7 +106,7 @@ public enum Compression {
                     compressed: compressedLength,
                     decompressed: buffer.writerIndex + 1
                 ) {
-                    throw Compression.DecompressionError.limit
+                    throw DecompressionError.limit
                 }
             }
             
@@ -159,7 +122,7 @@ public enum Compression {
             
             let rc = CZlib_inflateInit2(&self.stream, encoding.window)
             guard rc == Z_OK else {
-                throw Compression.DecompressionError.initializationError(Int(rc))
+                throw DecompressionError.initializationError(Int(rc))
             }
         }
         
@@ -170,7 +133,7 @@ public enum Compression {
 }
 
 //MARK: - +z_stream
-extension z_stream {
+private extension z_stream {
     mutating func inflatePart(
         input: inout ByteBuffer,
         output: inout ByteBuffer,
@@ -204,7 +167,7 @@ extension z_stream {
             
             rc = inflate(&self, Z_SYNC_FLUSH)
             guard rc == Z_OK || rc == Z_STREAM_END else {
-                throw Compression.DecompressionError.inflationError(Int(rc))
+                throw Decompression.DecompressionError.inflationError(Int(rc))
             }
             
             return pointer.count - Int(self.avail_out)

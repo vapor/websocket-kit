@@ -35,19 +35,18 @@ public final class WebSocket {
     private var frameSequence: WebSocketFrameSequence?
     private let type: PeerType
 
-    private var decompressor: Compression.Decompressor?
+    private var decompressor: Decompression.Decompressor?
 
     private var waitingForPong: Bool
     private var waitingForClose: Bool
     private var scheduledTimeoutTask: Scheduled<Void>?
 
-    init(channel: Channel, type: PeerType, compression: Compression.Configuration?) throws {
+    init(channel: Channel, type: PeerType, decompression: Decompression.Configuration?) throws {
         self.channel = channel
         self.type = type
-        if let compression = compression,
-           let decompression = compression.decompression {
-            self.decompressor = Compression.Decompressor(limit: decompression.limit)
-            try self.decompressor?.initializeDecoder(encoding: compression.algorithm)
+        if let decompression = decompression {
+            self.decompressor = Decompression.Decompressor(limit: decompression.limit)
+            try self.decompressor?.initializeDecoder(encoding: decompression.algorithm)
         }
         self.onTextCallback = { _, _ in }
         self.onTextBufferCallback = { _, _ in }

@@ -25,7 +25,7 @@ public final class WebSocketClient {
     public struct Configuration {
         public var tlsConfiguration: TLSConfiguration?
         public var maxFrameSize: Int
-        public var compression: Compression.Configuration?
+        public var decompression: Decompression.Configuration?
         
         public init(
             tlsConfiguration: TLSConfiguration? = nil,
@@ -33,17 +33,17 @@ public final class WebSocketClient {
         ) {
             self.tlsConfiguration = tlsConfiguration
             self.maxFrameSize = maxFrameSize
-            self.compression = nil
+            self.decompression = nil
         }
         
         public init(
             tlsConfiguration: TLSConfiguration? = nil,
             maxFrameSize: Int = 1 << 14,
-            compression: Compression.Configuration?
+            decompression: Decompression.Configuration?
         ) {
             self.tlsConfiguration = tlsConfiguration
             self.maxFrameSize = maxFrameSize
-            self.compression = compression
+            self.decompression = decompression
         }
     }
 
@@ -96,7 +96,7 @@ public final class WebSocketClient {
                     upgradePipelineHandler: { channel, req in
                         return WebSocket.client(
                             on: channel,
-                            compression: self.configuration.compression,
+                            decompression: self.configuration.decompression,
                             onUpgrade: onUpgrade
                         )
                     }

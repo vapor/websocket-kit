@@ -4,7 +4,7 @@ import XCTest
 class CompressionTests: XCTestCase {
     
     func testDeflateDecompression() throws {
-        var decompressor = Compression.Decompressor(limit: .none)
+        var decompressor = Decompression.Decompressor(limit: .none)
         try decompressor.initializeDecoder(encoding: .deflate)
         defer { decompressor.deinitializeDecoder() }
         
