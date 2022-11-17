@@ -5,12 +5,21 @@ import NIOCore
 public enum Compression {
     
     public struct Configuration {
-        public var algorithm: Algorithm
-        public var decompressionLimit: DecompressionLimit
         
-        public init(algorithm: Algorithm, decompressionLimit: DecompressionLimit) {
+        public struct Decompression {
+            public var limit: DecompressionLimit
+            
+            public init(limit: DecompressionLimit) {
+                self.limit = limit
+            }
+        }
+        
+        public var algorithm: Algorithm
+        public var decompression: Decompression?
+        
+        public init(algorithm: Algorithm, decompression: Decompression) {
             self.algorithm = algorithm
-            self.decompressionLimit = decompressionLimit
+            self.decompression = decompression
         }
     }
     

@@ -45,7 +45,10 @@ final class WebSocketKitTests: XCTestCase {
         
         let closePromise = elg.next().makePromise(of: Void.self)
         var configuration = WebSocketClient.Configuration()
-        configuration.compression = .init(algorithm: .deflate, decompressionLimit: .none)
+        configuration.compression = .init(
+            algorithm: .deflate,
+            decompression: .init(limit: .none)
+        )
         try WebSocket.connect(to: "ws://localhost:\(port)", configuration: configuration, on: elg) { ws in
             var receivedDeflatedString: [String] = []
             ws.onBinary { ws, buffer in

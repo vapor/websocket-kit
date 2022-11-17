@@ -44,8 +44,9 @@ public final class WebSocket {
     init(channel: Channel, type: PeerType, compression: Compression.Configuration?) throws {
         self.channel = channel
         self.type = type
-        if let compression = compression {
-            self.decompressor = Compression.Decompressor(limit: compression.decompressionLimit)
+        if let compression = compression,
+           let decompression = compression.decompression {
+            self.decompressor = Compression.Decompressor(limit: decompression.limit)
             try self.decompressor?.initializeDecoder(encoding: compression.algorithm)
         }
         self.onTextCallback = { _, _ in }
