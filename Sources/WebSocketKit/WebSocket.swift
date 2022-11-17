@@ -64,7 +64,7 @@ public final class WebSocket {
         self.onTextCallback = callback
     }
 
-    /// The same as `onText`, but with raw data instead of the encoded `String`.
+    /// The same as `onText`, but with raw data instead of the decoded `String`.
     public func onTextBuffer(_ callback: @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onTextBufferCallback = callback
     }
@@ -85,7 +85,7 @@ public final class WebSocket {
     /// the next ping is sent, then the WebSocket will be presumed inactive and will be closed
     /// automatically.
     /// These pings can also be used to keep the WebSocket alive if there is some other timeout
-    /// mechanism shutting down innactive connections, such as a Load Balancer deployed in
+    /// mechanism shutting down inactive connections, such as a Load Balancer deployed in
     /// front of the server.
     public var pingInterval: TimeAmount? {
         didSet {
