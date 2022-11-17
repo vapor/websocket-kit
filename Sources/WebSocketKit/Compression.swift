@@ -1,5 +1,6 @@
 import CZlib
 import NIOCore
+import Foundation
 
 /// Namespace for compression code
 public enum Compression {
