@@ -114,8 +114,6 @@ public enum Compression {
     struct Decompressor {
         private let limit: DecompressionLimit
         private var stream = z_stream()
-        /// To better reserve capacity for the next inflations.
-        private var maxLogarithmicRatio = 1.1
         
         init(limit: Compression.DecompressionLimit) {
             self.limit = limit
@@ -126,14 +124,11 @@ public enum Compression {
             let compressedLength = part.readableBytes
             var isComplete = false
             
-            let calculatedCapacity = Int(pow(Double(compressedLength), maxLogarithmicRatio))
-            let minimumCapacity = min(max(calculatedCapacity, 128), 16_384)
             while part.readableBytes > 0 && !isComplete {
                 try self.stream.inflatePart(
                     input: &part,
                     output: &buffer,
-                    isComplete: &isComplete,
-                    minimumCapacity: minimumCapacity
+                    isComplete: &isComplete
                 )
                 
                 if self.limit.exceeded(
@@ -143,9 +138,6 @@ public enum Compression {
                     throw Compression.DecompressionError.limit
                 }
             }
-            
-            let ratio = log(Double(buffer.readableBytes)) / log(Double(compressedLength))
-            maxLogarithmicRatio = max(maxLogarithmicRatio, ratio)
             
             if part.readableBytes > 0 {
                 throw DecompressionError.invalidTrailingData
@@ -174,9 +166,9 @@ extension z_stream {
     mutating func inflatePart(
         input: inout ByteBuffer,
         output: inout ByteBuffer,
-        isComplete: inout Bool,
-        minimumCapacity: Int
+        isComplete: inout Bool
     ) throws {
+        let minimumCapacity = input.readableBytes * 4
         try input.readWithUnsafeMutableReadableBytes { pointer in
             self.avail_in = UInt32(pointer.count)
             self.next_in = CZlib_voidPtr_to_BytefPtr(pointer.baseAddress!)
