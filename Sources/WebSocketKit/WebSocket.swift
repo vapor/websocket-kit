@@ -35,8 +35,7 @@ public final class WebSocket {
     private var frameSequence: WebSocketFrameSequence?
     private let type: PeerType
 
-    private let compression: Compression.Configuration?
-    private var decompressor: Compression.Decompressor!
+    private var decompressor: Compression.Decompressor?
 
     private var waitingForPong: Bool
     private var waitingForClose: Bool
@@ -45,10 +44,9 @@ public final class WebSocket {
     init(channel: Channel, type: PeerType, compression: Compression.Configuration?) throws {
         self.channel = channel
         self.type = type
-        self.compression = compression
         if let compression = compression {
             self.decompressor = Compression.Decompressor(limit: compression.decompressionLimit)
-            try self.decompressor.initializeDecoder(encoding: compression.algorithm)
+            try self.decompressor?.initializeDecoder(encoding: compression.algorithm)
         }
         self.onTextCallback = { _, _ in }
         self.onTextBufferCallback = { _, _ in }
@@ -271,30 +269,16 @@ public final class WebSocket {
 
         // if this frame was final and we have a non-nil frame sequence,
         // output it to the websocket and clear storage
-        if let frameSequence = self.frameSequence, frame.fin {
+        if var frameSequence = self.frameSequence, frame.fin {
             switch frameSequence.type {
             case .binary:
-                if compression != nil && frame.data.readableBytes > 3 {
-                    var part = ByteBuffer(buffer: frameSequence.buffer)
+                if decompressor != nil {
                     do {
-#warning("better than `16384` ?")
-                        var buffer = channel.allocator.buffer(capacity: 16_384)
-                        try decompressor.decompress(
-                            part: &part,
-                            buffer: &buffer,
-                            compressedLength: part.readableBytes
-                        )
+                        var buffer = ByteBuffer()
+                        try decompressor!.decompress(part: &frameSequence.buffer, buffer: &buffer)
                         
-                        if let callback = self.onTextCallback {
-                            callback(self, String(buffer: buffer))
-                        }
-                        self.onTextBufferCallback(self, buffer)
+                        self.onBinaryCallback(self, buffer)
                     } catch {
-                        self.close(code: .protocolError, promise: nil)
-                        return
-                    }
-                    
-                    if part.readableBytes > 0 {
                         self.close(code: .protocolError, promise: nil)
                         return
                     }

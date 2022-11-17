@@ -76,13 +76,11 @@ public enum Compression {
     
     public struct DecompressionError: Error, Hashable, CustomStringConvertible {
         
-        public enum Base: Error, Hashable, Equatable {
-            /// The set ``DecompressionLimit`` has been exceeded
+        private enum Base: Error, Hashable, Equatable {
             case limit
-            /// An error occurred when inflating.  Error code is included to aid diagnosis.
             case inflationError(Int)
-            /// Decoder could not be initialised.  Error code is included to aid diagnosis.
             case initializationError(Int)
+            case invalidTrailingData
         }
         
         private var base: Base
@@ -104,6 +102,9 @@ public enum Compression {
             Self(.initializationError($0))
         }
         
+        /// Decompression completed but there was invalid trailing data behind the compressed data.
+        public static var invalidTrailingData = Self(.invalidTrailingData)
+        
         public var description: String {
             return String(describing: self.base)
         }
@@ -112,20 +113,40 @@ public enum Compression {
     struct Decompressor {
         private let limit: DecompressionLimit
         private var stream = z_stream()
-        private var inflated = 0
+        /// To better reserve capacity for the next inflations.
+        private var maxLogarithmicRatio = 1.1
         
         init(limit: Compression.DecompressionLimit) {
             self.limit = limit
         }
         
-        mutating func decompress(
-            part: inout ByteBuffer,
-            buffer: inout ByteBuffer,
-            compressedLength: Int
-        ) throws {
-            try self.stream.inflatePart(input: &part, output: &buffer)
-            if self.limit.exceeded(compressed: compressedLength, decompressed: self.inflated) {
-                throw Compression.DecompressionError.limit
+        /// Assumes `buffer` is a new empty buffer.
+        mutating func decompress(part: inout ByteBuffer, buffer: inout ByteBuffer) throws {
+            let compressedLength = part.readableBytes
+            var isComplete = false
+            
+            while part.readableBytes > 0 && !isComplete {
+                try self.stream.inflatePart(
+                    input: &part,
+                    output: &buffer,
+                    isComplete: &isComplete,
+                    minimumCapacity: Int(pow(Double(compressedLength), maxLogarithmicRatio))
+                )
+                
+                if self.limit.exceeded(
+                    compressed: compressedLength,
+                    decompressed: buffer.writerIndex + 1
+                ) {
+                    throw Compression.DecompressionError.limit
+                }
+                
+            }
+            
+            let ratio = log(Double(buffer.readableBytes)) / log(Double(compressedLength))
+            maxLogarithmicRatio = max(maxLogarithmicRatio, ratio)
+            
+            if part.readableBytes > 0 {
+                throw DecompressionError.invalidTrailingData
             }
         }
         
@@ -148,9 +169,12 @@ public enum Compression {
 
 //MARK: - +z_stream
 extension z_stream {
-    mutating func inflatePart(input: inout ByteBuffer, output: inout ByteBuffer) throws {
-        let minimumCapacity = input.readableBytes * 2
-        
+    mutating func inflatePart(
+        input: inout ByteBuffer,
+        output: inout ByteBuffer,
+        isComplete: inout Bool,
+        minimumCapacity: Int
+    ) throws {
         try input.readWithUnsafeMutableReadableBytes { pointer in
             self.avail_in = UInt32(pointer.count)
             self.next_in = CZlib_voidPtr_to_BytefPtr(pointer.baseAddress!)
@@ -162,25 +186,28 @@ extension z_stream {
                 self.next_out = nil
             }
             
-            try self.inflatePart(to: &output, minimumCapacity: minimumCapacity)
+            isComplete = try self.inflatePart(to: &output, minimumCapacity: minimumCapacity)
             
             return pointer.count - Int(self.avail_in)
         }
     }
     
-    private mutating func inflatePart(to buffer: inout ByteBuffer, minimumCapacity: Int) throws {
+    private mutating func inflatePart(to buffer: inout ByteBuffer, minimumCapacity: Int) throws -> Bool {
         var rc = Z_OK
         
+        buffer.reserveCapacity(5500)
         try buffer.writeWithUnsafeMutableBytes(minimumWritableBytes: minimumCapacity) { pointer in
             self.avail_out = UInt32(pointer.count)
             self.next_out = CZlib_voidPtr_to_BytefPtr(pointer.baseAddress!)
             
-            rc = inflate(&self, Z_NO_FLUSH)
+            rc = inflate(&self, Z_SYNC_FLUSH)
             guard rc == Z_OK || rc == Z_STREAM_END else {
                 throw Compression.DecompressionError.inflationError(Int(rc))
             }
             
             return pointer.count - Int(self.avail_out)
         }
+        
+        return rc == Z_STREAM_END
     }
 }

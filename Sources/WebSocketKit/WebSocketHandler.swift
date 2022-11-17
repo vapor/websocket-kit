@@ -2,7 +2,6 @@ import NIO
 import NIOWebSocket
 
 extension WebSocket {
-#warning("add compression tests")
     public static func client(
         on channel: Channel,
         compression: Compression.Configuration?,
