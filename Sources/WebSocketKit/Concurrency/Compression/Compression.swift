@@ -17,11 +17,7 @@ public enum Compression {
             }
         }
         
-        private init(_ base: Base) {
-            self.base = base
-        }
-        
-        public static let gzip = Self(.gzip)
-        public static let deflate = Self(.deflate)
+        public static let gzip = Self(base: .gzip)
+        public static let deflate = Self(base: .deflate)
     }
 }

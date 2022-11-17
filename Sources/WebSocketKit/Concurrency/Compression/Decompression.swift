@@ -46,9 +46,9 @@ public enum Decompression {
         }
     }
     
-    public struct DecompressionError: Error, Hashable, CustomStringConvertible {
+    public struct DecompressionError: Error, Equatable, CustomStringConvertible {
         
-        private enum Base: Error, Hashable, Equatable {
+        private enum Base: Error, Equatable {
             case limit
             case inflationError(Int)
             case initializationError(Int)
@@ -57,25 +57,21 @@ public enum Decompression {
         
         private var base: Base
         
-        private init(_ base: Base) {
-            self.base = base
-        }
-        
         /// The set ``DecompressionLimit`` has been exceeded
-        public static let limit = Self(.limit)
+        public static let limit = Self(base: .limit)
         
         /// An error occurred when inflating.  Error code is included to aid diagnosis.
         public static var inflationError: (Int) -> Self = {
-            Self(.inflationError($0))
+            Self(base: .inflationError($0))
         }
         
         /// Decoder could not be initialised.  Error code is included to aid diagnosis.
         public static var initializationError: (Int) -> Self = {
-            Self(.initializationError($0))
+            Self(base: .initializationError($0))
         }
         
         /// Decompression completed but there was invalid trailing data behind the compressed data.
-        public static var invalidTrailingData = Self(.invalidTrailingData)
+        public static var invalidTrailingData = Self(base: .invalidTrailingData)
         
         public var description: String {
             return String(describing: self.base)

@@ -3,7 +3,7 @@ import NIO
 import NIOHTTP1
 import NIOSSL
 import NIOWebSocket
-@testable import WebSocketKit
+import WebSocketKit
 
 final class WebSocketKitTests: XCTestCase {
     func testWebSocketEcho() throws {
