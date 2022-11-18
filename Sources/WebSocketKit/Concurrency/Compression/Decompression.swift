@@ -156,7 +156,6 @@ private extension z_stream {
     private mutating func inflatePart(to buffer: inout ByteBuffer, minimumCapacity: Int) throws -> Bool {
         var rc = Z_OK
         
-        buffer.reserveCapacity(5500)
         try buffer.writeWithUnsafeMutableBytes(minimumWritableBytes: minimumCapacity) { pointer in
             self.avail_out = UInt32(pointer.count)
             self.next_out = CZlib_voidPtr_to_BytefPtr(pointer.baseAddress!)
