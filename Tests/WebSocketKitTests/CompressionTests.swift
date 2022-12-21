@@ -1,7 +1,7 @@
 @testable import WebSocketKit
 import XCTest
 
-class CompressionTests: XCTestCase {
+class DecompressionTests: XCTestCase {
     
     func testDeflateDecompression() throws {
         var decompressor = Decompression.Decompressor(limit: .none)
