@@ -18,7 +18,11 @@ extension WebSocket {
         return try await promise.futureResult.get()
     }
 
-    public func sendPing(_ data: Data = Data()) async throws {
+    public func sendPing() async throws {
+        try await sendPing(Data())
+    }
+
+    public func sendPing(_ data: Data) async throws {
         let promise = eventLoop.makePromise(of: Void.self)
         sendPing(data, promise: promise)
         return try await promise.futureResult.get()
