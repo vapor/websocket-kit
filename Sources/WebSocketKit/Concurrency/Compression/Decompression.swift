@@ -3,11 +3,12 @@ import CZlib
 public enum Decompression {
     
     public struct Configuration {
-        public var algorithm: Compression.Algorithm
+        /// `deflate` is the main compression algorithm for web-sockets (RFC 7692),
+        /// and for now we only support `deflate`.
+        let algorithm: Compression.Algorithm = .deflate
         public var limit: Limit
         
-        public init(algorithm: Compression.Algorithm, limit: Limit) {
-            self.algorithm = algorithm
+        public init(limit: Limit) {
             self.limit = limit
         }
     }

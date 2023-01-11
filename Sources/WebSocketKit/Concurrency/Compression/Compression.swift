@@ -1,23 +1,13 @@
 
-public enum Compression {
-    public struct Algorithm {
-        enum Base {
-            case gzip
-            case deflate
-        }
-        
-        private let base: Base
+enum Compression {
+    enum Algorithm {
+        case deflate
         
         var window: CInt {
-            switch base {
+            switch self {
             case .deflate:
                 return 15
-            case .gzip:
-                return 15 + 16
             }
         }
-        
-        public static let gzip = Self(base: .gzip)
-        public static let deflate = Self(base: .deflate)
     }
 }
