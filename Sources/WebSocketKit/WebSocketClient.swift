@@ -81,6 +81,7 @@ public final class WebSocketClient {
                     host: host,
                     path: path,
                     query: query,
+                    decompression: self.configuration.decompression,
                     headers: headers,
                     upgradePromise: upgradePromise
                 )

@@ -6,45 +6,10 @@ public enum Decompression {
         /// `deflate` is the main compression algorithm for web-sockets (RFC 7692),
         /// and for now we only support `deflate`.
         let algorithm: Compression.Algorithm = .deflate
-        public var limit: Limit
         
-        public init(limit: Limit) {
-            self.limit = limit
-        }
-    }
-    
-    /// Specifies how to limit decompression inflation.
-    public struct Limit: Sendable {
-        private enum Base {
-            case none
-            case size(Int)
-            case ratio(Int)
-        }
+        private init() { }
         
-        private var limit: Base
-        
-        /// No limit will be set.
-        /// - warning: Setting `limit` to `.none` leaves you vulnerable to denial of service attacks.
-        public static let none = Limit(limit: .none)
-        /// Limit will be set on the request body size.
-        public static func size(_ value: Int) -> Limit {
-            return Limit(limit: .size(value))
-        }
-        /// Limit will be set on a ratio between compressed body size and decompressed result.
-        public static func ratio(_ value: Int) -> Limit {
-            return Limit(limit: .ratio(value))
-        }
-        
-        func exceeded(compressed: Int, decompressed: Int) -> Bool {
-            switch self.limit {
-            case .none:
-                return false
-            case .size(let allowed):
-                return decompressed > allowed
-            case .ratio(let ratio):
-                return decompressed > compressed * ratio
-            }
-        }
+        public static let enabled = Configuration()
     }
     
     public struct DecompressionError: Error, Equatable, CustomStringConvertible {
@@ -80,16 +45,10 @@ public enum Decompression {
     }
     
     struct Decompressor {
-        private let limit: Limit
         private var stream = z_stream()
-        
-        init(limit: Limit) {
-            self.limit = limit
-        }
         
         /// Assumes `buffer` is a new empty buffer.
         mutating func decompress(part: inout ByteBuffer, buffer: inout ByteBuffer) throws {
-            let compressedLength = part.readableBytes
             var isComplete = false
             
             while part.readableBytes > 0 && !isComplete {
@@ -98,13 +57,6 @@ public enum Decompression {
                     output: &buffer,
                     isComplete: &isComplete
                 )
-                
-                if self.limit.exceeded(
-                    compressed: compressedLength,
-                    decompressed: buffer.writerIndex + 1
-                ) {
-                    throw DecompressionError.limit
-                }
             }
             
             if part.readableBytes > 0 {
