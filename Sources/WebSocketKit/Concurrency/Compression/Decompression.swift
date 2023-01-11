@@ -4,7 +4,7 @@ public enum Decompression {
     
     public struct Configuration {
         /// `deflate` is the main compression algorithm for web-sockets (RFC 7692),
-        /// and for now we only support `deflate`.
+        /// so for now we only support `deflate`.
         let algorithm: Compression.Algorithm = .deflate
         
         private init() { }
@@ -15,16 +15,12 @@ public enum Decompression {
     public struct DecompressionError: Error, Equatable, CustomStringConvertible {
         
         private enum Base: Error, Equatable {
-            case limit
             case inflationError(Int)
             case initializationError(Int)
             case invalidTrailingData
         }
         
         private var base: Base
-        
-        /// The set ``DecompressionLimit`` has been exceeded
-        public static let limit = Self(base: .limit)
         
         /// An error occurred when inflating.  Error code is included to aid diagnosis.
         public static var inflationError: (Int) -> Self = {
