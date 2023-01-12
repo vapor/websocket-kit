@@ -64,10 +64,10 @@ public final class WebSocket {
     }
 
     /// If set, this will trigger automatic pings on the connection. If ping is not answered before
-    /// the next ping is sent, then the WebSocket will be presumed innactive and will be closed
+    /// the next ping is sent, then the WebSocket will be presumed inactive and will be closed
     /// automatically.
     /// These pings can also be used to keep the WebSocket alive if there is some other timeout
-    /// mechanism shutting down innactive connections, such as a Load Balancer deployed in
+    /// mechanism shutting down inactive connections, such as a Load Balancer deployed in
     /// front of the server.
     public var pingInterval: TimeAmount? {
         didSet {
@@ -237,14 +237,8 @@ public final class WebSocket {
             frameSequence.append(frame)
             self.frameSequence = frameSequence
         case .continuation:
-            // we must have an existing sequence
-            if var frameSequence = self.frameSequence {
-                // append this frame and update
-                frameSequence.append(frame)
-                self.frameSequence = frameSequence
-            } else {
-                self.close(code: .protocolError, promise: nil)
-            }
+            /// continuations are filtered by ``NIOWebSocketFrameAggregator``
+            preconditionFailure("We will never receive a continuation frame")
         default:
             // We ignore all other frames.
             break

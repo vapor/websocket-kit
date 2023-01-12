@@ -17,3 +17,12 @@ This product contains a derivation of `NIOSSLTestHelpers.swift` from SwiftNIO SS
     * https://www.apache.org/licenses/LICENSE-2.0
   * HOMEPAGE:
     * https://github.com/apple/swift-nio-ssl
+
+---
+
+This product contains derivations of "HTTPProxySimulator" and "HTTPBin" test utils from AsyncHTTPClient.
+
+  * LICENSE (Apache License 2.0):
+    * https://www.apache.org/licenses/LICENSE-2.0
+  * HOMEPAGE:
+    * https://github.com/swift-server/async-http-client

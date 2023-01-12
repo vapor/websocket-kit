@@ -67,4 +67,68 @@ extension WebSocket {
             onUpgrade: onUpgrade
         )
     }
+
+    public static func connect(
+        scheme: String = "ws",
+        host: String,
+        port: Int = 80,
+        path: String = "/",
+        query: String? = nil,
+        headers: HTTPHeaders = [:],
+        proxy: String?,
+        proxyPort: Int? = nil,
+        proxyHeaders: HTTPHeaders = [:],
+        proxyConnectDeadline: NIODeadline = NIODeadline.distantFuture,
+        configuration: WebSocketClient.Configuration = .init(),
+        on eventLoopGroup: EventLoopGroup,
+        onUpgrade: @escaping (WebSocket) -> ()
+    ) -> EventLoopFuture<Void> {
+        return WebSocketClient(
+            eventLoopGroupProvider: .shared(eventLoopGroup),
+            configuration: configuration
+        ).connect(
+            scheme: scheme,
+            host: host,
+            port: port,
+            path: path,
+            query: query,
+            headers: headers,
+            proxy: proxy,
+            proxyPort: proxyPort,
+            proxyHeaders: proxyHeaders,
+            proxyConnectDeadline: proxyConnectDeadline,
+            onUpgrade: onUpgrade
+        )
+    }
+
+    public static func connect(
+        to url: String,
+        headers: HTTPHeaders = [:],
+        proxy: String?,
+        proxyPort: Int? = nil,
+        proxyHeaders: HTTPHeaders = [:],
+        proxyConnectDeadline: NIODeadline = NIODeadline.distantFuture,
+        configuration: WebSocketClient.Configuration = .init(),
+        on eventLoopGroup: EventLoopGroup,
+        onUpgrade: @escaping (WebSocket) -> ()
+    ) -> EventLoopFuture<Void> {
+        guard let url = URL(string: url) else {
+            return eventLoopGroup.next().makeFailedFuture(WebSocketClient.Error.invalidURL)
+        }
+        let scheme = url.scheme ?? "ws"
+        return self.connect(
+            scheme: scheme,
+            host: url.host ?? "localhost",
+            port: url.port ?? (scheme == "wss" ? 443 : 80),
+            path: url.path,
+            query: url.query,
+            headers: headers,
+            proxy: proxy,
+            proxyPort: proxyPort,
+            proxyHeaders: proxyHeaders,
+            proxyConnectDeadline: proxyConnectDeadline,
+            on: eventLoopGroup,
+            onUpgrade: onUpgrade
+        )
+    }
 }
