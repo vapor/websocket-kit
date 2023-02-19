@@ -2,6 +2,7 @@
 import NIOCore
 import NIOWebSocket
 import Foundation
+import NIOHTTP1
 
 @available(macOS 12, iOS 15, watchOS 8, tvOS 15, *)
 extension WebSocket {

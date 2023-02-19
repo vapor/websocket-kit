@@ -1,3 +1,5 @@
+#if !BUILDING_DOCC
+
 @_exported import struct NIO.ByteBuffer
 @_exported import protocol NIO.Channel
 @_exported import protocol NIO.EventLoop
@@ -8,3 +10,5 @@
 @_exported import struct NIOHTTP1.HTTPHeaders
 
 @_exported import struct Foundation.URL
+
+#endif
