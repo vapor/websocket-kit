@@ -1,3 +1,7 @@
+import NIOCore
+import NIOHTTP1
+import Foundation
+
 extension WebSocket {
     public static func connect(
         to url: String,
