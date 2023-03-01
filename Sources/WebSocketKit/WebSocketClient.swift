@@ -27,8 +27,14 @@ public final class WebSocketClient {
         public var tlsConfiguration: TLSConfiguration?
         public var maxFrameSize: Int
 
+        /// Defends against small payloads in frame aggregation.
+        /// See `NIOWebSocketFrameAggregator` for details.
         public var minNonFinalFragmentSize: Int
+        /// Max number of fragments in an aggregated frame.
+        /// See `NIOWebSocketFrameAggregator` for details.
         public var maxAccumulatedFrameCount: Int
+        /// Maximum frame size after aggregation.
+        /// See `NIOWebSocketFrameAggregator` for details.
         public var maxAccumulatedFrameSize: Int
 
         public init(
