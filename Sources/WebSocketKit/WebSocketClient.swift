@@ -77,6 +77,21 @@ public final class WebSocketClient {
         self.connect(scheme: scheme, host: host, port: port, path: path, query: query, headers: headers, proxy: nil, onUpgrade: onUpgrade)
     }
 
+    /// Establish a WebSocket connection via a proxy server.
+    ///
+    /// - Parameters:
+    ///   - scheme: Scheme component of the URI for the origin server.
+    ///   - host: Host component of the URI for the origin server.
+    ///   - port: Port on which to connect to the origin server.
+    ///   - path: Path component of the URI for the origin server.
+    ///   - query: Query component of the URI for the origin server.
+    ///   - headers: Headers to send to the origin server.
+    ///   - proxy: Host component of the URI for the proxy server.
+    ///   - proxyPort: Port on which to connect to the proxy server.
+    ///   - proxyHeaders: Headers to send to the proxy server.
+    ///   - proxyConnectDeadline: Deadline for establishing the proxy connection.
+    ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
+    /// - Returns: An future which completes when the connection to the origin server is established.
     public func connect(
         scheme: String,
         host: String,

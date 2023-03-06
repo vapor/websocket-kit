@@ -125,6 +125,12 @@ public final class WebSocket {
         }
     }
 
+    /// Send the provided data in a WebSocket frame.
+    /// - Parameters:
+    ///   - data: Data to be sent.
+    ///   - opcode: Frame opcode.
+    ///   - fin: The value of the fin bit.
+    ///   - promise: A promise to be completed when the write is complete.
     public func send(
         _ data: ByteBuffer,
         opcode: WebSocketOpcode = .binary,

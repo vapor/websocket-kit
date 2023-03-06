@@ -3,6 +3,15 @@ import NIOHTTP1
 import Foundation
 
 extension WebSocket {
+    /// Establish a WebSocket connection.
+    ///
+    /// - Parameters:
+    ///   - url: URL for the WebSocket server.
+    ///   - headers: Headers to send to the WebSocket server.
+    ///   - configuration: Configuration for the WebSocket client.
+    ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
+    ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
+    /// - Returns: An future which completes when the connection to the WebSocket server is established.
     public static func connect(
         to url: String,
         headers: HTTPHeaders = [:],
@@ -22,6 +31,15 @@ extension WebSocket {
         )
     }
 
+    /// Establish a WebSocket connection.
+    ///
+    /// - Parameters:
+    ///   - url: URL for the WebSocket server.
+    ///   - headers: Headers to send to the WebSocket server.
+    ///   - configuration: Configuration for the WebSocket client.
+    ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
+    ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
+    /// - Returns: An future which completes when the connection to the WebSocket server is established.
     public static func connect(
         to url: URL,
         headers: HTTPHeaders = [:],
@@ -43,6 +61,19 @@ extension WebSocket {
         )
     }
 
+    /// Establish a WebSocket connection.
+    ///
+    /// - Parameters:
+    ///   - scheme: Scheme component of the URI for the WebSocket server.
+    ///   - host: Host component of the URI for the WebSocket server.
+    ///   - port: Port on which to connect to the WebSocket server.
+    ///   - path: Path component of the URI for the WebSocket server.
+    ///   - query: Query component of the URI for the WebSocket server.
+    ///   - headers: Headers to send to the WebSocket server.
+    ///   - configuration: Configuration for the WebSocket client.
+    ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
+    ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
+    /// - Returns: An future which completes when the connection to the WebSocket server is established.
     public static func connect(
         scheme: String = "ws",
         host: String,
@@ -118,6 +149,19 @@ extension WebSocket {
         )
     }
 
+
+    /// Description
+    /// - Parameters:
+    ///   - url: URL for the origin server.
+    ///   - headers: Headers to send to the origin server.
+    ///   - proxy: Host component of the URI for the proxy server.
+    ///   - proxyPort: Port on which to connect to the proxy server.
+    ///   - proxyHeaders: Headers to send to the proxy server.
+    ///   - proxyConnectDeadline: Deadline for establishing the proxy connection.
+    ///   - configuration: Configuration for the WebSocket client.
+    ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
+    ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
+    /// - Returns: An future which completes when the connection to the origin server is established.
     public static func connect(
         to url: String,
         headers: HTTPHeaders = [:],
