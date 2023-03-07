@@ -179,12 +179,20 @@ final class WebSocketKitTests: XCTestCase {
     func testHeadersAreSent() throws {
         let promiseAuth = self.elg.next().makePromise(of: String.self)
         
-        // make sure there is no content-length header
-        let promiseNoContentLength = self.elg.next().makePromise(of: Bool.self)
+        // make sure there are no unwanted headers such as `Content-Length` or `Content-Type`
+        let promiseHasUnwantedHeaders = self.elg.next().makePromise(of: Bool.self)
         
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
-            promiseAuth.succeed(req.headers.first(name: "Auth")!)
-            promiseNoContentLength.succeed(req.headers.contains(name: "content-length"))
+            let headers = req.headers
+
+            promiseAuth.succeed(headers.first(name: "Auth")!)
+
+            let hasUnwantedHeaders = (
+                headers.contains(name: "Content-Length") ||
+                headers.contains(name: "Content-Type")
+            )
+            promiseHasUnwantedHeaders.succeed(hasUnwantedHeaders)
+
             ws.close(promise: nil)
         }.bind(host: "localhost", port: 0).wait()
 
@@ -201,7 +209,7 @@ final class WebSocketKitTests: XCTestCase {
             }.cascadeFailure(to: promiseAuth)
 
         try XCTAssertEqual(promiseAuth.futureResult.wait(), "supersecretsauce")
-        try XCTAssertFalse(promiseNoContentLength.futureResult.wait())
+        try XCTAssertFalse(promiseHasUnwantedHeaders.futureResult.wait())
         try server.close(mode: .all).wait()
     }
     
