@@ -25,13 +25,25 @@ public final class WebSocketClient {
     public struct Configuration {
         public var tlsConfiguration: TLSConfiguration?
         public var maxFrameSize: Int
-
+        public var decompression: Decompression.Configuration?
+        
         public init(
             tlsConfiguration: TLSConfiguration? = nil,
             maxFrameSize: Int = 1 << 14
         ) {
             self.tlsConfiguration = tlsConfiguration
             self.maxFrameSize = maxFrameSize
+            self.decompression = nil
+        }
+        
+        public init(
+            tlsConfiguration: TLSConfiguration? = nil,
+            maxFrameSize: Int = 1 << 14,
+            decompression: Decompression.Configuration?
+        ) {
+            self.tlsConfiguration = tlsConfiguration
+            self.maxFrameSize = maxFrameSize
+            self.decompression = decompression
         }
     }
 
@@ -69,6 +81,7 @@ public final class WebSocketClient {
                     host: host,
                     path: path,
                     query: query,
+                    decompression: self.configuration.decompression,
                     headers: headers,
                     upgradePromise: upgradePromise
                 )
@@ -82,7 +95,11 @@ public final class WebSocketClient {
                     maxFrameSize: self.configuration.maxFrameSize,
                     automaticErrorHandling: true,
                     upgradePipelineHandler: { channel, req in
-                        return WebSocket.client(on: channel, onUpgrade: onUpgrade)
+                        return WebSocket.client(
+                            on: channel,
+                            decompression: self.configuration.decompression,
+                            onUpgrade: onUpgrade
+                        )
                     }
                 )
 
@@ -129,7 +146,6 @@ public final class WebSocketClient {
             return upgradePromise.futureResult
         }
     }
-
 
     public func syncShutdown() throws {
         switch self.eventLoopGroupProvider {

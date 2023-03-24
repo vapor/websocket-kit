@@ -3,7 +3,7 @@ import XCTest
 import NIO
 import NIOHTTP1
 import NIOWebSocket
-@testable import WebSocketKit
+import WebSocketKit
 
 @available(macOS 12, iOS 15, watchOS 8, tvOS 15, *)
 final class AsyncWebSocketKitTests: XCTestCase {

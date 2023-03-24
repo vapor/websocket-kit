@@ -6,24 +6,37 @@ extension WebSocket {
         on channel: Channel,
         onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
-        return self.handle(on: channel, as: .client, onUpgrade: onUpgrade)
+        return self.handle(on: channel, as: .client, decompression: nil, onUpgrade: onUpgrade)
+    }
+    
+    public static func client(
+        on channel: Channel,
+        decompression: Decompression.Configuration?,
+        onUpgrade: @escaping (WebSocket) -> ()
+    ) -> EventLoopFuture<Void> {
+        return self.handle(on: channel, as: .client, decompression: decompression, onUpgrade: onUpgrade)
     }
 
     public static func server(
         on channel: Channel,
         onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
-        return self.handle(on: channel, as: .server, onUpgrade: onUpgrade)
+        return self.handle(on: channel, as: .server, decompression: nil, onUpgrade: onUpgrade)
     }
 
     private static func handle(
         on channel: Channel,
         as type: PeerType,
+        decompression: Decompression.Configuration?,
         onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
-        let webSocket = WebSocket(channel: channel, type: type)
-        return channel.pipeline.addHandler(WebSocketHandler(webSocket: webSocket)).map { _ in
-            onUpgrade(webSocket)
+        do {
+            let webSocket = try WebSocket(channel: channel, type: type, decompression: decompression)
+            return channel.pipeline.addHandler(WebSocketHandler(webSocket: webSocket)).map { _ in
+                onUpgrade(webSocket)
+            }
+        } catch {
+            return channel.pipeline.eventLoop.makeFailedFuture(error)
         }
     }
 }

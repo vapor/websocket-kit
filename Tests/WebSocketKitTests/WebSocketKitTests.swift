@@ -3,7 +3,7 @@ import NIO
 import NIOHTTP1
 import NIOSSL
 import NIOWebSocket
-@testable import WebSocketKit
+import WebSocketKit
 
 final class WebSocketKitTests: XCTestCase {
     func testWebSocketEcho() throws {
@@ -29,6 +29,85 @@ final class WebSocketKitTests: XCTestCase {
         }.cascadeFailure(to: promise)
         try XCTAssertEqual(promise.futureResult.wait(), "hello")
         XCTAssertNoThrow(try closePromise.futureResult.wait())
+        try server.close(mode: .all).wait()
+    }
+    
+    func testWebSocketWithClientCompression() throws {
+        let serverConnectedPromise = elg.next().makePromise(of: WebSocket.self)
+        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+            serverConnectedPromise.succeed(ws)
+        }.bind(host: "localhost", port: 0).wait()
+        
+        guard let port = server.localAddress?.port else {
+            XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
+            return
+        }
+        
+        let closePromise = elg.next().makePromise(of: Void.self)
+        var configuration = WebSocketClient.Configuration()
+        configuration.decompression = .enabled
+        try WebSocket.connect(to: "ws://localhost:\(port)", configuration: configuration, on: elg) { ws in
+            var receivedDeflatedStrings: [String] = []
+            ws.onBinary { ws, buffer in
+                let string = String(buffer: buffer)
+                if receivedDeflatedStrings.contains(string) {
+                    XCTFail("ws received the same string multiple times: \(string)")
+                } else {
+                    receivedDeflatedStrings.append(string)
+                }
+                if !deflatedDataDecodedStrings.contains(string) {
+                    XCTFail("ws received unknown string: \(string)")
+                }
+                if receivedDeflatedStrings.count == deflatedData.count {
+                    ws.close(promise: closePromise)
+                }
+            }
+        }.wait()
+        
+        let serverWs = try serverConnectedPromise.futureResult.wait()
+        for data in deflatedData {
+            serverWs.send(raw: data, opcode: .binary)
+        }
+        
+        XCTAssertNoThrow(try closePromise.futureResult.wait())
+        try server.close(mode: .all).wait()
+    }
+    
+    func testWebSocketReceivesIdenticalDataFromBothTextCallbacks() throws {
+        var serverWs: WebSocket!
+        let server = try ServerBootstrap
+            .webSocket(on: self.elg) { _, ws in serverWs = ws }
+            .bind(host: "localhost", port: 0)
+            .wait()
+        
+        guard let port = server.localAddress?.port else {
+            XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
+            return
+        }
+        
+        let count = 10
+        let endPromise = self.elg.next().makePromise(of: Void.self)
+        var onTextData = [ByteBuffer]()
+        var onTextBufferData = [ByteBuffer]()
+        try WebSocket.connect(to: "ws://localhost:\(port)", on: elg) { ws in
+            ws.onText { ws, string in
+                onTextData.append(ByteBuffer(string: string))
+            }
+            ws.onTextBuffer { ws, buffer in
+                onTextBufferData.append(buffer)
+                if onTextBufferData.count == count {
+                    endPromise.succeed(())
+                }
+            }
+        }.wait()
+        
+        for _ in 0..<count {
+            serverWs.send("\(Int.random(in: (.min)...(.max)))")
+        }
+        
+        try endPromise.futureResult.wait()
+        XCTAssertEqual(onTextData, onTextBufferData)
+        
         try server.close(mode: .all).wait()
     }
 

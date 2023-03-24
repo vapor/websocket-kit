@@ -25,20 +25,31 @@ public final class WebSocket {
     }
 
     private let channel: Channel
-    private var onTextCallback: (WebSocket, String) -> ()
+
+    private var onTextCallback: ((WebSocket, String) -> ())?
+    private var onTextBufferCallback: (WebSocket, ByteBuffer) -> ()
     private var onBinaryCallback: (WebSocket, ByteBuffer) -> ()
     private var onPongCallback: (WebSocket) -> ()
     private var onPingCallback: (WebSocket) -> ()
+
     private var frameSequence: WebSocketFrameSequence?
     private let type: PeerType
+
+    private var decompressor: Decompression.Decompressor?
+
     private var waitingForPong: Bool
     private var waitingForClose: Bool
     private var scheduledTimeoutTask: Scheduled<Void>?
 
-    init(channel: Channel, type: PeerType) {
+    init(channel: Channel, type: PeerType, decompression: Decompression.Configuration?) throws {
         self.channel = channel
         self.type = type
+        if let decompression = decompression {
+            self.decompressor = Decompression.Decompressor()
+            try self.decompressor?.initializeDecoder(encoding: decompression.algorithm)
+        }
         self.onTextCallback = { _, _ in }
+        self.onTextBufferCallback = { _, _ in }
         self.onBinaryCallback = { _, _ in }
         self.onPongCallback = { _ in }
         self.onPingCallback = { _ in }
@@ -49,6 +60,11 @@ public final class WebSocket {
 
     public func onText(_ callback: @escaping (WebSocket, String) -> ()) {
         self.onTextCallback = callback
+    }
+
+    /// The same as `onText`, but with raw data instead of the decoded `String`.
+    public func onTextBuffer(_ callback: @escaping (WebSocket, ByteBuffer) -> ()) {
+        self.onTextBufferCallback = callback
     }
 
     public func onBinary(_ callback: @escaping (WebSocket, ByteBuffer) -> ()) {
@@ -64,10 +80,10 @@ public final class WebSocket {
     }
 
     /// If set, this will trigger automatic pings on the connection. If ping is not answered before
-    /// the next ping is sent, then the WebSocket will be presumed innactive and will be closed
+    /// the next ping is sent, then the WebSocket will be presumed inactive and will be closed
     /// automatically.
     /// These pings can also be used to keep the WebSocket alive if there is some other timeout
-    /// mechanism shutting down innactive connections, such as a Load Balancer deployed in
+    /// mechanism shutting down inactive connections, such as a Load Balancer deployed in
     /// front of the server.
     public var pingInterval: TimeAmount? {
         didSet {
@@ -233,6 +249,7 @@ public final class WebSocket {
             } else {
                 frameSequence = WebSocketFrameSequence(type: frame.opcode)
             }
+            
             // append this frame and update the sequence
             frameSequence.append(frame)
             self.frameSequence = frameSequence
@@ -252,12 +269,27 @@ public final class WebSocket {
 
         // if this frame was final and we have a non-nil frame sequence,
         // output it to the websocket and clear storage
-        if let frameSequence = self.frameSequence, frame.fin {
+        if var frameSequence = self.frameSequence, frame.fin {
             switch frameSequence.type {
             case .binary:
-                self.onBinaryCallback(self, frameSequence.binaryBuffer)
+                if decompressor != nil {
+                    do {
+                        var buffer = ByteBuffer()
+                        try decompressor!.decompress(part: &frameSequence.buffer, buffer: &buffer)
+                        
+                        self.onBinaryCallback(self, buffer)
+                    } catch {
+                        self.close(code: .protocolError, promise: nil)
+                        return
+                    }
+                } else {
+                    self.onBinaryCallback(self, frameSequence.buffer)
+                }
             case .text:
-                self.onTextCallback(self, frameSequence.textBuffer)
+                if let callback = self.onTextCallback {
+                    callback(self, String(buffer: frameSequence.buffer))
+                }
+                self.onTextBufferCallback(self, frameSequence.buffer)
             case .ping, .pong:
                 assertionFailure("Control frames never have a frameSequence")
             default: break
@@ -293,30 +325,25 @@ public final class WebSocket {
     }
 
     deinit {
+        self.decompressor?.deinitializeDecoder()
         assert(self.isClosed, "WebSocket was not closed before deinit.")
     }
 }
 
 private struct WebSocketFrameSequence {
-    var binaryBuffer: ByteBuffer
-    var textBuffer: String
+    var buffer: ByteBuffer
     var type: WebSocketOpcode
 
     init(type: WebSocketOpcode) {
-        self.binaryBuffer = ByteBufferAllocator().buffer(capacity: 0)
-        self.textBuffer = .init()
+        self.buffer = ByteBufferAllocator().buffer(capacity: 0)
         self.type = type
     }
 
     mutating func append(_ frame: WebSocketFrame) {
-        var data = frame.unmaskedData
         switch type {
-        case .binary:
-            self.binaryBuffer.writeBuffer(&data)
-        case .text:
-            if let string = data.readString(length: data.readableBytes) {
-                self.textBuffer += string
-            }
+        case .binary, .text:
+            var data = frame.unmaskedData
+            self.buffer.writeBuffer(&data)
         default: break
         }
     }
