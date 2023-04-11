@@ -24,7 +24,9 @@ public final class WebSocket {
         self.channel.closeFuture
     }
 
-    private let channel: Channel
+    @usableFromInline
+    /* private but @usableFromInline */
+    internal let channel: Channel
     private var onTextCallback: (WebSocket, String) -> ()
     private var onBinaryCallback: (WebSocket, ByteBuffer) -> ()
     private var onPongCallback: (WebSocket) -> ()
@@ -64,10 +66,10 @@ public final class WebSocket {
     }
 
     /// If set, this will trigger automatic pings on the connection. If ping is not answered before
-    /// the next ping is sent, then the WebSocket will be presumed innactive and will be closed
+    /// the next ping is sent, then the WebSocket will be presumed inactive and will be closed
     /// automatically.
     /// These pings can also be used to keep the WebSocket alive if there is some other timeout
-    /// mechanism shutting down innactive connections, such as a Load Balancer deployed in
+    /// mechanism shutting down inactive connections, such as a Load Balancer deployed in
     /// front of the server.
     public var pingInterval: TimeAmount? {
         didSet {
@@ -82,13 +84,13 @@ public final class WebSocket {
         }
     }
 
+    @inlinable
     public func send<S>(_ text: S, promise: EventLoopPromise<Void>? = nil)
         where S: Collection, S.Element == Character
     {
         let string = String(text)
-        var buffer = channel.allocator.buffer(capacity: text.count)
-        buffer.writeString(string)
-        self.send(raw: buffer.readableBytesView, opcode: .text, fin: true, promise: promise)
+        let buffer = channel.allocator.buffer(string: string)
+        self.send(buffer, opcode: .text, fin: true, promise: promise)
 
     }
 
@@ -105,6 +107,7 @@ public final class WebSocket {
         )
     }
 
+    @inlinable
     public func send<Data>(
         raw data: Data,
         opcode: WebSocketOpcode,
@@ -113,13 +116,32 @@ public final class WebSocket {
     )
         where Data: DataProtocol
     {
-        var buffer = channel.allocator.buffer(capacity: data.count)
-        buffer.writeBytes(data)
+        if let byteBufferView = data as? ByteBufferView {
+            // optimisation: converting from `ByteBufferView` to `ByteBuffer` doesn't allocate or copy any data
+            send(ByteBuffer(byteBufferView), opcode: opcode, fin: fin, promise: promise)
+        } else {
+            let buffer = channel.allocator.buffer(bytes: data)
+            send(buffer, opcode: opcode, fin: fin, promise: promise)
+        }
+    }
+
+    /// Send the provided data in a WebSocket frame.
+    /// - Parameters:
+    ///   - data: Data to be sent.
+    ///   - opcode: Frame opcode.
+    ///   - fin: The value of the fin bit.
+    ///   - promise: A promise to be completed when the write is complete.
+    public func send(
+        _ data: ByteBuffer,
+        opcode: WebSocketOpcode = .binary,
+        fin: Bool = true,
+        promise: EventLoopPromise<Void>? = nil
+    ) {
         let frame = WebSocketFrame(
             fin: fin,
             opcode: opcode,
             maskKey: self.makeMaskKey(),
-            data: buffer
+            data: data
         )
         self.channel.writeAndFlush(frame, promise: promise)
     }
@@ -164,11 +186,7 @@ public final class WebSocket {
     func makeMaskKey() -> WebSocketMaskingKey? {
         switch type {
         case .client:
-            var bytes: [UInt8] = []
-            for _ in 0..<4 {
-                bytes.append(.random(in: .min ..< .max))
-            }
-            return WebSocketMaskingKey(bytes)
+            return WebSocketMaskingKey.random()
         case .server:
             return nil
         }
@@ -237,14 +255,8 @@ public final class WebSocket {
             frameSequence.append(frame)
             self.frameSequence = frameSequence
         case .continuation:
-            // we must have an existing sequence
-            if var frameSequence = self.frameSequence {
-                // append this frame and update
-                frameSequence.append(frame)
-                self.frameSequence = frameSequence
-            } else {
-                self.close(code: .protocolError, promise: nil)
-            }
+            /// continuations are filtered by ``NIOWebSocketFrameAggregator``
+            preconditionFailure("We will never receive a continuation frame")
         default:
             // We ignore all other frames.
             break
