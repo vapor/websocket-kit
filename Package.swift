@@ -30,6 +30,9 @@ let package = Package(
             .product(name: "NIOWebSocket", package: "swift-nio"),
             .product(name: "NIOTransportServices", package: "swift-nio-transport-services"),
             .product(name: "Atomics", package: "swift-atomics")
+        ],
+        swiftSettings: [
+            .unsafeFlags(["-Xfrontend", "-strict-concurrency=complete"])
         ]),
         .testTarget(name: "WebSocketKitTests", dependencies: [
             .target(name: "WebSocketKit"),

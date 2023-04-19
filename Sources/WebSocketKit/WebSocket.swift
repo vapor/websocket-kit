@@ -4,8 +4,9 @@ import NIOHTTP1
 import NIOSSL
 import Foundation
 import NIOFoundationCompat
+import NIOConcurrencyHelpers
 
-public final class WebSocket {
+public final class WebSocket: Sendable {
     enum PeerType {
         case server
         case client
@@ -18,7 +19,11 @@ public final class WebSocket {
     public var isClosed: Bool {
         !self.channel.isActive
     }
-    public private(set) var closeCode: WebSocketErrorCode?
+    public var closeCode: WebSocketErrorCode? {
+        _closeCode.withLockedValue { $0 }
+    }
+    
+    private let _closeCode: NIOLockedValueBox<WebSocketErrorCode?>
 
     public var onClose: EventLoopFuture<Void> {
         self.channel.closeFuture
@@ -27,10 +32,10 @@ public final class WebSocket {
     @usableFromInline
     /* private but @usableFromInline */
     internal let channel: Channel
-    private var onTextCallback: (WebSocket, String) -> ()
-    private var onBinaryCallback: (WebSocket, ByteBuffer) -> ()
-    private var onPongCallback: (WebSocket) -> ()
-    private var onPingCallback: (WebSocket) -> ()
+    private var onTextCallback: @Sendable (WebSocket, String) -> ()
+    private var onBinaryCallback: @Sendable (WebSocket, ByteBuffer) -> ()
+    private var onPongCallback: @Sendable (WebSocket) -> ()
+    private var onPingCallback: @Sendable (WebSocket) -> ()
     private var frameSequence: WebSocketFrameSequence?
     private let type: PeerType
     private var waitingForPong: Bool
@@ -47,21 +52,22 @@ public final class WebSocket {
         self.waitingForPong = false
         self.waitingForClose = false
         self.scheduledTimeoutTask = nil
+        self._closeCode = .init(nil)
     }
 
-    public func onText(_ callback: @escaping (WebSocket, String) -> ()) {
+    public func onText(_ callback: @Sendable @escaping (WebSocket, String) -> ()) {
         self.onTextCallback = callback
     }
 
-    public func onBinary(_ callback: @escaping (WebSocket, ByteBuffer) -> ()) {
+    public func onBinary(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onBinaryCallback = callback
     }
     
-    public func onPong(_ callback: @escaping (WebSocket) -> ()) {
+    public func onPong(_ callback: @Sendable @escaping (WebSocket) -> ()) {
         self.onPongCallback = callback
     }
 
-    public func onPing(_ callback: @escaping (WebSocket) -> ()) {
+    public func onPing(_ callback: @Sendable @escaping (WebSocket) -> ()) {
         self.onPingCallback = callback
     }
 
@@ -165,7 +171,7 @@ public final class WebSocket {
             return
         }
         self.waitingForClose = true
-        self.closeCode = code
+        self._closeCode.withLockedValue { $0 = code }
 
         let codeAsInt = UInt16(webSocketErrorCode: code)
         let codeToSend: WebSocketErrorCode

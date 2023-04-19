@@ -40,7 +40,7 @@ extension WebSocket {
         try await close(code: code).get()
     }
 
-    public func onText(_ callback: @escaping (WebSocket, String) async -> ()) {
+    public func onText(_ callback: @Sendable @escaping (WebSocket, String) async -> ()) {
         onText { socket, text in
             Task {
                 await callback(socket, text)
@@ -48,7 +48,7 @@ extension WebSocket {
         }
     }
 
-    public func onBinary(_ callback: @escaping (WebSocket, ByteBuffer) async -> ()) {
+    public func onBinary(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) async -> ()) {
         onBinary { socket, binary in
             Task {
                 await callback(socket, binary)
@@ -56,7 +56,7 @@ extension WebSocket {
         }
     }
 
-    public func onPong(_ callback: @escaping (WebSocket) async -> ()) {
+    public func onPong(_ callback: @Sendable @escaping (WebSocket) async -> ()) {
         onPong { socket in
             Task {
                 await callback(socket)
@@ -64,7 +64,7 @@ extension WebSocket {
         }
     }
 
-    public func onPing(_ callback: @escaping (WebSocket) async -> ()) {
+    public func onPing(_ callback: @Sendable @escaping (WebSocket) async -> ()) {
         onPing { socket in
             Task {
                 await callback(socket)
@@ -77,7 +77,7 @@ extension WebSocket {
         headers: HTTPHeaders = [:],
         configuration: WebSocketClient.Configuration = .init(),
         on eventLoopGroup: EventLoopGroup,
-        onUpgrade: @escaping (WebSocket) async -> ()
+        onUpgrade: @Sendable @escaping (WebSocket) async -> ()
     ) async throws {
         return try await self.connect(
             to: url,
@@ -97,7 +97,7 @@ extension WebSocket {
         headers: HTTPHeaders = [:],
         configuration: WebSocketClient.Configuration = .init(),
         on eventLoopGroup: EventLoopGroup,
-        onUpgrade: @escaping (WebSocket) async -> ()
+        onUpgrade: @Sendable @escaping (WebSocket) async -> ()
     ) async throws {
         return try await self.connect(
             to: url,
@@ -121,7 +121,7 @@ extension WebSocket {
         headers: HTTPHeaders = [:],
         configuration: WebSocketClient.Configuration = .init(),
         on eventLoopGroup: EventLoopGroup,
-        onUpgrade: @escaping (WebSocket) async -> ()
+        onUpgrade: @Sendable @escaping (WebSocket) async -> ()
     ) async throws {
         return try await self.connect(
             scheme: scheme,
