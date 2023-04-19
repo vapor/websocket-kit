@@ -70,7 +70,7 @@ public final class WebSocketClient {
         path: String = "/",
         query: String? = nil,
         headers: HTTPHeaders = [:],
-        onUpgrade: @escaping (WebSocket) -> ()
+        onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         self.connect(scheme: scheme, host: host, port: port, path: path, query: query, headers: headers, proxy: nil, onUpgrade: onUpgrade)
     }
@@ -101,7 +101,7 @@ public final class WebSocketClient {
         proxyPort: Int? = nil,
         proxyHeaders: HTTPHeaders = [:],
         proxyConnectDeadline: NIODeadline = NIODeadline.distantFuture,
-        onUpgrade: @escaping (WebSocket) -> ()
+        onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         assert(["ws", "wss"].contains(scheme))
         let upgradePromise = self.group.any().makePromise(of: Void.self)
@@ -130,6 +130,7 @@ public final class WebSocketClient {
                     headers: upgradeRequestHeaders,
                     upgradePromise: upgradePromise
                 )
+                let httpUpgradeRequestHandlerBox = NIOLoopBound(httpUpgradeRequestHandler, eventLoop: channel.eventLoop)
 
                 let websocketUpgrader = NIOWebSocketClientUpgrader(
                     maxFrameSize: self.configuration.maxFrameSize,
@@ -143,7 +144,7 @@ public final class WebSocketClient {
                     upgraders: [websocketUpgrader],
                     completionHandler: { context in
                         upgradePromise.succeed(())
-                        channel.pipeline.removeHandler(httpUpgradeRequestHandler, promise: nil)
+                        channel.pipeline.removeHandler(httpUpgradeRequestHandlerBox.value, promise: nil)
                     }
                 )
 
@@ -163,7 +164,7 @@ public final class WebSocketClient {
                         leftOverBytesStrategy: .forwardBytes,
                         withClientUpgrade: config
                     ).flatMap {
-                        channel.pipeline.addHandler(httpUpgradeRequestHandler)
+                        channel.pipeline.addHandler(httpUpgradeRequestHandlerBox.value)
                     }
                 }
 
