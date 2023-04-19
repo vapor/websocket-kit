@@ -21,7 +21,7 @@ public final class WebSocketClient {
 
     public typealias EventLoopGroupProvider = NIOEventLoopGroupProvider
 
-    public struct Configuration {
+    public struct Configuration: Sendable {
         public var tlsConfiguration: TLSConfiguration?
         public var maxFrameSize: Int
 
@@ -171,8 +171,8 @@ public final class WebSocketClient {
                 // TLS + proxy
                 // we need to handle connecting with an additional CONNECT request
                 let proxyEstablishedPromise = channel.eventLoop.makePromise(of: Void.self)
-                let encoder = HTTPRequestEncoder()
-                let decoder = ByteToMessageHandler(HTTPResponseDecoder(leftOverBytesStrategy: .dropBytes))
+                let encoder = NIOLoopBound(HTTPRequestEncoder(), eventLoop: channel.eventLoop)
+                let decoder = NIOLoopBound(ByteToMessageHandler(HTTPResponseDecoder(leftOverBytesStrategy: .dropBytes)), eventLoop: channel.eventLoop)
 
                 var connectHeaders = proxyHeaders
                 connectHeaders.add(name: "Host", value: host)
@@ -189,17 +189,17 @@ public final class WebSocketClient {
                 // They are then removed upon completion only to be re-added in `addHTTPClientHandlers`.
                 // This is done because the HTTP decoder is not valid after an upgrade, the CONNECT request being counted as one.
                 do {
-                    try channel.pipeline.syncOperations.addHandler(encoder)
-                    try channel.pipeline.syncOperations.addHandler(decoder)
+                    try channel.pipeline.syncOperations.addHandler(encoder.value)
+                    try channel.pipeline.syncOperations.addHandler(decoder.value)
                     try channel.pipeline.syncOperations.addHandler(proxyRequestHandler)
                 } catch {
                     return channel.eventLoop.makeFailedFuture(error)
                 }
 
                 proxyEstablishedPromise.futureResult.flatMap {
-                    channel.pipeline.removeHandler(decoder)
+                    channel.pipeline.removeHandler(decoder.value)
                 }.flatMap {
-                    channel.pipeline.removeHandler(encoder)
+                    channel.pipeline.removeHandler(encoder.value)
                 }.whenComplete { result in
                     switch result {
                     case .success:
@@ -212,7 +212,7 @@ public final class WebSocketClient {
                                 leftOverBytesStrategy: .forwardBytes,
                                 withClientUpgrade: config
                             )
-                            try channel.pipeline.syncOperations.addHandler(httpUpgradeRequestHandler)
+                            try channel.pipeline.syncOperations.addHandler(httpUpgradeRequestHandlerBox.value)
                         } catch {
                             channel.pipeline.close(mode: .all, promise: nil)
                         }
@@ -231,6 +231,7 @@ public final class WebSocketClient {
         }
     }
 
+    @Sendable
     private func makeTLSHandler(tlsConfiguration: TLSConfiguration?, host: String) throws -> NIOSSLClientHandler {
         let context = try NIOSSLContext(
             configuration: self.configuration.tlsConfiguration ?? .makeClientConfiguration()

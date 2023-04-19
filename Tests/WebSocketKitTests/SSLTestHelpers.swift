@@ -18,6 +18,7 @@ import Foundation
 import NIOCore
 @testable import NIOSSL
 
+
 // This function generates a random number suitable for use in an X509
 // serial field. This needs to be a positive number less than 2^159
 // (such that it will fit into 20 ASN.1 bytes).
@@ -62,6 +63,10 @@ func randomSerialNumber() -> ASN1_INTEGER {
     return asn1int
 }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> f208734 (More Sendable warning fixes)
 func generateRSAPrivateKey() -> OpaquePointer {
     let exponent = CNIOBoringSSL_BN_new()
     defer {
