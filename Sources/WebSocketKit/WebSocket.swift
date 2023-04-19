@@ -7,7 +7,7 @@ import NIOFoundationCompat
 import NIOConcurrencyHelpers
 
 public final class WebSocket: Sendable {
-    enum PeerType {
+    enum PeerType: Sendable {
         case server
         case client
     }
@@ -36,13 +36,11 @@ public final class WebSocket: Sendable {
     private let onBinaryCallback: NIOLoopBoundBox<@Sendable (WebSocket, ByteBuffer) -> ()>
     private let onPongCallback: NIOLoopBoundBox<@Sendable (WebSocket) -> ()>
     private let onPingCallback: NIOLoopBoundBox<@Sendable (WebSocket) -> ()>
-    private var frameSequence: WebSocketFrameSequence?
     private let type: PeerType
-    private var waitingForPong: Bool
-    private var waitingForClose: Bool
-    private var scheduledTimeoutTask: Scheduled<Void>?
-    #warning("Add link to GH issue as to why we're using a lock instead of NIOLockedValueBox")
-    private let concurrencyLock: NIOLock
+    private let waitingForPong: NIOLockedValueBox<Bool>
+    private let waitingForClose: NIOLockedValueBox<Bool>
+    private let scheduledTimeoutTask: NIOLockedValueBox<Scheduled<Void>?>
+    private var frameSequence: WebSocketFrameSequence?
 
     init(channel: Channel, type: PeerType) {
         self.channel = channel
@@ -51,11 +49,10 @@ public final class WebSocket: Sendable {
         self.onBinaryCallback = .init({ _, _ in }, eventLoop: channel.eventLoop)
         self.onPongCallback = .init({ _ in }, eventLoop: channel.eventLoop)
         self.onPingCallback = .init({ _ in }, eventLoop: channel.eventLoop)
-        self.waitingForPong = false
-        self.waitingForClose = false
-        self.scheduledTimeoutTask = nil
+        self.waitingForPong = .init(false)
+        self.waitingForClose = .init(false)
+        self.scheduledTimeoutTask = .init(nil)
         self._closeCode = .init(nil)
-        self.concurrencyLock = .init()
     }
 
     public func onText(_ callback: @Sendable @escaping (WebSocket, String) -> ()) {
@@ -83,12 +80,12 @@ public final class WebSocket: Sendable {
     public var pingInterval: TimeAmount? {
         didSet {
             if pingInterval != nil {
-                if scheduledTimeoutTask == nil {
-                    waitingForPong = false
+                if scheduledTimeoutTask.withLockedValue({ $0 == nil }) {
+                    waitingForPong.withLockedValue { $0 = false }
                     self.pingAndScheduleNextTimeoutTask()
                 }
             } else {
-                scheduledTimeoutTask?.cancel()
+                scheduledTimeoutTask.withLockedValue { $0?.cancel() }
             }
         }
     }
@@ -169,11 +166,11 @@ public final class WebSocket: Sendable {
             promise?.succeed(())
             return
         }
-        guard !self.waitingForClose else {
+        guard !self.waitingForClose.withLockedValue({ $0 }) else {
             promise?.succeed(())
             return
         }
-        self.waitingForClose = true
+        self.waitingForClose.withLockedValue { $0 = true }
         self._closeCode.withLockedValue { $0 = code }
 
         let codeAsInt = UInt16(webSocketErrorCode: code)
@@ -206,7 +203,7 @@ public final class WebSocket: Sendable {
     func handle(incoming frame: WebSocketFrame) {
         switch frame.opcode {
         case .connectionClose:
-            if self.waitingForClose {
+            if self.waitingForClose.withLockedValue({ $0 }) {
                 // peer confirmed close, time to close channel
                 self.channel.close(mode: .all, promise: nil)
             } else {
@@ -249,7 +246,7 @@ public final class WebSocket: Sendable {
                 if let maskingKey = maskingKey {
                     frameData.webSocketUnmask(maskingKey)
                 }
-                self.waitingForPong = false
+                self.waitingForPong.withLockedValue { $0 = false }
                 self.onPongCallback.value(self)
             } else {
                 self.close(code: .protocolError, promise: nil)
@@ -295,7 +292,7 @@ public final class WebSocket: Sendable {
             return
         }
 
-        if waitingForPong {
+        if waitingForPong.withLockedValue({ $0 }) {
             // We never received a pong from our last ping, so the connection has timed out
             let promise = self.eventLoop.makePromise(of: Void.self)
             self.close(code: .unknown(1006), promise: promise)
@@ -308,11 +305,13 @@ public final class WebSocket: Sendable {
             }
         } else {
             self.sendPing()
-            self.waitingForPong = true
-            self.scheduledTimeoutTask = self.eventLoop.scheduleTask(
-                deadline: .now() + pingInterval,
-                self.pingAndScheduleNextTimeoutTask
-            )
+            self.waitingForPong.withLockedValue { $0 = true }
+            self.scheduledTimeoutTask.withLockedValue {
+                $0 = self.eventLoop.scheduleTask(
+                    deadline: .now() + pingInterval,
+                    self.pingAndScheduleNextTimeoutTask
+                )
+            }
         }
     }
 
