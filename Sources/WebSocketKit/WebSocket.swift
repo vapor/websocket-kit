@@ -40,7 +40,8 @@ public final class WebSocket: Sendable {
     private let waitingForPong: NIOLockedValueBox<Bool>
     private let waitingForClose: NIOLockedValueBox<Bool>
     private let scheduledTimeoutTask: NIOLockedValueBox<Scheduled<Void>?>
-    private var frameSequence: WebSocketFrameSequence?
+    private let frameSequence: NIOLockedValueBox<WebSocketFrameSequence?>
+    private let _pingInterval: NIOLockedValueBox<TimeAmount?>
 
     init(channel: Channel, type: PeerType) {
         self.channel = channel
@@ -53,6 +54,8 @@ public final class WebSocket: Sendable {
         self.waitingForClose = .init(false)
         self.scheduledTimeoutTask = .init(nil)
         self._closeCode = .init(nil)
+        self.frameSequence = .init(nil)
+        self._pingInterval = .init(nil)
     }
 
     public func onText(_ callback: @Sendable @escaping (WebSocket, String) -> ()) {
@@ -78,8 +81,12 @@ public final class WebSocket: Sendable {
     /// mechanism shutting down inactive connections, such as a Load Balancer deployed in
     /// front of the server.
     public var pingInterval: TimeAmount? {
-        didSet {
-            if pingInterval != nil {
+        get {
+            return _pingInterval.withLockedValue { $0 }
+        }
+        set {
+            _pingInterval.withLockedValue { $0 = newValue }
+            if newValue != nil {
                 if scheduledTimeoutTask.withLockedValue({ $0 == nil }) {
                     waitingForPong.withLockedValue { $0 = false }
                     self.pingAndScheduleNextTimeoutTask()
@@ -253,15 +260,17 @@ public final class WebSocket: Sendable {
             }
         case .text, .binary:
             // create a new frame sequence or use existing
-            var frameSequence: WebSocketFrameSequence
-            if let existing = self.frameSequence {
-                frameSequence = existing
-            } else {
-                frameSequence = WebSocketFrameSequence(type: frame.opcode)
+            self.frameSequence.withLockedValue { currentFrameSequence in
+                var frameSequence: WebSocketFrameSequence
+                if let existing = currentFrameSequence {
+                    frameSequence = existing
+                } else {
+                    frameSequence = WebSocketFrameSequence(type: frame.opcode)
+                }
+                // append this frame and update the sequence
+                frameSequence.append(frame)
+                currentFrameSequence = frameSequence
             }
-            // append this frame and update the sequence
-            frameSequence.append(frame)
-            self.frameSequence = frameSequence
         case .continuation:
             /// continuations are filtered by ``NIOWebSocketFrameAggregator``
             preconditionFailure("We will never receive a continuation frame")
@@ -272,17 +281,19 @@ public final class WebSocket: Sendable {
 
         // if this frame was final and we have a non-nil frame sequence,
         // output it to the websocket and clear storage
-        if let frameSequence = self.frameSequence, frame.fin {
-            switch frameSequence.type {
-            case .binary:
-                self.onBinaryCallback.value(self, frameSequence.binaryBuffer)
-            case .text:
-                self.onTextCallback.value(self, frameSequence.textBuffer)
-            case .ping, .pong:
-                assertionFailure("Control frames never have a frameSequence")
-            default: break
+        self.frameSequence.withLockedValue { currentFrameSequence in
+            if let frameSequence = currentFrameSequence, frame.fin {
+                switch frameSequence.type {
+                case .binary:
+                    self.onBinaryCallback.value(self, frameSequence.binaryBuffer)
+                case .text:
+                    self.onTextCallback.value(self, frameSequence.textBuffer)
+                case .ping, .pong:
+                    assertionFailure("Control frames never have a frameSequence")
+                default: break
+                }
+                currentFrameSequence = nil
             }
-            self.frameSequence = nil
         }
     }
 
@@ -320,27 +331,31 @@ public final class WebSocket: Sendable {
     }
 }
 
-private struct WebSocketFrameSequence {
+private struct WebSocketFrameSequence: Sendable {
     var binaryBuffer: ByteBuffer
     var textBuffer: String
-    var type: WebSocketOpcode
+    let type: WebSocketOpcode
+    let lock: NIOLock
 
     init(type: WebSocketOpcode) {
         self.binaryBuffer = ByteBufferAllocator().buffer(capacity: 0)
         self.textBuffer = .init()
         self.type = type
+        self.lock = .init()
     }
 
     mutating func append(_ frame: WebSocketFrame) {
-        var data = frame.unmaskedData
-        switch type {
-        case .binary:
-            self.binaryBuffer.writeBuffer(&data)
-        case .text:
-            if let string = data.readString(length: data.readableBytes) {
-                self.textBuffer += string
+        self.lock.withLockVoid {
+            var data = frame.unmaskedData
+            switch type {
+            case .binary:
+                self.binaryBuffer.writeBuffer(&data)
+            case .text:
+                if let string = data.readString(length: data.readableBytes) {
+                    self.textBuffer += string
+                }
+            default: break
             }
-        default: break
         }
     }
 }
