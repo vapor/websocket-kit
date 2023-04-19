@@ -32,43 +32,46 @@ public final class WebSocket: Sendable {
     @usableFromInline
     /* private but @usableFromInline */
     internal let channel: Channel
-    private var onTextCallback: @Sendable (WebSocket, String) -> ()
-    private var onBinaryCallback: @Sendable (WebSocket, ByteBuffer) -> ()
-    private var onPongCallback: @Sendable (WebSocket) -> ()
-    private var onPingCallback: @Sendable (WebSocket) -> ()
+    private let onTextCallback: NIOLoopBoundBox<@Sendable (WebSocket, String) -> ()>
+    private let onBinaryCallback: NIOLoopBoundBox<@Sendable (WebSocket, ByteBuffer) -> ()>
+    private let onPongCallback: NIOLoopBoundBox<@Sendable (WebSocket) -> ()>
+    private let onPingCallback: NIOLoopBoundBox<@Sendable (WebSocket) -> ()>
     private var frameSequence: WebSocketFrameSequence?
     private let type: PeerType
     private var waitingForPong: Bool
     private var waitingForClose: Bool
     private var scheduledTimeoutTask: Scheduled<Void>?
+    #warning("Add link to GH issue as to why we're using a lock instead of NIOLockedValueBox")
+    private let concurrencyLock: NIOLock
 
     init(channel: Channel, type: PeerType) {
         self.channel = channel
         self.type = type
-        self.onTextCallback = { _, _ in }
-        self.onBinaryCallback = { _, _ in }
-        self.onPongCallback = { _ in }
-        self.onPingCallback = { _ in }
+        self.onTextCallback = .init({ _, _ in }, eventLoop: channel.eventLoop)
+        self.onBinaryCallback = .init({ _, _ in }, eventLoop: channel.eventLoop)
+        self.onPongCallback = .init({ _ in }, eventLoop: channel.eventLoop)
+        self.onPingCallback = .init({ _ in }, eventLoop: channel.eventLoop)
         self.waitingForPong = false
         self.waitingForClose = false
         self.scheduledTimeoutTask = nil
         self._closeCode = .init(nil)
+        self.concurrencyLock = .init()
     }
 
     public func onText(_ callback: @Sendable @escaping (WebSocket, String) -> ()) {
-        self.onTextCallback = callback
+        self.onTextCallback.value = callback
     }
 
     public func onBinary(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
-        self.onBinaryCallback = callback
+        self.onBinaryCallback.value = callback
     }
     
     public func onPong(_ callback: @Sendable @escaping (WebSocket) -> ()) {
-        self.onPongCallback = callback
+        self.onPongCallback.value = callback
     }
 
     public func onPing(_ callback: @Sendable @escaping (WebSocket) -> ()) {
-        self.onPingCallback = callback
+        self.onPingCallback.value = callback
     }
 
     /// If set, this will trigger automatic pings on the connection. If ping is not answered before
@@ -229,7 +232,7 @@ public final class WebSocket: Sendable {
                 if let maskingKey = maskingKey {
                     frameData.webSocketUnmask(maskingKey)
                 }
-                self.onPingCallback(self)
+                self.onPingCallback.value(self)
                 self.send(
                     raw: frameData.readableBytesView,
                     opcode: .pong,
@@ -247,7 +250,7 @@ public final class WebSocket: Sendable {
                     frameData.webSocketUnmask(maskingKey)
                 }
                 self.waitingForPong = false
-                self.onPongCallback(self)
+                self.onPongCallback.value(self)
             } else {
                 self.close(code: .protocolError, promise: nil)
             }
@@ -275,9 +278,9 @@ public final class WebSocket: Sendable {
         if let frameSequence = self.frameSequence, frame.fin {
             switch frameSequence.type {
             case .binary:
-                self.onBinaryCallback(self, frameSequence.binaryBuffer)
+                self.onBinaryCallback.value(self, frameSequence.binaryBuffer)
             case .text:
-                self.onTextCallback(self, frameSequence.textBuffer)
+                self.onTextCallback.value(self, frameSequence.textBuffer)
             case .ping, .pong:
                 assertionFailure("Control frames never have a frameSequence")
             default: break

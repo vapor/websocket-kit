@@ -41,33 +41,41 @@ extension WebSocket {
     }
 
     public func onText(_ callback: @Sendable @escaping (WebSocket, String) async -> ()) {
-        onText { socket, text in
-            Task {
-                await callback(socket, text)
+        self.eventLoop.execute {
+            self.onText { socket, text in
+                Task {
+                    await callback(socket, text)
+                }
             }
         }
     }
 
     public func onBinary(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) async -> ()) {
-        onBinary { socket, binary in
-            Task {
-                await callback(socket, binary)
+        self.eventLoop.execute {
+            self.onBinary { socket, binary in
+                Task {
+                    await callback(socket, binary)
+                }
             }
         }
     }
 
     public func onPong(_ callback: @Sendable @escaping (WebSocket) async -> ()) {
-        onPong { socket in
-            Task {
-                await callback(socket)
+        self.eventLoop.execute {
+            self.onPong { socket in
+                Task {
+                    await callback(socket)
+                }
             }
         }
     }
 
     public func onPing(_ callback: @Sendable @escaping (WebSocket) async -> ()) {
-        onPing { socket in
-            Task {
-                await callback(socket)
+        self.eventLoop.execute {
+            self.onPing { socket in
+                Task {
+                    await callback(socket)
+                }
             }
         }
     }
