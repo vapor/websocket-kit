@@ -147,6 +147,7 @@ public final class WebSocketClient: Sendable {
                         channel.pipeline.removeHandler(httpUpgradeRequestHandlerBox.value, promise: nil)
                     }
                 )
+                let configBox = NIOLoopBound(config, eventLoop: channel.eventLoop)
 
                 if proxy == nil || scheme == "ws" {
                     if scheme == "wss" {
@@ -210,7 +211,7 @@ public final class WebSocketClient: Sendable {
                             try channel.pipeline.syncOperations.addHandler(tlsHandler)
                             try channel.pipeline.syncOperations.addHTTPClientHandlers(
                                 leftOverBytesStrategy: .forwardBytes,
-                                withClientUpgrade: config
+                                withClientUpgrade: configBox.value
                             )
                             try channel.pipeline.syncOperations.addHandler(httpUpgradeRequestHandlerBox.value)
                         } catch {
