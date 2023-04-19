@@ -286,6 +286,7 @@ public final class WebSocket: Sendable {
         }
     }
 
+    @Sendable
     private func pingAndScheduleNextTimeoutTask() {
         guard channel.isActive, let pingInterval = pingInterval else {
             return
