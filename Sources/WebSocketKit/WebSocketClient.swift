@@ -9,7 +9,7 @@ import NIOSSL
 import NIOTransportServices
 import Atomics
 
-public final class WebSocketClient {
+public final class WebSocketClient: Sendable {
     public enum Error: Swift.Error, LocalizedError {
         case invalidURL
         case invalidResponseStatus(HTTPResponseHead)
