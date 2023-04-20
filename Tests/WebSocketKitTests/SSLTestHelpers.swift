@@ -63,10 +63,6 @@ func randomSerialNumber() -> ASN1_INTEGER {
     return asn1int
 }
 
-<<<<<<< HEAD
-=======
-
->>>>>>> f208734 (More Sendable warning fixes)
 func generateRSAPrivateKey() -> OpaquePointer {
     let exponent = CNIOBoringSSL_BN_new()
     defer {
