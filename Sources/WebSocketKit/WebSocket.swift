@@ -261,12 +261,7 @@ public final class WebSocket: Sendable {
         case .text, .binary:
             // create a new frame sequence or use existing
             self.frameSequence.withLockedValue { currentFrameSequence in
-                var frameSequence: WebSocketFrameSequence
-                if let existing = currentFrameSequence {
-                    frameSequence = existing
-                } else {
-                    frameSequence = WebSocketFrameSequence(type: frame.opcode)
-                }
+                var frameSequence = currentFrameSequence ?? .init(type: frame.opcode)
                 // append this frame and update the sequence
                 frameSequence.append(frame)
                 currentFrameSequence = frameSequence
