@@ -1,11 +1,17 @@
 name: test
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 on:
-- pull_request
+  pull_request: { types: [opened, reopened, synchronize, ready_for_review] }
+  push: { branches: [ main ] }
+
 jobs:
+
   vapor-integration:
+    if: ${{ !(github.event.pull_request.draft || false) }}
     runs-on: ubuntu-latest
-    container: 
-      image: swift:5.7
+    container: swift:5.8-jammy
     steps:
       - name: Check out package
         uses: actions/checkout@v3
@@ -14,8 +20,7 @@ jobs:
         uses: actions/checkout@v3
         with: { repository: 'vapor/vapor', path: 'vapor' }
       - name: Use local package in Vapor
-        run: |
-          swift package --package-path vapor edit websocket-kit --path websocket-kit
+        run: swift package --package-path vapor edit websocket-kit --path websocket-kit
       - name: Run Vapor tests
         run: swift test --package-path vapor
 
@@ -24,6 +29,4 @@ jobs:
     with:
       with_coverage: true
       with_tsan: false
-      coverage_ignores: '/Tests/'
       with_public_api_check: ${{ github.event_name == 'pull_request' }}
-
