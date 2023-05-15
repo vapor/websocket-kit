@@ -502,6 +502,25 @@ final class WebSocketKitTests: XCTestCase {
         try server.close(mode: .all).wait()
     }
     
+    func testSendPing() throws {
+        let server = try ServerBootstrap.webSocket(on: self.elg) { _, _ in }.bind(host: "localhost", port: 0).wait()
+        let promise = self.elg.any().makePromise(of: Void.self)
+        let closePromise = self.elg.any().makePromise(of: Void.self)
+        guard let port = server.localAddress?.port else {
+            return XCTFail("couldn't get port from \(String(reflecting: server.localAddress))")
+        }
+        WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
+            ws.sendPing()
+            ws.onPong {
+                promise.succeed()
+                $0.close(promise: closePromise)
+            }
+        }.cascadeFailure(to: closePromise)
+        XCTAssertNoThrow(try promise.futureResult.wait())
+        XCTAssertNoThrow(try closePromise.futureResult.wait())
+        try server.close(mode: .all).wait()
+    }
+    
     func testSetPingInterval() throws {
         let server = try ServerBootstrap.webSocket(on: self.elg) { _, _ in }.bind(host: "localhost", port: 0).wait()
         let promise = self.elg.any().makePromise(of: Void.self)

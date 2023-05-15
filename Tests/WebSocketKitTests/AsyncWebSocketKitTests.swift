@@ -77,8 +77,7 @@ final class AsyncWebSocketKitTests: XCTestCase {
             return XCTFail("couldn't get port from \(String(reflecting: server.localAddress))")
         }
         try await WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
-            do { try await ws.send([0x01]) }
-            catch { promise.fail(error) }
+            do { try await ws.send([0x01]) } catch { promise.fail(error); try? await ws.close() }
             ws.onBinary { ws, buf in
                 promise.succeed(.init(buf.readableBytesView))
                 do { try await ws.close() }
@@ -87,6 +86,23 @@ final class AsyncWebSocketKitTests: XCTestCase {
         }
         let result = try await promise.futureResult.get()
         XCTAssertEqual(result, [0x01])
+        try await server.close(mode: .all)
+    }
+
+    func testSendPing() async throws {
+        let server = try await ServerBootstrap.webSocket(on: self.elg) { _, _ in }.bind(host: "localhost", port: 0).get()
+        let promise = self.elg.any().makePromise(of: Void.self)
+        guard let port = server.localAddress?.port else {
+            return XCTFail("couldn't get port from \(String(reflecting: server.localAddress))")
+        }
+        try await WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { (ws) async in
+            do { try await ws.sendPing() } catch { promise.fail(error); try? await ws.close() }
+            ws.onPong {
+                promise.succeed(())
+                do { try await $0.close() } catch { XCTFail("Failed to close websocket: \(String(reflecting: error))") }
+            }
+        }
+        try await promise.futureResult.get()
         try await server.close(mode: .all)
     }
 
