@@ -19,7 +19,7 @@ final class AsyncWebSocketKitTests: XCTestCase {
             return
         }
 
-        let promise = elg.next().makePromise(of: String.self)
+        let promise = elg.any().makePromise(of: String.self)
 
         try await WebSocket.connect(to: "ws://localhost:\(port)", on: elg) { ws in
             do {

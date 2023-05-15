@@ -20,8 +20,8 @@ final class WebSocketKitTests: XCTestCase {
             return
         }
 
-        let promise = elg.next().makePromise(of: String.self)
-        let closePromise = elg.next().makePromise(of: Void.self)
+        let promise = elg.any().makePromise(of: String.self)
+        let closePromise = elg.any().makePromise(of: Void.self)
         WebSocket.connect(to: "ws://localhost:\(port)", on: elg) { ws in
             ws.send("hello")
             ws.onText { ws, string in
@@ -39,9 +39,9 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     func testServerClose() throws {
-        let sendPromise = self.elg.next().makePromise(of: Void.self)
-        let serverClose = self.elg.next().makePromise(of: Void.self)
-        let clientClose = self.elg.next().makePromise(of: Void.self)
+        let sendPromise = self.elg.any().makePromise(of: Void.self)
+        let serverClose = self.elg.any().makePromise(of: Void.self)
+        let clientClose = self.elg.any().makePromise(of: Void.self)
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
             ws.onText { ws, text in
                 if text == "close" {
@@ -67,9 +67,9 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     func testClientClose() throws {
-        let sendPromise = self.elg.next().makePromise(of: Void.self)
-        let serverClose = self.elg.next().makePromise(of: Void.self)
-        let clientClose = self.elg.next().makePromise(of: Void.self)
+        let sendPromise = self.elg.any().makePromise(of: Void.self)
+        let serverClose = self.elg.any().makePromise(of: Void.self)
+        let clientClose = self.elg.any().makePromise(of: Void.self)
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
             ws.onText { ws, text in
                 ws.send(text)
@@ -98,7 +98,7 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     func testImmediateSend() throws {
-        let promise = self.elg.next().makePromise(of: String.self)
+        let promise = self.elg.any().makePromise(of: String.self)
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
             ws.send("hello")
             ws.onText { ws, string in
@@ -124,8 +124,8 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     func testWebSocketPingPong() throws {
-        let pingPromise = self.elg.next().makePromise(of: String.self)
-        let pongPromise = self.elg.next().makePromise(of: String.self)
+        let pingPromise = self.elg.any().makePromise(of: String.self)
+        let pongPromise = self.elg.any().makePromise(of: String.self)
         let pingPongData = ByteBuffer(bytes: "Vapor rules".utf8)
 
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
@@ -171,8 +171,8 @@ final class WebSocketKitTests: XCTestCase {
             return
         }
 
-        let promise = elg.next().makePromise(of: String.self)
-        let closePromise = elg.next().makePromise(of: Void.self)
+        let promise = elg.any().makePromise(of: String.self)
+        let closePromise = elg.any().makePromise(of: Void.self)
         WebSocket.connect(to: "ws://localhost:\(port)", on: elg) { ws in
             ws.send("Hel", opcode: .text, fin: false)
             ws.send("lo! Vapor r", opcode: .continuation, fin: false)
@@ -188,7 +188,7 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     func testErrorCode() throws {
-        let promise = self.elg.next().makePromise(of: WebSocketErrorCode.self)
+        let promise = self.elg.any().makePromise(of: WebSocketErrorCode.self)
 
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
             ws.close(code: .normalClosure, promise: nil)
@@ -214,10 +214,10 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     func testHeadersAreSent() throws {
-        let promiseAuth = self.elg.next().makePromise(of: String.self)
+        let promiseAuth = self.elg.any().makePromise(of: String.self)
         
         // make sure there are no unwanted headers such as `Content-Length` or `Content-Type`
-        let promiseHasUnwantedHeaders = self.elg.next().makePromise(of: Bool.self)
+        let promiseHasUnwantedHeaders = self.elg.any().makePromise(of: Bool.self)
         
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
             let headers = req.headers
@@ -251,7 +251,7 @@ final class WebSocketKitTests: XCTestCase {
     }
     
     func testQueryParamsAreSent() throws {
-        let promise = self.elg.next().makePromise(of: String.self)
+        let promise = self.elg.any().makePromise(of: String.self)
 
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
             promise.succeed(req.uri)
@@ -278,7 +278,7 @@ final class WebSocketKitTests: XCTestCase {
         try XCTSkipIf(true)
 
         let port = Int(1337)
-        let shutdownPromise = self.elg.next().makePromise(of: Void.self)
+        let shutdownPromise = self.elg.any().makePromise(of: Void.self)
 
         let server = try! ServerBootstrap.webSocket(on: self.elg) { req, ws in
             ws.send("welcome!")
@@ -337,7 +337,7 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     func testProxy() throws {
-        let promise = elg.next().makePromise(of: String.self)
+        let promise = elg.any().makePromise(of: String.self)
 
         let localWebsocketBin: WebsocketBin
         let verifyProxyHead = { (ctx: ChannelHandlerContext, requestHead: HTTPRequestHead) in
@@ -361,7 +361,7 @@ final class WebSocketKitTests: XCTestCase {
             XCTAssertNoThrow(try localWebsocketBin.shutdown())
         }
 
-        let closePromise = elg.next().makePromise(of: Void.self)
+        let closePromise = elg.any().makePromise(of: Void.self)
 
         let client = WebSocketClient(
             eventLoopGroupProvider: .shared(self.elg),
@@ -388,7 +388,7 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     func testProxyTLS() throws {
-        let promise = elg.next().makePromise(of: String.self)
+        let promise = elg.any().makePromise(of: String.self)
 
         let (cert, key) = generateSelfSignedCert()
         let configuration = TLSConfiguration.makeServerConfiguration(
@@ -421,7 +421,7 @@ final class WebSocketKitTests: XCTestCase {
             XCTAssertNoThrow(try localWebsocketBin.shutdown())
         }
 
-        let closePromise = elg.next().makePromise(of: Void.self)
+        let closePromise = elg.any().makePromise(of: Void.self)
         var tlsConfiguration = TLSConfiguration.makeClientConfiguration()
         tlsConfiguration.certificateVerification = .none
 

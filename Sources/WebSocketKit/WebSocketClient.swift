@@ -1,5 +1,6 @@
 import Foundation
-import NIO
+import NIOCore
+import NIOPosix
 import NIOConcurrencyHelpers
 import NIOExtras
 import NIOHTTP1
@@ -18,10 +19,7 @@ public final class WebSocketClient {
         }
     }
 
-    public enum EventLoopGroupProvider {
-        case shared(EventLoopGroup)
-        case createNew
-    }
+    public typealias EventLoopGroupProvider = NIOEventLoopGroupProvider
 
     public struct Configuration {
         public var tlsConfiguration: TLSConfiguration?
@@ -106,7 +104,7 @@ public final class WebSocketClient {
         onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         assert(["ws", "wss"].contains(scheme))
-        let upgradePromise = self.group.next().makePromise(of: Void.self)
+        let upgradePromise = self.group.any().makePromise(of: Void.self)
         let bootstrap = WebSocketClient.makeBootstrap(on: self.group)
             .channelOption(ChannelOptions.socket(SocketOptionLevel(IPPROTO_TCP), TCP_NODELAY), value: 1)
             .channelInitializer { channel -> EventLoopFuture<Void> in
