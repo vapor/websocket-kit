@@ -1,18 +1,16 @@
-#if compiler(>=5.5) && canImport(_Concurrency)
 import XCTest
 import NIO
 import NIOHTTP1
 import NIOWebSocket
 @testable import WebSocketKit
 
-@available(macOS 12, iOS 15, watchOS 8, tvOS 15, *)
 final class AsyncWebSocketKitTests: XCTestCase {
     func testWebSocketEcho() async throws {
-        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+        let server = try await ServerBootstrap.webSocket(on: self.elg) { req, ws in
             ws.onText { ws, text in
                 ws.send(text)
             }
-        }.bind(host: "localhost", port: 0).wait()
+        }.bind(host: "localhost", port: 0).get()
 
         guard let port = server.localAddress?.port else {
             XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
@@ -51,5 +49,3 @@ final class AsyncWebSocketKitTests: XCTestCase {
         try! self.elg.syncShutdownGracefully()
     }
 }
-
-#endif
