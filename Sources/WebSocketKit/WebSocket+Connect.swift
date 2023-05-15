@@ -20,7 +20,7 @@ extension WebSocket {
         onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         guard let url = URL(string: url) else {
-            return eventLoopGroup.next().makeFailedFuture(WebSocketClient.Error.invalidURL)
+            return eventLoopGroup.any().makeFailedFuture(WebSocketClient.Error.invalidURL)
         }
         return self.connect(
             to: url,
@@ -174,7 +174,7 @@ extension WebSocket {
         onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         guard let url = URL(string: url) else {
-            return eventLoopGroup.next().makeFailedFuture(WebSocketClient.Error.invalidURL)
+            return eventLoopGroup.any().makeFailedFuture(WebSocketClient.Error.invalidURL)
         }
         let scheme = url.scheme ?? "ws"
         return self.connect(

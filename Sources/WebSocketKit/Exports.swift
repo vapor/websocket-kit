@@ -1,11 +1,24 @@
-#if !BUILDING_DOCC
+#if swift(>=5.8)
 
-@_exported import struct NIO.ByteBuffer
-@_exported import protocol NIO.Channel
-@_exported import protocol NIO.EventLoop
-@_exported import protocol NIO.EventLoopGroup
-@_exported import struct NIO.EventLoopPromise
-@_exported import class NIO.EventLoopFuture
+@_documentation(visibility: internal) @_exported import struct NIOCore.ByteBuffer
+@_documentation(visibility: internal) @_exported import protocol NIOCore.Channel
+@_documentation(visibility: internal) @_exported import protocol NIOCore.EventLoop
+@_documentation(visibility: internal) @_exported import protocol NIOCore.EventLoopGroup
+@_documentation(visibility: internal) @_exported import struct NIOCore.EventLoopPromise
+@_documentation(visibility: internal) @_exported import class NIOCore.EventLoopFuture
+
+@_documentation(visibility: internal) @_exported import struct NIOHTTP1.HTTPHeaders
+
+@_documentation(visibility: internal) @_exported import struct Foundation.URL
+
+#else
+
+@_exported import struct NIOCore.ByteBuffer
+@_exported import protocol NIOCore.Channel
+@_exported import protocol NIOCore.EventLoop
+@_exported import protocol NIOCore.EventLoopGroup
+@_exported import struct NIOCore.EventLoopPromise
+@_exported import class NIOCore.EventLoopFuture
 
 @_exported import struct NIOHTTP1.HTTPHeaders
 

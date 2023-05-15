@@ -1,4 +1,4 @@
-import NIO
+import NIOCore
 import NIOWebSocket
 import NIOHTTP1
 import NIOSSL

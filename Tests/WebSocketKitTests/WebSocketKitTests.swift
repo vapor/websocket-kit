@@ -20,8 +20,8 @@ final class WebSocketKitTests: XCTestCase {
             return
         }
 
-        let promise = elg.next().makePromise(of: String.self)
-        let closePromise = elg.next().makePromise(of: Void.self)
+        let promise = elg.any().makePromise(of: String.self)
+        let closePromise = elg.any().makePromise(of: Void.self)
         WebSocket.connect(to: "ws://localhost:\(port)", on: elg) { ws in
             ws.send("hello")
             ws.onText { ws, string in
@@ -39,9 +39,9 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     func testServerClose() throws {
-        let sendPromise = self.elg.next().makePromise(of: Void.self)
-        let serverClose = self.elg.next().makePromise(of: Void.self)
-        let clientClose = self.elg.next().makePromise(of: Void.self)
+        let sendPromise = self.elg.any().makePromise(of: Void.self)
+        let serverClose = self.elg.any().makePromise(of: Void.self)
+        let clientClose = self.elg.any().makePromise(of: Void.self)
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
             ws.onText { ws, text in
                 if text == "close" {
@@ -67,9 +67,9 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     func testClientClose() throws {
-        let sendPromise = self.elg.next().makePromise(of: Void.self)
-        let serverClose = self.elg.next().makePromise(of: Void.self)
-        let clientClose = self.elg.next().makePromise(of: Void.self)
+        let sendPromise = self.elg.any().makePromise(of: Void.self)
+        let serverClose = self.elg.any().makePromise(of: Void.self)
+        let clientClose = self.elg.any().makePromise(of: Void.self)
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
             ws.onText { ws, text in
                 ws.send(text)
@@ -98,7 +98,7 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     func testImmediateSend() throws {
-        let promise = self.elg.next().makePromise(of: String.self)
+        let promise = self.elg.any().makePromise(of: String.self)
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
             ws.send("hello")
             ws.onText { ws, string in
@@ -124,8 +124,8 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     func testWebSocketPingPong() throws {
-        let pingPromise = self.elg.next().makePromise(of: String.self)
-        let pongPromise = self.elg.next().makePromise(of: String.self)
+        let pingPromise = self.elg.any().makePromise(of: String.self)
+        let pongPromise = self.elg.any().makePromise(of: String.self)
         let pingPongData = ByteBuffer(bytes: "Vapor rules".utf8)
 
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
@@ -159,10 +159,10 @@ final class WebSocketKitTests: XCTestCase {
 
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
             ws.onText { ws, text in
-                ws.send(text, opcode: .text, fin: false)
-                ws.send(" th", opcode: .continuation, fin: false)
-                ws.send("e mo", opcode: .continuation, fin: false)
-                ws.send("st", opcode: .continuation, fin: true)
+                ws.send(.init(string: text), opcode: .text, fin: false)
+                ws.send(.init(string: " th"), opcode: .continuation, fin: false)
+                ws.send(.init(string: "e mo"), opcode: .continuation, fin: false)
+                ws.send(.init(string: "st"), opcode: .continuation, fin: true)
             }
         }.bind(host: "localhost", port: 0).wait()
 
@@ -171,12 +171,12 @@ final class WebSocketKitTests: XCTestCase {
             return
         }
 
-        let promise = elg.next().makePromise(of: String.self)
-        let closePromise = elg.next().makePromise(of: Void.self)
+        let promise = elg.any().makePromise(of: String.self)
+        let closePromise = elg.any().makePromise(of: Void.self)
         WebSocket.connect(to: "ws://localhost:\(port)", on: elg) { ws in
-            ws.send("Hel", opcode: .text, fin: false)
-            ws.send("lo! Vapor r", opcode: .continuation, fin: false)
-            ws.send("ules", opcode: .continuation, fin: true)
+            ws.send(.init(string: "Hel"), opcode: .text, fin: false)
+            ws.send(.init(string: "lo! Vapor r"), opcode: .continuation, fin: false)
+            ws.send(.init(string: "ules"), opcode: .continuation, fin: true)
             ws.onText { ws, string in
                 promise.succeed(string)
                 ws.close(promise: closePromise)
@@ -188,7 +188,7 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     func testErrorCode() throws {
-        let promise = self.elg.next().makePromise(of: WebSocketErrorCode.self)
+        let promise = self.elg.any().makePromise(of: WebSocketErrorCode.self)
 
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
             ws.close(code: .normalClosure, promise: nil)
@@ -214,10 +214,10 @@ final class WebSocketKitTests: XCTestCase {
     }
 
     func testHeadersAreSent() throws {
-        let promiseAuth = self.elg.next().makePromise(of: String.self)
+        let promiseAuth = self.elg.any().makePromise(of: String.self)
         
         // make sure there are no unwanted headers such as `Content-Length` or `Content-Type`
-        let promiseHasUnwantedHeaders = self.elg.next().makePromise(of: Bool.self)
+        let promiseHasUnwantedHeaders = self.elg.any().makePromise(of: Bool.self)
         
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
             let headers = req.headers
@@ -251,7 +251,7 @@ final class WebSocketKitTests: XCTestCase {
     }
     
     func testQueryParamsAreSent() throws {
-        let promise = self.elg.next().makePromise(of: String.self)
+        let promise = self.elg.any().makePromise(of: String.self)
 
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
             promise.succeed(req.uri)
@@ -278,7 +278,7 @@ final class WebSocketKitTests: XCTestCase {
         try XCTSkipIf(true)
 
         let port = Int(1337)
-        let shutdownPromise = self.elg.next().makePromise(of: Void.self)
+        let shutdownPromise = self.elg.any().makePromise(of: Void.self)
 
         let server = try! ServerBootstrap.webSocket(on: self.elg) { req, ws in
             ws.send("welcome!")
@@ -334,10 +334,11 @@ final class WebSocketKitTests: XCTestCase {
         }.wait()
         
         try server.close(mode: .all).wait()
+        try client.syncShutdown()
     }
 
     func testProxy() throws {
-        let promise = elg.next().makePromise(of: String.self)
+        let promise = elg.any().makePromise(of: String.self)
 
         let localWebsocketBin: WebsocketBin
         let verifyProxyHead = { (ctx: ChannelHandlerContext, requestHead: HTTPRequestHead) in
@@ -361,7 +362,7 @@ final class WebSocketKitTests: XCTestCase {
             XCTAssertNoThrow(try localWebsocketBin.shutdown())
         }
 
-        let closePromise = elg.next().makePromise(of: Void.self)
+        let closePromise = elg.any().makePromise(of: Void.self)
 
         let client = WebSocketClient(
             eventLoopGroupProvider: .shared(self.elg),
@@ -385,10 +386,11 @@ final class WebSocketKitTests: XCTestCase {
 
         XCTAssertEqual(try promise.futureResult.wait(), "hello")
         XCTAssertNoThrow(try closePromise.futureResult.wait())
+        try client.syncShutdown()
     }
 
     func testProxyTLS() throws {
-        let promise = elg.next().makePromise(of: String.self)
+        let promise = elg.any().makePromise(of: String.self)
 
         let (cert, key) = generateSelfSignedCert()
         let configuration = TLSConfiguration.makeServerConfiguration(
@@ -421,7 +423,7 @@ final class WebSocketKitTests: XCTestCase {
             XCTAssertNoThrow(try localWebsocketBin.shutdown())
         }
 
-        let closePromise = elg.next().makePromise(of: Void.self)
+        let closePromise = elg.any().makePromise(of: Void.self)
         var tlsConfiguration = TLSConfiguration.makeClientConfiguration()
         tlsConfiguration.certificateVerification = .none
 
@@ -449,384 +451,108 @@ final class WebSocketKitTests: XCTestCase {
 
         XCTAssertEqual(try promise.futureResult.wait(), "hello")
         XCTAssertNoThrow(try closePromise.futureResult.wait())
+        try client.syncShutdown()
     }
 
+    func testAlternateWebsocketConnectMethods() throws {
+        let server = try ServerBootstrap.webSocket(on: self.elg) { $1.onText { $0.send($1) } }.bind(host: "localhost", port: 0).wait()
+        let closePromise1 = self.elg.any().makePromise(of: Void.self)
+        let closePromise2 = self.elg.any().makePromise(of: Void.self)
+        guard let port = server.localAddress?.port else {
+            return XCTFail("couldn't get port from \(String(reflecting: server.localAddress))")
+        }
+        WebSocket.connect(scheme: "ws", host: "localhost", port: port, proxy: nil, on: self.elg) { ws in
+            ws.send("hello"); ws.onText { ws, _ in ws.close(promise: closePromise1) }
+        }.cascadeFailure(to: closePromise1)
+        WebSocket.connect(to: "ws://localhost:\(port)", proxy: nil, on: self.elg) { ws in
+            ws.send("hello"); ws.onText { ws, _ in ws.close(promise: closePromise2) }
+        }.cascadeFailure(to: closePromise2)
+        XCTAssertNoThrow(try closePromise1.futureResult.wait())
+        XCTAssertNoThrow(try closePromise2.futureResult.wait())
+        try server.close(mode: .all).wait()
+    }
+    
+    func testBadURLInWebsocketConnect() async throws {
+        XCTAssertThrowsError(try WebSocket.connect(to: "%w", on: self.elg, onUpgrade: { _ in }).wait()) {
+            guard case .invalidURL = $0 as? WebSocketClient.Error else {
+                return XCTFail("Expected .invalidURL but got \(String(reflecting: $0))")
+            }
+        }
+    }
+    
+    func testOnBinary() throws {
+        let server = try ServerBootstrap.webSocket(on: self.elg) { $1.onBinary { $0.send($1) } }.bind(host: "localhost", port: 0).wait()
+        let promise = self.elg.any().makePromise(of: [UInt8].self)
+        let closePromise = self.elg.any().makePromise(of: Void.self)
+        guard let port = server.localAddress?.port else {
+            return XCTFail("couldn't get port from \(String(reflecting: server.localAddress))")
+        }
+        WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
+            ws.send([0x01])
+            ws.onBinary { ws, buf in
+                promise.succeed(.init(buf.readableBytesView))
+                ws.close(promise: closePromise)
+            }
+        }.whenFailure {
+            promise.fail($0)
+            closePromise.fail($0)
+        }
+        XCTAssertEqual(try promise.futureResult.wait(), [0x01])
+        XCTAssertNoThrow(try closePromise.futureResult.wait())
+        try server.close(mode: .all).wait()
+    }
+    
+    func testSendPing() throws {
+        let server = try ServerBootstrap.webSocket(on: self.elg) { _, _ in }.bind(host: "localhost", port: 0).wait()
+        let promise = self.elg.any().makePromise(of: Void.self)
+        let closePromise = self.elg.any().makePromise(of: Void.self)
+        guard let port = server.localAddress?.port else {
+            return XCTFail("couldn't get port from \(String(reflecting: server.localAddress))")
+        }
+        WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
+            ws.sendPing()
+            ws.onPong {
+                promise.succeed()
+                $0.close(promise: closePromise)
+            }
+        }.cascadeFailure(to: closePromise)
+        XCTAssertNoThrow(try promise.futureResult.wait())
+        XCTAssertNoThrow(try closePromise.futureResult.wait())
+        try server.close(mode: .all).wait()
+    }
+    
+    func testSetPingInterval() throws {
+        let server = try ServerBootstrap.webSocket(on: self.elg) { _, _ in }.bind(host: "localhost", port: 0).wait()
+        let promise = self.elg.any().makePromise(of: Void.self)
+        let closePromise = self.elg.any().makePromise(of: Void.self)
+        guard let port = server.localAddress?.port else {
+            return XCTFail("couldn't get port from \(String(reflecting: server.localAddress))")
+        }
+        WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
+            ws.pingInterval = .milliseconds(100)
+            ws.onPong {
+                promise.succeed()
+                $0.close(promise: closePromise)
+            }
+        }.cascadeFailure(to: closePromise)
+        XCTAssertNoThrow(try promise.futureResult.wait())
+        XCTAssertNoThrow(try closePromise.futureResult.wait())
+        try server.close(mode: .all).wait()
+    }
+    
+    func testCreateNewELGAndShutdown() throws {
+        let client = WebSocketClient(eventLoopGroupProvider: .createNew)
+        try client.syncShutdown()
+    }
 
     var elg: EventLoopGroup!
+    
     override func setUp() {
         // needs to be at least two to avoid client / server on same EL timing issues
         self.elg = MultiThreadedEventLoopGroup(numberOfThreads: 2)
     }
-    override func tearDown() {
+    
+        override func tearDown() {
         try! self.elg.syncShutdownGracefully()
     }
 }
-
-extension ServerBootstrap {
-    static func webSocket(
-        on eventLoopGroup: EventLoopGroup,
-        tls: Bool = false,
-        onUpgrade: @escaping (HTTPRequestHead, WebSocket) -> ()
-    ) -> ServerBootstrap {
-        return ServerBootstrap(group: eventLoopGroup).childChannelInitializer { channel in
-            if tls {
-                let (cert, key) = generateSelfSignedCert()
-                let configuration = TLSConfiguration.makeServerConfiguration(
-                    certificateChain: [.certificate(cert)],
-                    privateKey: .privateKey(key)
-                )
-                let sslContext = try! NIOSSLContext(configuration: configuration)
-                let handler = NIOSSLServerHandler(context: sslContext)
-                _ = channel.pipeline.addHandler(handler)
-            }
-            let webSocket = NIOWebSocketServerUpgrader(
-                shouldUpgrade: { channel, req in
-                    return channel.eventLoop.makeSucceededFuture([:])
-                },
-                upgradePipelineHandler: { channel, req in
-                    return WebSocket.server(on: channel) { ws in
-                        onUpgrade(req, ws)
-                    }
-                }
-            )
-            return channel.pipeline.configureHTTPServerPipeline(
-                withServerUpgrade: (
-                    upgraders: [webSocket],
-                    completionHandler: { ctx in
-                        // complete
-                    }
-                )
-            )
-        }
-    }
-}
-
-fileprivate extension WebSocket {
-    func send(
-        _ data: String,
-        opcode: WebSocketOpcode,
-        fin: Bool = true,
-        promise: EventLoopPromise<Void>? = nil
-    ) {
-        self.send(raw: ByteBuffer(string: data).readableBytesView, opcode: opcode, fin: fin, promise: promise)
-    }
-}
-
-
-
-internal final class WebsocketBin {
-    enum BindTarget {
-        case unixDomainSocket(String)
-        case localhostIPv4RandomPort
-        case localhostIPv6RandomPort
-    }
-
-    enum Mode {
-        // refuses all connections
-        case refuse
-        // supports http1.1 connections only, which can be either plain text or encrypted
-        case http1_1(ssl: Bool = false)
-    }
-
-    enum Proxy {
-        case none
-        case simulate(config: ProxyConfig, authorization: String?)
-    }
-
-    struct ProxyConfig {
-        var tls: Bool
-        let headVerification: (ChannelHandlerContext, HTTPRequestHead) -> Void
-    }
-
-    let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-
-    var port: Int {
-        return Int(self.serverChannel.localAddress!.port!)
-    }
-
-    private let mode: Mode
-    private let sslContext: NIOSSLContext?
-    private var serverChannel: Channel!
-    private let isShutdown = ManagedAtomic(false)
-
-    init(
-        _ mode: Mode = .http1_1(ssl: false),
-        proxy: Proxy = .none,
-        bindTarget: BindTarget = .localhostIPv4RandomPort,
-        sslContext: NIOSSLContext?,
-        onUpgrade: @escaping (HTTPRequestHead, WebSocket) -> ()
-    ) {
-        self.mode = mode
-        self.sslContext = sslContext
-
-        let socketAddress: SocketAddress
-        switch bindTarget {
-        case .localhostIPv4RandomPort:
-            socketAddress = try! SocketAddress(ipAddress: "127.0.0.1", port: 0)
-        case .localhostIPv6RandomPort:
-            socketAddress = try! SocketAddress(ipAddress: "::1", port: 0)
-        case .unixDomainSocket(let path):
-            socketAddress = try! SocketAddress(unixDomainSocketPath: path)
-        }
-
-        self.serverChannel = try! ServerBootstrap(group: self.group)
-            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-            .childChannelInitializer { channel in
-                do {
-
-                    if case .refuse = mode {
-                        throw HTTPBinError.refusedConnection
-                    }
-
-                    let webSocket = NIOWebSocketServerUpgrader(
-                        shouldUpgrade: { channel, req in
-                            return channel.eventLoop.makeSucceededFuture([:])
-                        },
-                        upgradePipelineHandler: { channel, req in
-                            return WebSocket.server(on: channel) { ws in
-                                onUpgrade(req, ws)
-                            }
-                        }
-                    )
-
-                    // if we need to simulate a proxy, we need to add those handlers first
-                    if case .simulate(config: let config, authorization: let expectedAuthorization) = proxy {
-                        if config.tls {
-                            try self.syncAddTLSHTTPProxyHandlers(
-                                to: channel,
-                                proxyConfig: config,
-                                expectedAuthorization: expectedAuthorization,
-                                upgraders: [webSocket]
-                            )
-                        } else {
-                            try self.syncAddHTTPProxyHandlers(
-                                to: channel,
-                                proxyConfig: config,
-                                expectedAuthorization: expectedAuthorization,
-                                upgraders: [webSocket]
-                            )
-                        }
-                        return channel.eventLoop.makeSucceededVoidFuture()
-                    }
-
-                    // if a connection has been established, we need to negotiate TLS before
-                    // anything else. Depending on the negotiation, the HTTPHandlers will be added.
-                    if let sslContext = self.sslContext {
-                        try channel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: sslContext))
-                    }
-
-                    // if neither HTTP Proxy nor TLS are wanted, we can add HTTP1 handlers directly
-                    try channel.pipeline.syncOperations.configureHTTPServerPipeline(
-                        withPipeliningAssistance: true,
-                        withServerUpgrade: (
-                            upgraders: [webSocket],
-                            completionHandler: { ctx in
-                                // complete
-                            }
-                        ),
-                        withErrorHandling: true
-                    )
-                    return channel.eventLoop.makeSucceededVoidFuture()
-                } catch {
-                    return channel.eventLoop.makeFailedFuture(error)
-                }
-            }.bind(to: socketAddress).wait()
-    }
-
-
-    // In the TLS case we must set up the 'proxy' and the 'server' handlers sequentially
-    // rather than re-using parts because the requestDecoder stops parsing after a CONNECT request
-    private func syncAddTLSHTTPProxyHandlers(
-        to channel: Channel,
-        proxyConfig: ProxyConfig,
-        expectedAuthorization: String?,
-        upgraders: [HTTPServerProtocolUpgrader]
-    ) throws {
-        let sync = channel.pipeline.syncOperations
-        let promise = channel.eventLoop.makePromise(of: Void.self)
-
-        let responseEncoder = HTTPResponseEncoder()
-        let requestDecoder = ByteToMessageHandler(HTTPRequestDecoder(leftOverBytesStrategy: .forwardBytes))
-        let proxySimulator = HTTPProxySimulator(promise: promise, config: proxyConfig, expectedAuthorization: expectedAuthorization)
-
-        try sync.addHandler(responseEncoder)
-        try sync.addHandler(requestDecoder)
-
-        try sync.addHandler(proxySimulator)
-
-        promise.futureResult.flatMap { _ in
-            channel.pipeline.removeHandler(proxySimulator)
-        }.flatMap { _ in
-            channel.pipeline.removeHandler(responseEncoder)
-        }.flatMap { _ in
-            channel.pipeline.removeHandler(requestDecoder)
-        }.whenComplete { result in
-            switch result {
-            case .failure:
-                channel.close(mode: .all, promise: nil)
-            case .success:
-                self.httpProxyEstablished(channel, upgraders: upgraders)
-                break
-            }
-        }
-    }
-
-
-    // In the plain-text case we must set up the 'proxy' and the 'server' handlers simultaneously
-    // so that the combined proxy/upgrade request can be processed by the separate proxy and upgrade handlers
-    private func syncAddHTTPProxyHandlers(
-        to channel: Channel,
-        proxyConfig: ProxyConfig,
-        expectedAuthorization: String?,
-        upgraders: [HTTPServerProtocolUpgrader]
-    ) throws {
-        let sync = channel.pipeline.syncOperations
-        let promise = channel.eventLoop.makePromise(of: Void.self)
-
-        let responseEncoder = HTTPResponseEncoder()
-        let requestDecoder = ByteToMessageHandler(HTTPRequestDecoder(leftOverBytesStrategy: .forwardBytes))
-        let proxySimulator = HTTPProxySimulator(promise: promise, config: proxyConfig, expectedAuthorization: expectedAuthorization)
-
-        let serverPipelineHandler = HTTPServerPipelineHandler()
-        let serverProtocolErrorHandler = HTTPServerProtocolErrorHandler()
-
-        let extraHTTPHandlers: [RemovableChannelHandler] = [
-            requestDecoder,
-            serverPipelineHandler,
-            serverProtocolErrorHandler
-        ]
-
-        try sync.addHandler(responseEncoder)
-        try sync.addHandler(requestDecoder)
-
-        try sync.addHandler(proxySimulator)
-
-        try sync.addHandler(serverPipelineHandler)
-        try sync.addHandler(serverProtocolErrorHandler)
-
-
-        let upgrader = HTTPServerUpgradeHandler(upgraders: upgraders,
-                                                httpEncoder: responseEncoder,
-                                                extraHTTPHandlers: extraHTTPHandlers,
-                                                upgradeCompletionHandler: { ctx in
-            // complete
-        })
-
-
-        try sync.addHandler(upgrader)
-
-        promise.futureResult.flatMap { () -> EventLoopFuture<Void> in
-            channel.pipeline.removeHandler(proxySimulator)
-        }.whenComplete { result in
-            switch result {
-            case .failure:
-                channel.close(mode: .all, promise: nil)
-            case .success:
-                break
-            }
-        }
-    }
-
-    private func httpProxyEstablished(_ channel: Channel, upgraders: [HTTPServerProtocolUpgrader]) {
-        do {
-            // if a connection has been established, we need to negotiate TLS before
-            // anything else. Depending on the negotiation, the HTTPHandlers will be added.
-            if let sslContext = self.sslContext {
-                try channel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: sslContext))
-            }
-
-            try channel.pipeline.syncOperations.configureHTTPServerPipeline(
-                withPipeliningAssistance: true,
-                withServerUpgrade: (
-                    upgraders: upgraders,
-                    completionHandler: { ctx in
-                        // complete
-                    }
-                ),
-                withErrorHandling: true
-            )
-        } catch {
-            // in case of an while modifying the pipeline we should close the connection
-            channel.close(mode: .all, promise: nil)
-        }
-    }
-
-    func shutdown() throws {
-        self.isShutdown.store(true, ordering: .relaxed)
-        try self.group.syncShutdownGracefully()
-    }
-}
-
-enum HTTPBinError: Error {
-    case refusedConnection
-    case invalidProxyRequest
-}
-
-final class HTTPProxySimulator: ChannelInboundHandler, RemovableChannelHandler {
-    typealias InboundIn = HTTPServerRequestPart
-    typealias InboundOut = HTTPServerResponsePart
-    typealias OutboundOut = HTTPServerResponsePart
-
-
-    // the promise to succeed, once the proxy connection is setup
-    let promise: EventLoopPromise<Void>
-    let config: WebsocketBin.ProxyConfig
-    let expectedAuthorization: String?
-
-    var head: HTTPResponseHead
-
-    init(promise: EventLoopPromise<Void>, config: WebsocketBin.ProxyConfig, expectedAuthorization: String?) {
-        self.promise = promise
-        self.config = config
-        self.expectedAuthorization = expectedAuthorization
-        self.head = HTTPResponseHead(version: .init(major: 1, minor: 1), status: .ok, headers: .init([("Content-Length", "0")]))
-    }
-
-    func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        let request = self.unwrapInboundIn(data)
-        switch request {
-        case .head(let head):
-            if self.config.tls {
-                guard head.method == .CONNECT else {
-                    self.head.status = .badRequest
-                    return
-                }
-            } else {
-                guard head.method == .GET else {
-                    self.head.status = .badRequest
-                    return
-                }
-            }
-
-            self.config.headVerification(context, head)
-
-            if let expectedAuthorization = self.expectedAuthorization {
-                guard let authorization = head.headers["proxy-authorization"].first,
-                      expectedAuthorization == authorization else {
-                    self.head.status = .proxyAuthenticationRequired
-                    return
-                }
-            }
-            if !self.config.tls {
-                context.fireChannelRead(data)
-            }
-
-        case .body:
-            ()
-        case .end:
-            if self.self.config.tls {
-                context.write(self.wrapOutboundOut(.head(self.head)), promise: nil)
-                context.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
-            }
-            if self.head.status == .ok {
-                if !self.config.tls {
-                    context.fireChannelRead(data)
-                }
-                self.promise.succeed(())
-            } else {
-                self.promise.fail(HTTPBinError.invalidProxyRequest)
-            }
-        }
-    }
-}
-
