@@ -470,7 +470,9 @@ final class WebSocketKitTests: XCTestCase {
         XCTAssertNoThrow(try closePromise1.futureResult.wait())
         XCTAssertNoThrow(try closePromise2.futureResult.wait())
         try server.close(mode: .all).wait()
-        
+    }
+    
+    func testBadURLInWebsocketConnect() async throws {
         XCTAssertThrowsError(try WebSocket.connect(to: "%w", on: self.elg, onUpgrade: { _ in }).wait()) {
             guard case .invalidURL = $0 as? WebSocketClient.Error else {
                 return XCTFail("Expected .invalidURL but got \(String(reflecting: $0))")

@@ -42,28 +42,22 @@ final class AsyncWebSocketKitTests: XCTestCase {
 
     func testAlternateWebsocketConnectMethods() async throws {
         let server = try await ServerBootstrap.webSocket(on: self.elg) { $1.onText { $0.send($1) } }.bind(host: "localhost", port: 0).get()
-        let promise1 = self.elg.any().makePromise(of: Void.self), promise2 = self.elg.any().makePromise(of: Void.self)
+        let promise = self.elg.any().makePromise(of: Void.self)
         guard let port = server.localAddress?.port else {
             return XCTFail("couldn't get port from \(String(reflecting: server.localAddress))")
         }
         try await WebSocket.connect(scheme: "ws", host: "localhost", port: port, on: self.elg) { (ws) async in
-            do { try await ws.send("hello") } catch { promise1.fail(error); try? await ws.close() }
+            do { try await ws.send("hello") } catch { promise.fail(error); try? await ws.close() }
             ws.onText { ws, _ in
-                promise1.succeed(())
+                promise.succeed(())
                 do { try await ws.close() } catch { XCTFail("Failed to close websocket: \(String(reflecting: error))") }
             }
         }
-        try await WebSocket.connect(scheme: "ws", host: "localhost", port: port, on: self.elg) { (ws) async in
-            do { try await ws.send("hello") } catch { promise2.fail(error); try? await ws.close() }
-            ws.onText { ws, _ in
-                promise2.succeed(())
-                do { try await ws.close() } catch { XCTFail("Failed to close websocket: \(String(reflecting: error))") }
-            }
-        }
-        try await promise1.futureResult.get()
-        try await promise2.futureResult.get()
+        try await promise.futureResult.get()
         try await server.close(mode: .all)
-        
+    }
+    
+    func testBadURLInWebsocketConnect() async throws {
         do {
             try await WebSocket.connect(to: "%w", on: self.elg, onUpgrade: { _ async in })
             XCTAssertThrowsError({}())
