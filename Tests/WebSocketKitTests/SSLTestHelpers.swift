@@ -15,10 +15,7 @@
 
 import Foundation
 @_implementationOnly import CNIOBoringSSL
-<<<<<<< HEAD
 import NIOCore
-=======
->>>>>>> 659cbae (Apply suggestions from code review)
 @testable import NIOSSL
 
 

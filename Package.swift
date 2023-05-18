@@ -15,15 +15,9 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.53.0"),
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.16.0"),
-<<<<<<< HEAD
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.24.0"),
-        .package(url: "https://github.com/apple/swift-nio-transport-services.git", from: "1.11.4"),
-        .package(url: "https://github.com/apple/swift-atomics.git", from: "1.0.2"),
-=======
-        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.23.1"),
         .package(url: "https://github.com/apple/swift-nio-transport-services.git", from: "1.16.0"),
         .package(url: "https://github.com/apple/swift-atomics.git", from: "1.1.0"),
->>>>>>> 659cbae (Apply suggestions from code review)
     ],
     targets: [
         .target(name: "WebSocketKit", dependencies: [
