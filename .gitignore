@@ -5,3 +5,4 @@
 DerivedData
 .swiftpm
 Package.resolved
+.devcontainer/
