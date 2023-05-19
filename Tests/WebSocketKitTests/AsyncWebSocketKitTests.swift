@@ -7,6 +7,7 @@ import NIOWebSocket
 final class AsyncWebSocketKitTests: XCTestCase {
 
     override func setUp() async throws {
+        // Handy for catching hangs in the tests. See https://github.com/apple/swift-corelibs-xctest/issues/422#issuecomment-1310952437
         fflush(stdout)
     }
 
@@ -52,11 +53,12 @@ final class AsyncWebSocketKitTests: XCTestCase {
             return XCTFail("couldn't get port from \(String(reflecting: server.localAddress))")
         }
         try await WebSocket.connect(scheme: "ws", host: "localhost", port: port, on: self.elg) { (ws) async in
-            do { try await ws.send("hello") } catch { promise.fail(error); try? await ws.close() }
             ws.onText { ws, _ in
                 promise.succeed(())
                 do { try await ws.close() } catch { XCTFail("Failed to close websocket: \(String(reflecting: error))") }
             }
+
+            do { try await ws.send("hello") } catch { promise.fail(error); try? await ws.close() }
         }
         try await promise.futureResult.get()
         try await server.close(mode: .all)
@@ -82,12 +84,13 @@ final class AsyncWebSocketKitTests: XCTestCase {
             return XCTFail("couldn't get port from \(String(reflecting: server.localAddress))")
         }
         try await WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
-            do { try await ws.send([0x01]) } catch { promise.fail(error); try? await ws.close() }
             ws.onBinary { ws, buf in
                 promise.succeed(.init(buf.readableBytesView))
                 do { try await ws.close() }
                 catch { XCTFail("Failed to close websocket: \(String(reflecting: error))") }
             }
+
+            do { try await ws.send([0x01]) } catch { promise.fail(error); try? await ws.close() }
         }
         let result = try await promise.futureResult.get()
         XCTAssertEqual(result, [0x01])
