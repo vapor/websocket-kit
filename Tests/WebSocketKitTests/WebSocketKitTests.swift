@@ -8,6 +8,10 @@ import NIOWebSocket
 @testable import WebSocketKit
 
 final class WebSocketKitTests: XCTestCase {
+    override func setUp() async throws {
+        fflush(stdout)
+    }
+
     func testWebSocketEcho() throws {
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
             ws.onText { ws, text in

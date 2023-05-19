@@ -5,6 +5,11 @@ import NIOWebSocket
 @testable import WebSocketKit
 
 final class AsyncWebSocketKitTests: XCTestCase {
+
+    override func setUp() async throws {
+        fflush(stdout)
+    }
+
     func testWebSocketEcho() async throws {
         let server = try await ServerBootstrap.webSocket(on: self.elg) { req, ws in
             ws.onText { ws, text in
