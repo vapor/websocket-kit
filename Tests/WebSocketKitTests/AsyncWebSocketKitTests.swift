@@ -26,7 +26,6 @@ final class AsyncWebSocketKitTests: XCTestCase {
 
         try await WebSocket.connect(to: "ws://localhost:\(port)", on: elg) { ws in
             do {
-                try await ws.send("hello")
                 ws.onText { ws, string in
                     promise.succeed(string)
                     do {
@@ -35,6 +34,7 @@ final class AsyncWebSocketKitTests: XCTestCase {
                         XCTFail("Failed to close websocket, error: \(error)")
                     }
                 }
+                try await ws.send("hello")
             } catch {
                 promise.fail(error)
             }
@@ -101,11 +101,11 @@ final class AsyncWebSocketKitTests: XCTestCase {
             return XCTFail("couldn't get port from \(String(reflecting: server.localAddress))")
         }
         try await WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { (ws) async in
-            do { try await ws.sendPing() } catch { promise.fail(error); try? await ws.close() }
             ws.onPong {
                 promise.succeed(())
                 do { try await $0.close() } catch { XCTFail("Failed to close websocket: \(String(reflecting: error))") }
             }
+            do { try await ws.sendPing() } catch { promise.fail(error); try? await ws.close() }
         }
         try await promise.futureResult.get()
         try await server.close(mode: .all)
