@@ -58,7 +58,7 @@ final class AsyncWebSocketKitTests: XCTestCase {
                 do { try await ws.close() } catch { XCTFail("Failed to close websocket: \(String(reflecting: error))") }
             }
 
-            do { try await ws.send("hello") } catch { promise.fail(error); try? await ws.close() }
+            do { try await ws.send("hello") } catch { promise.fail(error) }
         }
         try await promise.futureResult.get()
         try await server.close(mode: .all)
