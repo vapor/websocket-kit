@@ -4,9 +4,10 @@ import NIOHTTP1
 import NIOSSL
 import Foundation
 import NIOFoundationCompat
+import NIOConcurrencyHelpers
 
-public final class WebSocket {
-    enum PeerType {
+public final class WebSocket: Sendable {
+    enum PeerType: Sendable {
         case server
         case client
     }
@@ -18,7 +19,11 @@ public final class WebSocket {
     public var isClosed: Bool {
         !self.channel.isActive
     }
-    public private(set) var closeCode: WebSocketErrorCode?
+    public var closeCode: WebSocketErrorCode? {
+        _closeCode.withLockedValue { $0 }
+    }
+    
+    private let _closeCode: NIOLockedValueBox<WebSocketErrorCode?>
 
     public var onClose: EventLoopFuture<Void> {
         self.channel.closeFuture
@@ -27,42 +32,46 @@ public final class WebSocket {
     @usableFromInline
     /* private but @usableFromInline */
     internal let channel: Channel
-    private var onTextCallback: (WebSocket, String) -> ()
-    private var onBinaryCallback: (WebSocket, ByteBuffer) -> ()
-    private var onPongCallback: (WebSocket) -> ()
-    private var onPingCallback: (WebSocket) -> ()
-    private var frameSequence: WebSocketFrameSequence?
+    private let onTextCallback: NIOLoopBoundBox<@Sendable (WebSocket, String) -> ()>
+    private let onBinaryCallback: NIOLoopBoundBox<@Sendable (WebSocket, ByteBuffer) -> ()>
+    private let onPongCallback: NIOLoopBoundBox<@Sendable (WebSocket) -> ()>
+    private let onPingCallback: NIOLoopBoundBox<@Sendable (WebSocket) -> ()>
     private let type: PeerType
-    private var waitingForPong: Bool
-    private var waitingForClose: Bool
-    private var scheduledTimeoutTask: Scheduled<Void>?
+    private let waitingForPong: NIOLockedValueBox<Bool>
+    private let waitingForClose: NIOLockedValueBox<Bool>
+    private let scheduledTimeoutTask: NIOLockedValueBox<Scheduled<Void>?>
+    private let frameSequence: NIOLockedValueBox<WebSocketFrameSequence?>
+    private let _pingInterval: NIOLockedValueBox<TimeAmount?>
 
     init(channel: Channel, type: PeerType) {
         self.channel = channel
         self.type = type
-        self.onTextCallback = { _, _ in }
-        self.onBinaryCallback = { _, _ in }
-        self.onPongCallback = { _ in }
-        self.onPingCallback = { _ in }
-        self.waitingForPong = false
-        self.waitingForClose = false
-        self.scheduledTimeoutTask = nil
+        self.onTextCallback = .init({ _, _ in }, eventLoop: channel.eventLoop)
+        self.onBinaryCallback = .init({ _, _ in }, eventLoop: channel.eventLoop)
+        self.onPongCallback = .init({ _ in }, eventLoop: channel.eventLoop)
+        self.onPingCallback = .init({ _ in }, eventLoop: channel.eventLoop)
+        self.waitingForPong = .init(false)
+        self.waitingForClose = .init(false)
+        self.scheduledTimeoutTask = .init(nil)
+        self._closeCode = .init(nil)
+        self.frameSequence = .init(nil)
+        self._pingInterval = .init(nil)
     }
 
-    public func onText(_ callback: @escaping (WebSocket, String) -> ()) {
-        self.onTextCallback = callback
+    public func onText(_ callback: @Sendable @escaping (WebSocket, String) -> ()) {
+        self.onTextCallback.value = callback
     }
 
-    public func onBinary(_ callback: @escaping (WebSocket, ByteBuffer) -> ()) {
-        self.onBinaryCallback = callback
+    public func onBinary(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
+        self.onBinaryCallback.value = callback
     }
     
-    public func onPong(_ callback: @escaping (WebSocket) -> ()) {
-        self.onPongCallback = callback
+    public func onPong(_ callback: @Sendable @escaping (WebSocket) -> ()) {
+        self.onPongCallback.value = callback
     }
 
-    public func onPing(_ callback: @escaping (WebSocket) -> ()) {
-        self.onPingCallback = callback
+    public func onPing(_ callback: @Sendable @escaping (WebSocket) -> ()) {
+        self.onPingCallback.value = callback
     }
 
     /// If set, this will trigger automatic pings on the connection. If ping is not answered before
@@ -72,14 +81,18 @@ public final class WebSocket {
     /// mechanism shutting down inactive connections, such as a Load Balancer deployed in
     /// front of the server.
     public var pingInterval: TimeAmount? {
-        didSet {
-            if pingInterval != nil {
-                if scheduledTimeoutTask == nil {
-                    waitingForPong = false
+        get {
+            return _pingInterval.withLockedValue { $0 }
+        }
+        set {
+            _pingInterval.withLockedValue { $0 = newValue }
+            if newValue != nil {
+                if scheduledTimeoutTask.withLockedValue({ $0 == nil }) {
+                    waitingForPong.withLockedValue { $0 = false }
                     self.pingAndScheduleNextTimeoutTask()
                 }
             } else {
-                scheduledTimeoutTask?.cancel()
+                scheduledTimeoutTask.withLockedValue { $0?.cancel() }
             }
         }
     }
@@ -160,12 +173,12 @@ public final class WebSocket {
             promise?.succeed(())
             return
         }
-        guard !self.waitingForClose else {
+        guard !self.waitingForClose.withLockedValue({ $0 }) else {
             promise?.succeed(())
             return
         }
-        self.waitingForClose = true
-        self.closeCode = code
+        self.waitingForClose.withLockedValue { $0 = true }
+        self._closeCode.withLockedValue { $0 = code }
 
         let codeAsInt = UInt16(webSocketErrorCode: code)
         let codeToSend: WebSocketErrorCode
@@ -197,7 +210,7 @@ public final class WebSocket {
     func handle(incoming frame: WebSocketFrame) {
         switch frame.opcode {
         case .connectionClose:
-            if self.waitingForClose {
+            if self.waitingForClose.withLockedValue({ $0 }) {
                 // peer confirmed close, time to close channel
                 self.channel.close(mode: .all, promise: nil)
             } else {
@@ -223,7 +236,7 @@ public final class WebSocket {
                 if let maskingKey = maskingKey {
                     frameData.webSocketUnmask(maskingKey)
                 }
-                self.onPingCallback(self)
+                self.onPingCallback.value(self)
                 self.send(
                     raw: frameData.readableBytesView,
                     opcode: .pong,
@@ -240,22 +253,19 @@ public final class WebSocket {
                 if let maskingKey = maskingKey {
                     frameData.webSocketUnmask(maskingKey)
                 }
-                self.waitingForPong = false
-                self.onPongCallback(self)
+                self.waitingForPong.withLockedValue { $0 = false }
+                self.onPongCallback.value(self)
             } else {
                 self.close(code: .protocolError, promise: nil)
             }
         case .text, .binary:
             // create a new frame sequence or use existing
-            var frameSequence: WebSocketFrameSequence
-            if let existing = self.frameSequence {
-                frameSequence = existing
-            } else {
-                frameSequence = WebSocketFrameSequence(type: frame.opcode)
+            self.frameSequence.withLockedValue { currentFrameSequence in
+                var frameSequence = currentFrameSequence ?? .init(type: frame.opcode)
+                // append this frame and update the sequence
+                frameSequence.append(frame)
+                currentFrameSequence = frameSequence
             }
-            // append this frame and update the sequence
-            frameSequence.append(frame)
-            self.frameSequence = frameSequence
         case .continuation:
             /// continuations are filtered by ``NIOWebSocketFrameAggregator``
             preconditionFailure("We will never receive a continuation frame")
@@ -266,26 +276,29 @@ public final class WebSocket {
 
         // if this frame was final and we have a non-nil frame sequence,
         // output it to the websocket and clear storage
-        if let frameSequence = self.frameSequence, frame.fin {
-            switch frameSequence.type {
-            case .binary:
-                self.onBinaryCallback(self, frameSequence.binaryBuffer)
-            case .text:
-                self.onTextCallback(self, frameSequence.textBuffer)
-            case .ping, .pong:
-                assertionFailure("Control frames never have a frameSequence")
-            default: break
+        self.frameSequence.withLockedValue { currentFrameSequence in
+            if let frameSequence = currentFrameSequence, frame.fin {
+                switch frameSequence.type {
+                case .binary:
+                    self.onBinaryCallback.value(self, frameSequence.binaryBuffer)
+                case .text:
+                    self.onTextCallback.value(self, frameSequence.textBuffer)
+                case .ping, .pong:
+                    assertionFailure("Control frames never have a frameSequence")
+                default: break
+                }
+                currentFrameSequence = nil
             }
-            self.frameSequence = nil
         }
     }
 
+    @Sendable
     private func pingAndScheduleNextTimeoutTask() {
         guard channel.isActive, let pingInterval = pingInterval else {
             return
         }
 
-        if waitingForPong {
+        if waitingForPong.withLockedValue({ $0 }) {
             // We never received a pong from our last ping, so the connection has timed out
             let promise = self.eventLoop.makePromise(of: Void.self)
             self.close(code: .unknown(1006), promise: promise)
@@ -298,11 +311,13 @@ public final class WebSocket {
             }
         } else {
             self.sendPing()
-            self.waitingForPong = true
-            self.scheduledTimeoutTask = self.eventLoop.scheduleTask(
-                deadline: .now() + pingInterval,
-                self.pingAndScheduleNextTimeoutTask
-            )
+            self.waitingForPong.withLockedValue { $0 = true }
+            self.scheduledTimeoutTask.withLockedValue {
+                $0 = self.eventLoop.scheduleTask(
+                    deadline: .now() + pingInterval,
+                    self.pingAndScheduleNextTimeoutTask
+                )
+            }
         }
     }
 
@@ -311,27 +326,31 @@ public final class WebSocket {
     }
 }
 
-private struct WebSocketFrameSequence {
+private struct WebSocketFrameSequence: Sendable {
     var binaryBuffer: ByteBuffer
     var textBuffer: String
-    var type: WebSocketOpcode
+    let type: WebSocketOpcode
+    let lock: NIOLock
 
     init(type: WebSocketOpcode) {
         self.binaryBuffer = ByteBufferAllocator().buffer(capacity: 0)
         self.textBuffer = .init()
         self.type = type
+        self.lock = .init()
     }
 
     mutating func append(_ frame: WebSocketFrame) {
-        var data = frame.unmaskedData
-        switch type {
-        case .binary:
-            self.binaryBuffer.writeBuffer(&data)
-        case .text:
-            if let string = data.readString(length: data.readableBytes) {
-                self.textBuffer += string
+        self.lock.withLockVoid {
+            var data = frame.unmaskedData
+            switch type {
+            case .binary:
+                self.binaryBuffer.writeBuffer(&data)
+            case .text:
+                if let string = data.readString(length: data.readableBytes) {
+                    self.textBuffer += string
+                }
+            default: break
             }
-        default: break
         }
     }
 }
