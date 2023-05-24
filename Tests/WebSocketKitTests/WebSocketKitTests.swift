@@ -28,8 +28,8 @@ final class WebSocketKitTests: XCTestCase {
         let closePromise = elg.any().makePromise(of: Void.self)
         WebSocket.connect(to: "ws://localhost:\(port)", on: elg) { ws in
             ws.onText { ws, string in
-                promise.succeed(string)
                 ws.close(promise: closePromise)
+                promise.succeed(string)
             }
             ws.send("hello")
         }.cascadeFailure(to: promise)
@@ -179,8 +179,8 @@ final class WebSocketKitTests: XCTestCase {
         let closePromise = elg.any().makePromise(of: Void.self)
         WebSocket.connect(to: "ws://localhost:\(port)", on: elg) { ws in
             ws.onText { ws, string in
-                promise.succeed(string)
                 ws.close(promise: closePromise)
+                promise.succeed(string)
             }
             ws.send(.init(string: "Hel"), opcode: .text, fin: false)
             ws.send(.init(string: "lo! Vapor r"), opcode: .continuation, fin: false)

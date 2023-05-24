@@ -28,12 +28,12 @@ final class AsyncWebSocketKitTests: XCTestCase {
         try await WebSocket.connect(to: "ws://localhost:\(port)", on: elg) { ws in
             do {
                 ws.onText { ws, string in
-                    promise.succeed(string)
                     do {
                         try await ws.close()
                     } catch {
                         XCTFail("Failed to close websocket, error: \(error)")
                     }
+                    promise.succeed(string)
                 }
                 try await ws.send("hello")
             } catch {
@@ -67,12 +67,17 @@ final class AsyncWebSocketKitTests: XCTestCase {
         }
         try await WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
             ws.onBinary { ws, buf in
-                promise.succeed(.init(buf.readableBytesView))
                 do { try await ws.close() }
                 catch { XCTFail("Failed to close websocket: \(String(reflecting: error))") }
+                promise.succeed(.init(buf.readableBytesView))
             }
 
-            do { try await ws.send([0x01]) } catch { promise.fail(error); try? await ws.close() }
+            do {
+                try await ws.send([0x01])
+            } catch {
+                try? await ws.close()
+                promise.fail(error);
+            }
         }
         let result = try await promise.futureResult.get()
         XCTAssertEqual(result, [0x01])
@@ -87,10 +92,19 @@ final class AsyncWebSocketKitTests: XCTestCase {
         }
         try await WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { (ws) async in
             ws.onPong {
+                do {
+                    try await $0.close()
+                } catch {
+                    XCTFail("Failed to close websocket: \(String(reflecting: error))")
+                }
                 promise.succeed(())
-                do { try await $0.close() } catch { XCTFail("Failed to close websocket: \(String(reflecting: error))") }
             }
-            do { try await ws.sendPing() } catch { promise.fail(error); try? await ws.close() }
+            do {
+                try await ws.sendPing()
+            } catch {
+                try? await ws.close()
+                promise.fail(error)
+            }
         }
         try await promise.futureResult.get()
         try await server.close(mode: .all)
@@ -105,8 +119,8 @@ final class AsyncWebSocketKitTests: XCTestCase {
         try await WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { (ws) async in
             ws.pingInterval = .milliseconds(100)
             ws.onPong {
-                promise.succeed(())
                 do { try await $0.close() } catch { XCTFail("Failed to close websocket: \(String(reflecting: error))") }
+                promise.succeed(())
             }
         }
         try await promise.futureResult.get()
