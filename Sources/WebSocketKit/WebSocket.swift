@@ -186,7 +186,9 @@ public final class WebSocket {
     func makeMaskKey() -> WebSocketMaskingKey? {
         switch type {
         case .client:
-            return WebSocketMaskingKey.random()
+            /// See https://github.com/apple/swift/issues/66099
+            var generator = SystemRandomNumberGenerator()
+            return WebSocketMaskingKey.random(using: &generator)
         case .server:
             return nil
         }
