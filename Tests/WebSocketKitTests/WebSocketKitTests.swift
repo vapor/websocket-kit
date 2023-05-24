@@ -208,8 +208,8 @@ final class WebSocketKitTests: XCTestCase {
                 ws.send("goodbye")
             }
             ws.onClose.whenSuccess {
-                promise.succeed(ws.closeCode!)
                 XCTAssertEqual(ws.closeCode, WebSocketErrorCode.normalClosure)
+                promise.succeed(ws.closeCode!)
             }
         }.cascadeFailure(to: promise)
 
@@ -232,9 +232,8 @@ final class WebSocketKitTests: XCTestCase {
                 headers.contains(name: "Content-Length") ||
                 headers.contains(name: "Content-Type")
             )
-            promiseHasUnwantedHeaders.succeed(hasUnwantedHeaders)
-
             ws.close(promise: nil)
+            promiseHasUnwantedHeaders.succeed(hasUnwantedHeaders)
         }.bind(host: "localhost", port: 0).wait()
 
         guard let port = server.localAddress?.port else {
@@ -258,8 +257,8 @@ final class WebSocketKitTests: XCTestCase {
         let promise = self.elg.any().makePromise(of: String.self)
 
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
-            promise.succeed(req.uri)
             ws.close(promise: nil)
+            promise.succeed(req.uri)
         }.bind(host: "localhost", port: 0).wait()
 
         guard let port = server.localAddress?.port else {
@@ -383,8 +382,8 @@ final class WebSocketKitTests: XCTestCase {
         ) { ws in
             ws.send("hello")
             ws.onText { ws, string in
-                promise.succeed(string)
                 ws.close(promise: closePromise)
+                promise.succeed(string)
             }
         }.cascadeFailure(to: promise)
 
@@ -447,8 +446,8 @@ final class WebSocketKitTests: XCTestCase {
             proxyHeaders: HTTPHeaders([("proxy-authorization", "token amFwcGxlc2VlZDpwYXNzMTIz")])
         ) { ws in
             ws.onText { ws, string in
-                promise.succeed(string)
                 ws.close(promise: closePromise)
+                promise.succeed(string)
             }
             ws.send("hello")
         }.cascadeFailure(to: promise)
@@ -493,8 +492,8 @@ final class WebSocketKitTests: XCTestCase {
         }
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
             ws.onBinary { ws, buf in
-                promise.succeed(.init(buf.readableBytesView))
                 ws.close(promise: closePromise)
+                promise.succeed(.init(buf.readableBytesView))
             }
             ws.send([0x01])
         }.whenFailure {
@@ -515,8 +514,8 @@ final class WebSocketKitTests: XCTestCase {
         }
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
             ws.onPong {
-                promise.succeed()
                 $0.close(promise: closePromise)
+                promise.succeed()
             }
             ws.sendPing()
         }.cascadeFailure(to: closePromise)
@@ -535,8 +534,8 @@ final class WebSocketKitTests: XCTestCase {
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
             ws.pingInterval = .milliseconds(100)
             ws.onPong {
-                promise.succeed()
                 $0.close(promise: closePromise)
+                promise.succeed()
             }
         }.cascadeFailure(to: closePromise)
         XCTAssertNoThrow(try promise.futureResult.wait())
