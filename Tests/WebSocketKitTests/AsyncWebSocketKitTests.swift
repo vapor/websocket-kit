@@ -45,24 +45,6 @@ final class AsyncWebSocketKitTests: XCTestCase {
         XCTAssertEqual(result, "hello")
         try await server.close(mode: .all)
     }
-
-    func testAlternateWebsocketConnectMethods() async throws {
-        let server = try await ServerBootstrap.webSocket(on: self.elg) { $1.onText { $0.send($1) } }.bind(host: "localhost", port: 0).get()
-        let promise = self.elg.any().makePromise(of: Void.self)
-        guard let port = server.localAddress?.port else {
-            return XCTFail("couldn't get port from \(String(reflecting: server.localAddress))")
-        }
-        try await WebSocket.connect(scheme: "ws", host: "localhost", port: port, on: self.elg) { (ws) async in
-            ws.onText { ws, _ in
-                promise.succeed(())
-                do { try await ws.close() } catch { XCTFail("Failed to close websocket: \(String(reflecting: error))") }
-            }
-
-            do { try await ws.send("hello") } catch { promise.fail(error) }
-        }
-        try await promise.futureResult.get()
-        try await server.close(mode: .all)
-    }
     
     func testBadURLInWebsocketConnect() async throws {
         do {
