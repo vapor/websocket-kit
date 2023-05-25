@@ -64,7 +64,7 @@ extension WebSocket {
         }
     }
 
-    @preconcurrency public func onPong(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) async -> ()) {
+    public func onPong(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) async -> ()) {
         self.eventLoop.execute {
             self.onPong { socket, data in
                 Task {
@@ -85,7 +85,7 @@ extension WebSocket {
         }
     }
 
-    @preconcurrency public func onPing(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) async -> ()) {
+    public func onPing(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) async -> ()) {
         self.eventLoop.execute {
             self.onPing { socket, data in
                 Task {

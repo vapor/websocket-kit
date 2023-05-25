@@ -66,7 +66,7 @@ public final class WebSocket: Sendable {
         self.onBinaryCallback.value = callback
     }
     
-    @preconcurrency public func onPong(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
+    public func onPong(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onPongCallback.value = callback
     }
     
@@ -75,7 +75,7 @@ public final class WebSocket: Sendable {
         self.onPongCallback.value = { ws, _ in callback(ws) }
     }
 
-    @preconcurrency public func onPing(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
+    public func onPing(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onPingCallback.value = callback
     }
     
