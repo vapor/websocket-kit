@@ -40,7 +40,7 @@ extension WebSocket {
         try await close(code: code).get()
     }
 
-    public func onText(_ callback: @Sendable @escaping (WebSocket, String) async -> ()) {
+    @preconcurrency public func onText(_ callback: @Sendable @escaping (WebSocket, String) async -> ()) {
         self.eventLoop.execute {
             self.onText { socket, text in
                 Task {
@@ -50,7 +50,7 @@ extension WebSocket {
         }
     }
 
-    public func onBinary(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) async -> ()) {
+    @preconcurrency public func onBinary(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) async -> ()) {
         self.eventLoop.execute {
             self.onBinary { socket, binary in
                 Task {
@@ -60,7 +60,7 @@ extension WebSocket {
         }
     }
 
-    public func onPong(_ callback: @Sendable @escaping (WebSocket) async -> ()) {
+    @preconcurrency public func onPong(_ callback: @Sendable @escaping (WebSocket) async -> ()) {
         self.eventLoop.execute {
             self.onPong { socket in
                 Task {
@@ -70,7 +70,7 @@ extension WebSocket {
         }
     }
 
-    public func onPing(_ callback: @Sendable @escaping (WebSocket) async -> ()) {
+    @preconcurrency public func onPing(_ callback: @Sendable @escaping (WebSocket) async -> ()) {
         self.eventLoop.execute {
             self.onPing { socket in
                 Task {
@@ -80,7 +80,7 @@ extension WebSocket {
         }
     }
 
-    public static func connect(
+    @preconcurrency public static func connect(
         to url: String,
         headers: HTTPHeaders = [:],
         configuration: WebSocketClient.Configuration = .init(),
@@ -100,7 +100,7 @@ extension WebSocket {
         ).get()
     }
 
-    public static func connect(
+    @preconcurrency public static func connect(
         to url: URL,
         headers: HTTPHeaders = [:],
         configuration: WebSocketClient.Configuration = .init(),
@@ -120,7 +120,7 @@ extension WebSocket {
         ).get()
     }
 
-    public static func connect(
+    @preconcurrency public static func connect(
         scheme: String = "ws",
         host: String,
         port: Int = 80,
