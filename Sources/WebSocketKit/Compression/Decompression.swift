@@ -3,8 +3,8 @@ import CZlib
 public enum Decompression {
     
     public struct Configuration {
-        /// `deflate` is the main compression algorithm for web-sockets (RFC 7692),
-        /// so for now we only support `deflate`.
+        /// For now we only support `deflate`, because it's the main compression
+        /// algorithm for web-sockets (RFC 7692).
         let algorithm: Compression.Algorithm = .deflate
         
         private init() { }
@@ -22,12 +22,12 @@ public enum Decompression {
         
         private var base: Base
         
-        /// An error occurred when inflating.  Error code is included to aid diagnosis.
+        /// An error occurred when inflating. Error code is included to aid diagnosis.
         public static var inflationError: (Int) -> Self = {
             Self(base: .inflationError($0))
         }
         
-        /// Decoder could not be initialised.  Error code is included to aid diagnosis.
+        /// Decoder could not be initialized. Error code is included to aid diagnosis.
         public static var initializationError: (Int) -> Self = {
             Self(base: .initializationError($0))
         }

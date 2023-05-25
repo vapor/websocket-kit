@@ -15,6 +15,7 @@
 
 import Foundation
 @_implementationOnly import CNIOBoringSSL
+
 @testable import NIOSSL
 
 // This function generates a random number suitable for use in an X509
@@ -61,7 +62,7 @@ func randomSerialNumber() -> ASN1_INTEGER {
     return asn1int
 }
 
-func generateRSAPrivateKey() -> UnsafeMutablePointer<EVP_PKEY> {
+func generateRSAPrivateKey() -> OpaquePointer /*<EVP_PKEY>*/ {
     let exponent = CNIOBoringSSL_BN_new()
     defer {
         CNIOBoringSSL_BN_free(exponent)
@@ -91,7 +92,7 @@ func addExtension(x509: OpaquePointer, nid: CInt, value: String) {
     CNIOBoringSSL_X509_EXTENSION_free(ext)
 }
 
-func generateSelfSignedCert(keygenFunction: () -> UnsafeMutablePointer<EVP_PKEY> = generateRSAPrivateKey) -> (NIOSSLCertificate, NIOSSLPrivateKey) {
+func generateSelfSignedCert(keygenFunction: () -> OpaquePointer /*<EVP_PKEY>*/ = generateRSAPrivateKey) -> (NIOSSLCertificate, NIOSSLPrivateKey) {
     let pkey = keygenFunction()
     let x = CNIOBoringSSL_X509_new()!
     CNIOBoringSSL_X509_set_version(x, 2)
