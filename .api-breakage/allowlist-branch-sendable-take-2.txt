@@ -1,0 +1,6 @@
+API breakage: func WebSocket.onText(_:) is now with @preconcurrency
+API breakage: func WebSocket.onBinary(_:) is now with @preconcurrency
+API breakage: func WebSocket.onPong(_:) is now with @preconcurrency
+API breakage: func WebSocket.onPing(_:) is now with @preconcurrency
+API breakage: func WebSocket.connect(to:headers:configuration:on:onUpgrade:) is now with @preconcurrency
+API breakage: func WebSocket.connect(scheme:host:port:path:query:headers:configuration:on:onUpgrade:) is now with @preconcurrency
