@@ -63,6 +63,7 @@ public final class WebSocketClient: Sendable {
         self.configuration = configuration
     }
 
+    @preconcurrency
     public func connect(
         scheme: String,
         host: String,
@@ -90,6 +91,7 @@ public final class WebSocketClient: Sendable {
     ///   - proxyConnectDeadline: Deadline for establishing the proxy connection.
     ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
     /// - Returns: An future which completes when the connection to the origin server is established.
+    @preconcurrency
     public func connect(
         scheme: String,
         host: String,

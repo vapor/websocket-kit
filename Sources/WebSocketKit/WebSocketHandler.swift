@@ -33,6 +33,7 @@ extension WebSocket {
     ///   - channel: NIO channel which the client will use to communicate.
     ///   - onUpgrade: An escaping closure to be executed the channel is configured with the WebSocket handlers.
     /// - Returns: An future which completes when the WebSocket connection to the server is established.
+    @preconcurrency
     public static func client(
         on channel: Channel,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
@@ -46,6 +47,7 @@ extension WebSocket {
     ///   - config: Configuration for the client channel handlers.
     ///   - onUpgrade: An escaping closure to be executed the channel is configured with the WebSocket handlers.
     /// - Returns: An future which completes when the WebSocket connection to the server is established.
+    @preconcurrency
     public static func client(
         on channel: Channel,
         config: Configuration,
@@ -59,6 +61,7 @@ extension WebSocket {
     ///   - channel: NIO channel which the server will use to communicate.
     ///   - onUpgrade: An escaping closure to be executed the channel is configured with the WebSocket handlers.
     /// - Returns: An future which completes when the WebSocket connection to the server is established.
+    @preconcurrency
     public static func server(
         on channel: Channel,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
@@ -72,6 +75,7 @@ extension WebSocket {
     ///   - config: Configuration for the server channel handlers.
     ///   - onUpgrade: An escaping closure to be executed the channel is configured with the WebSocket handlers.
     /// - Returns: An future which completes when the WebSocket connection to the server is established.
+    @preconcurrency
     public static func server(
         on channel: Channel,
         config: Configuration,
