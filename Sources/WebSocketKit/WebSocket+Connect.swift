@@ -12,12 +12,13 @@ extension WebSocket {
     ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
     ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
     /// - Returns: An future which completes when the connection to the WebSocket server is established.
+    @preconcurrency
     public static func connect(
         to url: String,
         headers: HTTPHeaders = [:],
         configuration: WebSocketClient.Configuration = .init(),
         on eventLoopGroup: EventLoopGroup,
-        onUpgrade: @escaping (WebSocket) -> ()
+        onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         guard let url = URL(string: url) else {
             return eventLoopGroup.any().makeFailedFuture(WebSocketClient.Error.invalidURL)
@@ -40,12 +41,13 @@ extension WebSocket {
     ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
     ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
     /// - Returns: An future which completes when the connection to the WebSocket server is established.
+    @preconcurrency
     public static func connect(
         to url: URL,
         headers: HTTPHeaders = [:],
         configuration: WebSocketClient.Configuration = .init(),
         on eventLoopGroup: EventLoopGroup,
-        onUpgrade: @escaping (WebSocket) -> ()
+        onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         let scheme = url.scheme ?? "ws"
         return self.connect(
@@ -74,6 +76,7 @@ extension WebSocket {
     ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
     ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
     /// - Returns: An future which completes when the connection to the WebSocket server is established.
+    @preconcurrency
     public static func connect(
         scheme: String = "ws",
         host: String,
@@ -83,7 +86,7 @@ extension WebSocket {
         headers: HTTPHeaders = [:],
         configuration: WebSocketClient.Configuration = .init(),
         on eventLoopGroup: EventLoopGroup,
-        onUpgrade: @escaping (WebSocket) -> ()
+        onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         return WebSocketClient(
             eventLoopGroupProvider: .shared(eventLoopGroup),
@@ -116,6 +119,7 @@ extension WebSocket {
     ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
     ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
     /// - Returns: An future which completes when the connection to the origin server is established.
+    @preconcurrency
     public static func connect(
         scheme: String = "ws",
         host: String,
@@ -129,7 +133,7 @@ extension WebSocket {
         proxyConnectDeadline: NIODeadline = NIODeadline.distantFuture,
         configuration: WebSocketClient.Configuration = .init(),
         on eventLoopGroup: EventLoopGroup,
-        onUpgrade: @escaping (WebSocket) -> ()
+        onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         return WebSocketClient(
             eventLoopGroupProvider: .shared(eventLoopGroup),
@@ -162,6 +166,7 @@ extension WebSocket {
     ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
     ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
     /// - Returns: An future which completes when the connection to the origin server is established.
+    @preconcurrency
     public static func connect(
         to url: String,
         headers: HTTPHeaders = [:],
@@ -171,7 +176,7 @@ extension WebSocket {
         proxyConnectDeadline: NIODeadline = NIODeadline.distantFuture,
         configuration: WebSocketClient.Configuration = .init(),
         on eventLoopGroup: EventLoopGroup,
-        onUpgrade: @escaping (WebSocket) -> ()
+        onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         guard let url = URL(string: url) else {
             return eventLoopGroup.any().makeFailedFuture(WebSocketClient.Error.invalidURL)

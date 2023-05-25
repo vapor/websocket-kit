@@ -1,0 +1,14 @@
+API breakage: func WebSocket.onText(_:) is now with @preconcurrency
+API breakage: func WebSocket.onBinary(_:) is now with @preconcurrency
+API breakage: func WebSocket.onPong(_:) is now with @preconcurrency
+API breakage: func WebSocket.onPing(_:) is now with @preconcurrency
+API breakage: func WebSocket.connect(to:headers:configuration:on:onUpgrade:) is now with @preconcurrency
+API breakage: func WebSocket.connect(scheme:host:port:path:query:headers:configuration:on:onUpgrade:) is now with @preconcurrency
+API breakage: func WebSocket.connect(scheme:host:port:path:query:headers:proxy:proxyPort:proxyHeaders:proxyConnectDeadline:configuration:on:onUpgrade:) is now with @preconcurrency
+API breakage: func WebSocket.connect(to:headers:proxy:proxyPort:proxyHeaders:proxyConnectDeadline:configuration:on:onUpgrade:) is now with @preconcurrency
+API breakage: func WebSocket.client(on:onUpgrade:) is now with @preconcurrency
+API breakage: func WebSocket.client(on:config:onUpgrade:) is now with @preconcurrency
+API breakage: func WebSocket.server(on:onUpgrade:) is now with @preconcurrency
+API breakage: func WebSocket.server(on:config:onUpgrade:) is now with @preconcurrency
+API breakage: func WebSocketClient.connect(scheme:host:port:path:query:headers:onUpgrade:) is now with @preconcurrency
+API breakage: func WebSocketClient.connect(scheme:host:port:path:query:headers:proxy:proxyPort:proxyHeaders:proxyConnectDeadline:onUpgrade:) is now with @preconcurrency
