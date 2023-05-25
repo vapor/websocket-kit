@@ -58,19 +58,19 @@ public final class WebSocket: Sendable {
         self._pingInterval = .init(nil)
     }
 
-    public func onText(_ callback: @Sendable @escaping (WebSocket, String) -> ()) {
+    @preconcurrency public func onText(_ callback: @Sendable @escaping (WebSocket, String) -> ()) {
         self.onTextCallback.value = callback
     }
 
-    public func onBinary(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
+    @preconcurrency public func onBinary(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onBinaryCallback.value = callback
     }
     
-    public func onPong(_ callback: @Sendable @escaping (WebSocket) -> ()) {
+    @preconcurrency public func onPong(_ callback: @Sendable @escaping (WebSocket) -> ()) {
         self.onPongCallback.value = callback
     }
 
-    public func onPing(_ callback: @Sendable @escaping (WebSocket) -> ()) {
+    @preconcurrency public func onPing(_ callback: @Sendable @escaping (WebSocket) -> ()) {
         self.onPingCallback.value = callback
     }
 
