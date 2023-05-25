@@ -4,7 +4,7 @@ import NIOWebSocket
 extension WebSocket {
 
     /// Stores configuration for a WebSocket client/server instance
-    public struct Configuration: Sendable {
+    public struct Configuration {
         /// Defends against small payloads in frame aggregation.
         /// See `NIOWebSocketFrameAggregator` for details.
         public var minNonFinalFragmentSize: Int
@@ -33,10 +33,9 @@ extension WebSocket {
     ///   - channel: NIO channel which the client will use to communicate.
     ///   - onUpgrade: An escaping closure to be executed the channel is configured with the WebSocket handlers.
     /// - Returns: An future which completes when the WebSocket connection to the server is established.
-    @preconcurrency
     public static func client(
         on channel: Channel,
-        onUpgrade: @Sendable @escaping (WebSocket) -> ()
+        onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         return self.configure(on: channel, as: .client, with: Configuration(), onUpgrade: onUpgrade)
     }
@@ -47,11 +46,10 @@ extension WebSocket {
     ///   - config: Configuration for the client channel handlers.
     ///   - onUpgrade: An escaping closure to be executed the channel is configured with the WebSocket handlers.
     /// - Returns: An future which completes when the WebSocket connection to the server is established.
-    @preconcurrency
     public static func client(
         on channel: Channel,
         config: Configuration,
-        onUpgrade: @Sendable @escaping (WebSocket) -> ()
+        onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         return self.configure(on: channel, as: .client, with: config, onUpgrade: onUpgrade)
     }
@@ -61,10 +59,9 @@ extension WebSocket {
     ///   - channel: NIO channel which the server will use to communicate.
     ///   - onUpgrade: An escaping closure to be executed the channel is configured with the WebSocket handlers.
     /// - Returns: An future which completes when the WebSocket connection to the server is established.
-    @preconcurrency
     public static func server(
         on channel: Channel,
-        onUpgrade: @Sendable @escaping (WebSocket) -> ()
+        onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         return self.configure(on: channel, as: .server, with: Configuration(), onUpgrade: onUpgrade)
     }
@@ -75,11 +72,10 @@ extension WebSocket {
     ///   - config: Configuration for the server channel handlers.
     ///   - onUpgrade: An escaping closure to be executed the channel is configured with the WebSocket handlers.
     /// - Returns: An future which completes when the WebSocket connection to the server is established.
-    @preconcurrency
     public static func server(
         on channel: Channel,
         config: Configuration,
-        onUpgrade: @Sendable @escaping (WebSocket) -> ()
+        onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         return self.configure(on: channel, as: .server, with: config, onUpgrade: onUpgrade)
     }
@@ -88,7 +84,7 @@ extension WebSocket {
         on channel: Channel,
         as type: PeerType,
         with config: Configuration,
-        onUpgrade: @Sendable @escaping (WebSocket) -> ()
+        onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         let webSocket = WebSocket(channel: channel, type: type)
 
