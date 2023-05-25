@@ -9,7 +9,7 @@ import NIOSSL
 import NIOTransportServices
 import Atomics
 
-public final class WebSocketClient: Sendable {
+public final class WebSocketClient {
     public enum Error: Swift.Error, LocalizedError {
         case invalidURL
         case invalidResponseStatus(HTTPResponseHead)
@@ -21,7 +21,7 @@ public final class WebSocketClient: Sendable {
 
     public typealias EventLoopGroupProvider = NIOEventLoopGroupProvider
 
-    public struct Configuration: Sendable {
+    public struct Configuration {
         public var tlsConfiguration: TLSConfiguration?
         public var maxFrameSize: Int
 
@@ -70,7 +70,7 @@ public final class WebSocketClient: Sendable {
         path: String = "/",
         query: String? = nil,
         headers: HTTPHeaders = [:],
-        onUpgrade: @Sendable @escaping (WebSocket) -> ()
+        onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         self.connect(scheme: scheme, host: host, port: port, path: path, query: query, headers: headers, proxy: nil, onUpgrade: onUpgrade)
     }
@@ -101,7 +101,7 @@ public final class WebSocketClient: Sendable {
         proxyPort: Int? = nil,
         proxyHeaders: HTTPHeaders = [:],
         proxyConnectDeadline: NIODeadline = NIODeadline.distantFuture,
-        onUpgrade: @Sendable @escaping (WebSocket) -> ()
+        onUpgrade: @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         assert(["ws", "wss"].contains(scheme))
         let upgradePromise = self.group.any().makePromise(of: Void.self)
@@ -130,7 +130,6 @@ public final class WebSocketClient: Sendable {
                     headers: upgradeRequestHeaders,
                     upgradePromise: upgradePromise
                 )
-                let httpUpgradeRequestHandlerBox = NIOLoopBound(httpUpgradeRequestHandler, eventLoop: channel.eventLoop)
 
                 let websocketUpgrader = NIOWebSocketClientUpgrader(
                     maxFrameSize: self.configuration.maxFrameSize,
@@ -144,10 +143,9 @@ public final class WebSocketClient: Sendable {
                     upgraders: [websocketUpgrader],
                     completionHandler: { context in
                         upgradePromise.succeed(())
-                        channel.pipeline.removeHandler(httpUpgradeRequestHandlerBox.value, promise: nil)
+                        channel.pipeline.removeHandler(httpUpgradeRequestHandler, promise: nil)
                     }
                 )
-                let configBox = NIOLoopBound(config, eventLoop: channel.eventLoop)
 
                 if proxy == nil || scheme == "ws" {
                     if scheme == "wss" {
@@ -165,15 +163,15 @@ public final class WebSocketClient: Sendable {
                         leftOverBytesStrategy: .forwardBytes,
                         withClientUpgrade: config
                     ).flatMap {
-                        channel.pipeline.addHandler(httpUpgradeRequestHandlerBox.value)
+                        channel.pipeline.addHandler(httpUpgradeRequestHandler)
                     }
                 }
 
                 // TLS + proxy
                 // we need to handle connecting with an additional CONNECT request
                 let proxyEstablishedPromise = channel.eventLoop.makePromise(of: Void.self)
-                let encoder = NIOLoopBound(HTTPRequestEncoder(), eventLoop: channel.eventLoop)
-                let decoder = NIOLoopBound(ByteToMessageHandler(HTTPResponseDecoder(leftOverBytesStrategy: .dropBytes)), eventLoop: channel.eventLoop)
+                let encoder = HTTPRequestEncoder()
+                let decoder = ByteToMessageHandler(HTTPResponseDecoder(leftOverBytesStrategy: .dropBytes))
 
                 var connectHeaders = proxyHeaders
                 connectHeaders.add(name: "Host", value: host)
@@ -190,17 +188,17 @@ public final class WebSocketClient: Sendable {
                 // They are then removed upon completion only to be re-added in `addHTTPClientHandlers`.
                 // This is done because the HTTP decoder is not valid after an upgrade, the CONNECT request being counted as one.
                 do {
-                    try channel.pipeline.syncOperations.addHandler(encoder.value)
-                    try channel.pipeline.syncOperations.addHandler(decoder.value)
+                    try channel.pipeline.syncOperations.addHandler(encoder)
+                    try channel.pipeline.syncOperations.addHandler(decoder)
                     try channel.pipeline.syncOperations.addHandler(proxyRequestHandler)
                 } catch {
                     return channel.eventLoop.makeFailedFuture(error)
                 }
 
                 proxyEstablishedPromise.futureResult.flatMap {
-                    channel.pipeline.removeHandler(decoder.value)
+                    channel.pipeline.removeHandler(decoder)
                 }.flatMap {
-                    channel.pipeline.removeHandler(encoder.value)
+                    channel.pipeline.removeHandler(encoder)
                 }.whenComplete { result in
                     switch result {
                     case .success:
@@ -211,9 +209,9 @@ public final class WebSocketClient: Sendable {
                             try channel.pipeline.syncOperations.addHandler(tlsHandler)
                             try channel.pipeline.syncOperations.addHTTPClientHandlers(
                                 leftOverBytesStrategy: .forwardBytes,
-                                withClientUpgrade: configBox.value
+                                withClientUpgrade: config
                             )
-                            try channel.pipeline.syncOperations.addHandler(httpUpgradeRequestHandlerBox.value)
+                            try channel.pipeline.syncOperations.addHandler(httpUpgradeRequestHandler)
                         } catch {
                             channel.pipeline.close(mode: .all, promise: nil)
                         }
@@ -232,7 +230,6 @@ public final class WebSocketClient: Sendable {
         }
     }
 
-    @Sendable
     private func makeTLSHandler(tlsConfiguration: TLSConfiguration?, host: String) throws -> NIOSSLClientHandler {
         let context = try NIOSSLContext(
             configuration: self.configuration.tlsConfiguration ?? .makeClientConfiguration()
