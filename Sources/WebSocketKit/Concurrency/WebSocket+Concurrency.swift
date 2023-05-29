@@ -19,8 +19,12 @@ extension WebSocket {
     }
 
     public func sendPing() async throws {
+        try await sendPing(Data())
+    }
+
+    public func sendPing(_ data: Data) async throws {
         let promise = eventLoop.makePromise(of: Void.self)
-        sendPing(promise: promise)
+        sendPing(data, promise: promise)
         return try await promise.futureResult.get()
     }
 
@@ -60,9 +64,20 @@ extension WebSocket {
         }
     }
 
+    public func onPong(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) async -> ()) {
+        self.eventLoop.execute {
+            self.onPong { socket, data in
+                Task {
+                    await callback(socket, data)
+                }
+            }
+        }
+    }
+    
+    @available(*, deprecated, message: "Please use `onPong { socket, data in /* … */ }` with the additional `data` parameter.")
     @preconcurrency public func onPong(_ callback: @Sendable @escaping (WebSocket) async -> ()) {
         self.eventLoop.execute {
-            self.onPong { socket in
+            self.onPong { socket, _ in
                 Task {
                     await callback(socket)
                 }
@@ -70,9 +85,20 @@ extension WebSocket {
         }
     }
 
+    public func onPing(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) async -> ()) {
+        self.eventLoop.execute {
+            self.onPing { socket, data in
+                Task {
+                    await callback(socket, data)
+                }
+            }
+        }
+    }
+    
+    @available(*, deprecated, message: "Please use `onPing { socket, data in /* … */ }` with the additional `data` parameter.")
     @preconcurrency public func onPing(_ callback: @Sendable @escaping (WebSocket) async -> ()) {
         self.eventLoop.execute {
-            self.onPing { socket in
+            self.onPing { socket, _ in
                 Task {
                     await callback(socket)
                 }

@@ -133,7 +133,8 @@ final class WebSocketKitTests: XCTestCase {
         let pingPongData = ByteBuffer(bytes: "Vapor rules".utf8)
 
         let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
-            ws.onPing { ws in
+            ws.onPing { ws, data in
+                XCTAssertEqual(pingPongData, data)
                 pingPromise.succeed("ping")
             }
         }.bind(host: "localhost", port: 0).wait()
@@ -144,7 +145,9 @@ final class WebSocketKitTests: XCTestCase {
         }
 
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
-            ws.onPong { ws in
+            ws.sendPing(Data(pingPongData.readableBytesView))
+            ws.onPong { ws, data in
+                XCTAssertEqual(pingPongData, data)
                 pongPromise.succeed("pong")
                 ws.close(promise: nil)
             }

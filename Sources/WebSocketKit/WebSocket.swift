@@ -34,8 +34,8 @@ public final class WebSocket: Sendable {
     internal let channel: Channel
     private let onTextCallback: NIOLoopBoundBox<@Sendable (WebSocket, String) -> ()>
     private let onBinaryCallback: NIOLoopBoundBox<@Sendable (WebSocket, ByteBuffer) -> ()>
-    private let onPongCallback: NIOLoopBoundBox<@Sendable (WebSocket) -> ()>
-    private let onPingCallback: NIOLoopBoundBox<@Sendable (WebSocket) -> ()>
+    private let onPongCallback: NIOLoopBoundBox<@Sendable (WebSocket, ByteBuffer) -> ()>
+    private let onPingCallback: NIOLoopBoundBox<@Sendable (WebSocket, ByteBuffer) -> ()>
     private let type: PeerType
     private let waitingForPong: NIOLockedValueBox<Bool>
     private let waitingForClose: NIOLockedValueBox<Bool>
@@ -48,8 +48,8 @@ public final class WebSocket: Sendable {
         self.type = type
         self.onTextCallback = .init({ _, _ in }, eventLoop: channel.eventLoop)
         self.onBinaryCallback = .init({ _, _ in }, eventLoop: channel.eventLoop)
-        self.onPongCallback = .init({ _ in }, eventLoop: channel.eventLoop)
-        self.onPingCallback = .init({ _ in }, eventLoop: channel.eventLoop)
+        self.onPongCallback = .init({ _, _ in }, eventLoop: channel.eventLoop)
+        self.onPingCallback = .init({ _, _ in }, eventLoop: channel.eventLoop)
         self.waitingForPong = .init(false)
         self.waitingForClose = .init(false)
         self.scheduledTimeoutTask = .init(nil)
@@ -66,12 +66,22 @@ public final class WebSocket: Sendable {
         self.onBinaryCallback.value = callback
     }
     
-    @preconcurrency public func onPong(_ callback: @Sendable @escaping (WebSocket) -> ()) {
+    public func onPong(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onPongCallback.value = callback
     }
+    
+    @available(*, deprecated, message: "Please use `onPong { socket, data in /* … */ }` with the additional `data` parameter.")
+    @preconcurrency public func onPong(_ callback: @Sendable @escaping (WebSocket) -> ()) {
+        self.onPongCallback.value = { ws, _ in callback(ws) }
+    }
 
-    @preconcurrency public func onPing(_ callback: @Sendable @escaping (WebSocket) -> ()) {
+    public func onPing(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onPingCallback.value = callback
+    }
+    
+    @available(*, deprecated, message: "Please use `onPing { socket, data in /* … */ }` with the additional `data` parameter.")
+    @preconcurrency public func onPing(_ callback: @Sendable @escaping (WebSocket) -> ()) {
+        self.onPingCallback.value = { ws, _ in callback(ws) }
     }
 
     /// If set, this will trigger automatic pings on the connection. If ping is not answered before
@@ -112,8 +122,12 @@ public final class WebSocket: Sendable {
     }
 
     public func sendPing(promise: EventLoopPromise<Void>? = nil) {
+        sendPing(Data(), promise: promise)
+    }
+
+    public func sendPing(_ data: Data, promise: EventLoopPromise<Void>? = nil) {
         self.send(
-            raw: Data(),
+            raw: data,
             opcode: .ping,
             fin: true,
             promise: promise
@@ -236,7 +250,7 @@ public final class WebSocket: Sendable {
                 if let maskingKey = maskingKey {
                     frameData.webSocketUnmask(maskingKey)
                 }
-                self.onPingCallback.value(self)
+                self.onPingCallback.value(self, ByteBuffer(buffer: frameData))
                 self.send(
                     raw: frameData.readableBytesView,
                     opcode: .pong,
@@ -254,7 +268,7 @@ public final class WebSocket: Sendable {
                     frameData.webSocketUnmask(maskingKey)
                 }
                 self.waitingForPong.withLockedValue { $0 = false }
-                self.onPongCallback.value(self)
+                self.onPongCallback.value(self, ByteBuffer(buffer: frameData))
             } else {
                 self.close(code: .protocolError, promise: nil)
             }
