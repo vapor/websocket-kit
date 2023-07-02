@@ -15,7 +15,7 @@ public final class PMCE:Sendable {
     public struct DeflateConfig: Sendable  {
         
         /// Identifies this extension per RFC-.
-        public let pmceName = "permessage-deflate"
+        public static let pmceName = "permessage-deflate"
         
         /// Represents the states for using the same compression window across messages or not.
         public enum ContextTakeoverMode:String, Codable, CaseIterable, Sendable {
@@ -29,8 +29,7 @@ public final class PMCE:Sendable {
         /// Holds the server side config.
         public let serverConfig:ServerConfig
         
-        ///TODO not sure if this can be private
-        private typealias ConfArgs = (sto:ContextTakeoverMode,
+        private typealias ConfArgs =        (sto:ContextTakeoverMode,
                                      cto: ContextTakeoverMode,
                                      sbits:UInt8?,
                                      cbits:UInt8?)
@@ -132,29 +131,48 @@ public final class PMCE:Sendable {
                                 into foo:inout ConfArgs) -> ConfArgs {
             
             let splits = setting.split(separator:"=")
+            
             if let first = splits.first {
+                let sane = first.trimmingCharacters(in: .whitespacesAndNewlines)
+                
                 print("first = \(first)")
+                print("sane = \(sane)")
+                
                 if first == DeflateHeaderParams.cmwb {
+                    
                     if let arg = splits.last {
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
                         foo.cbits = UInt8(trimmed) ?? nil
                     }
+                    else
+                    {
+                        print("no arg for cmwb")
+                    }
+                    
                 }else if first == DeflateHeaderParams.smwb {
+                    
                     if let arg = splits.last {
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
                         foo.sbits = UInt8(trimmed) ?? nil
                     }
-                }else if first.trimmingCharacters(in: .whitespacesAndNewlines) == DeflateHeaderParams.cnct {
+                    else
+                    {
+                        print("no arg for smwb")
+                    }
+                }else if sane == DeflateHeaderParams.cnct {
                     foo.cto = .noTakeover
-                }else if first.trimmingCharacters(in: .whitespacesAndNewlines) == DeflateHeaderParams.snct {
+                }else if sane == DeflateHeaderParams.snct {
                     foo.sto = .noTakeover
                 }else if first == "permessage-deflate" {
-                    print("woop")
-                }else {
-                    print("no window bits for client or server, should to 15")
+                    print("woops")
                 }
+                
+                else {
+                    print("unrecognized first split from setting \(setting)")
+                }
+                
             }
             return foo
         }
@@ -171,6 +189,13 @@ public final class PMCE:Sendable {
             static let smwb = "server_max_window_bits"
         }
         
+        public struct ZlibHeaderParams {
+            static let server_mem_level = "sml"
+            static let server_cmp_level = "scl"
+            static let client_mem_level = "cml"
+            static let client_cmp_level = "ccl"
+        }
+        
         /// Creates a new PMCE config.
         ///  PMCE config speccifies both sides of the exchange.
         /// clientCfg : a ClientConfig
@@ -184,7 +209,7 @@ public final class PMCE:Sendable {
         /// Creates HTTPHeaders to represent this config.
         public func headers() -> HTTPHeaders {
             let params = headerParams(isQuoted: false)
-            return [PMCE.wsxtHeader : pmceName + (params.isEmpty ? "" : ";" + params)]
+            return [PMCE.wsxtHeader : PMCE.DeflateConfig.pmceName + (params.isEmpty ? "" : ";" + params)]
         }
         
         /// Creates header parameters for the Sec-WebSocket-Extensions header from the config.
