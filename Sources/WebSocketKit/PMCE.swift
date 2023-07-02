@@ -12,13 +12,14 @@ public protocol PMCEZlibConfiguration: Codable, Equatable, Sendable,CustomDebugS
 public final class PMCE:Sendable {
     
     /// Configures sending and receiving compressed data with DEFLATE.
-    public struct DeflateConfig: Sendable  {
+    public struct DeflateConfig: Sendable {
         
         /// Identifies this extension per RFC-.
         public static let pmceName = "permessage-deflate"
         
         /// Represents the states for using the same compression window across messages or not.
-        public enum ContextTakeoverMode:String, Codable, CaseIterable, Sendable {
+        public enum ContextTakeoverMode:String, Codable, CaseIterable, Sendable
+        {
             case takeover
             case noTakeover
         }
@@ -29,10 +30,10 @@ public final class PMCE:Sendable {
         /// Holds the server side config.
         public let serverConfig:ServerConfig
         
-        private typealias ConfArgs =        (sto:ContextTakeoverMode,
-                                     cto: ContextTakeoverMode,
-                                     sbits:UInt8?,
-                                     cbits:UInt8?)
+        private typealias ConfArgs = (sto:ContextTakeoverMode,
+                                      cto: ContextTakeoverMode,
+                                      sbits:UInt8?,
+                                      cbits:UInt8?)
         
         /// Configures the client side of deflate.
         public struct ClientConfig: Sendable {
@@ -56,8 +57,13 @@ public final class PMCE:Sendable {
         /// Configures the server side of deflate.
         public struct ServerConfig: Sendable {
             
+            /// Whether the server reuses the compression window acorss messages (takes over context) or not.
             public let takeover:ContextTakeoverMode
+            
+            /// The max size of the window in bits.
             public let maxWindowBits:UInt8?
+            
+            /// Zlib options not found in RFC- for deflate.
             public let zlibConfig: any PMCEZlibConfiguration
 
             public init(takeover:ContextTakeoverMode,
@@ -119,11 +125,13 @@ public final class PMCE:Sendable {
                 arg = self.arg(from: setting, into: &arg)
             }
             
-            let client = ClientConfig(takeover: arg.cto, maxWindowBits: arg.cbits ?? 15 )
-            let server = ServerConfig(takeover: arg.sto, maxWindowBits: arg.sbits ?? 15)
+            let client = ClientConfig(takeover: arg.cto,
+                                      maxWindowBits: arg.cbits ?? 15 )
+            let server = ServerConfig(takeover: arg.sto,
+                                      maxWindowBits: arg.sbits ?? 15)
             
             return DeflateConfig(clientCfg: client,
-                              serverCfg: server)
+                                 serverCfg: server)
         }
         
         /// Extracts the arg from a setting substring into foo returning foo.
@@ -165,14 +173,57 @@ public final class PMCE:Sendable {
                     foo.cto = .noTakeover
                 }else if sane == DeflateHeaderParams.snct {
                     foo.sto = .noTakeover
-                }else if first == "permessage-deflate" {
+                }else if sane == ZlibHeaderParams.server_cmp_level {
+                    if let arg = splits.last {
+                        let trimmed = arg.replacingOccurrences(of: "\"",
+                                                               with: "")
+//                         = Int32(trimmed) ?? nil
+                    }
+                    else
+                    {
+                        print("no arg for server_cmp_level")
+                    }
+                }
+                else if sane == ZlibHeaderParams.server_mem_level {
+                    if let arg = splits.last {
+                        let trimmed = arg.replacingOccurrences(of: "\"",
+                                                               with: "")
+//                        foo.sbits = UInt8(trimmed) ?? nil
+                    }
+                    else
+                    {
+                        print("no arg for server_mem_level")
+                    }
+                }else if sane == ZlibHeaderParams.client_cmp_level {
+                    if let arg = splits.last {
+                        let trimmed = arg.replacingOccurrences(of: "\"",
+                                                               with: "")
+//                        foo.sbits = UInt8(trimmed) ?? nil
+                    }
+                    else
+                    {
+                        print("no arg for server_cmp_level")
+                    }
+                }else if sane == ZlibHeaderParams.client_mem_level {
+                    if let arg = splits.last {
+                        let trimmed = arg.replacingOccurrences(of: "\"",
+                                                               with: "")
+//                        foo.sbits = UInt8(trimmed) ?? nil
+                    }
+                    else
+                    {
+                        print("no arg for client_mem_level")
+                    }
+                }
+                else if first == "permessage-deflate" {
                     print("woops")
                 }
-                
                 else {
                     print("unrecognized first split from setting \(setting)")
                 }
-                
+            }
+            else {
+                print("couldnt parse arg; no first split @ =")
             }
             return foo
         }
@@ -189,6 +240,8 @@ public final class PMCE:Sendable {
             static let smwb = "server_max_window_bits"
         }
         
+        /// Defines the strings for extended parameters not defined in the RFC.
+        /// TODO maybe im missing something.
         public struct ZlibHeaderParams {
             static let server_mem_level = "sml"
             static let server_cmp_level = "scl"
