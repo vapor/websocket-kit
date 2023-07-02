@@ -9,7 +9,20 @@ import NIOSSL
 import NIOTransportServices
 import Atomics
 
+extension Data {
+    struct HexEncodingOptions: OptionSet {
+        let rawValue: Int
+        static let upperCase = HexEncodingOptions(rawValue: 1 << 0)
+    }
+
+    func hexEncodedString(options: HexEncodingOptions = []) -> String {
+        let format = options.contains(.upperCase) ? "%02hhX" : "%02hhx"
+        return self.map { String(format: format, $0) }.joined()
+    }
+}
+
 public final class WebSocketClient: Sendable {
+
     public enum Error: Swift.Error, LocalizedError {
         case invalidURL
         case invalidResponseStatus(HTTPResponseHead)
@@ -21,6 +34,8 @@ public final class WebSocketClient: Sendable {
 
     public typealias EventLoopGroupProvider = NIOEventLoopGroupProvider
 
+    //TODO make this take a DeflateCOnfig instead of the whole PMCE
+    // might meke the flow better
     public struct Configuration: Sendable {
         public var tlsConfiguration: TLSConfiguration?
         public var maxFrameSize: Int
@@ -34,7 +49,23 @@ public final class WebSocketClient: Sendable {
         /// Maximum frame size after aggregation.
         /// See `NIOWebSocketFrameAggregator` for details.
         public var maxAccumulatedFrameSize: Int
-
+        /// Per Message Compression Extensions Config, if any.
+        /// See `PMCE.PMCEConfig` for details.
+        public var deflateConfig:PMCE.DeflateConfig?
+        
+        // new init to support passing in PMCE.PMCEConfig
+        public init(deflateConfig:PMCE.DeflateConfig?,
+                    tlsConfiguration:TLSConfiguration? = nil,
+                    maxFrameSize:Int = 1 << 14) {
+            
+            self.tlsConfiguration = tlsConfiguration
+            self.maxFrameSize = maxFrameSize
+            self.minNonFinalFragmentSize = 0
+            self.maxAccumulatedFrameCount = Int.max
+            self.maxAccumulatedFrameSize = Int.max
+            self.deflateConfig = deflateConfig
+        }
+        
         public init(
             tlsConfiguration: TLSConfiguration? = nil,
             maxFrameSize: Int = 1 << 14
@@ -44,9 +75,11 @@ public final class WebSocketClient: Sendable {
             self.minNonFinalFragmentSize = 0
             self.maxAccumulatedFrameCount = Int.max
             self.maxAccumulatedFrameSize = Int.max
+            self.deflateConfig = nil
         }
     }
 
+    // might ned to mirror above init with omce alsoi
     let eventLoopGroupProvider: EventLoopGroupProvider
     let group: EventLoopGroup
     let configuration: Configuration
@@ -125,6 +158,13 @@ public final class WebSocketClient: Sendable {
                     }
                 }
 
+                if upgradeRequestHeaders.contains(name: "sec-websocket-extensions") {
+                    print("websocket-kit: WebSocketClient.connect() extensions header detected ")
+                    print("config is \(self.configuration)")
+                    print("upgrade request headers are \(upgradeRequestHeaders)")
+                    
+                }
+                
                 let httpUpgradeRequestHandler = HTTPUpgradeRequestHandler(
                     host: host,
                     path: uri,
@@ -132,13 +172,29 @@ public final class WebSocketClient: Sendable {
                     headers: upgradeRequestHeaders,
                     upgradePromise: upgradePromise
                 )
-                let httpUpgradeRequestHandlerBox = NIOLoopBound(httpUpgradeRequestHandler, eventLoop: channel.eventLoop)
+                let httpUpgradeRequestHandlerBox = NIOLoopBound(httpUpgradeRequestHandler,
+                                                                eventLoop: channel.eventLoop)
 
                 let websocketUpgrader = NIOWebSocketClientUpgrader(
                     maxFrameSize: self.configuration.maxFrameSize,
                     automaticErrorHandling: true,
                     upgradePipelineHandler: { channel, req in
-                        return WebSocket.client(on: channel, config: .init(clientConfig: self.configuration), onUpgrade: onUpgrade)
+                        
+                        let configs = PMCE.DeflateConfig.configsFrom(headers: req.headers)
+                        
+                        if let deflateConfig = configs.first {
+                            
+                            let config = WebSocket.Configuration(withDeflateConfig: deflateConfig)
+                        
+                            return WebSocket.client(on: channel,
+                                                    config: config,
+                                                    onUpgrade: onUpgrade)
+                        }else {
+                            // configs were empty
+                            return WebSocket.client(on: channel,
+                                                    config: .init(clientConfig: self.configuration),
+                                                    onUpgrade: onUpgrade)
+                        }
                     }
                 )
 
@@ -227,7 +283,8 @@ public final class WebSocketClient: Sendable {
                 return channel.eventLoop.makeSucceededVoidFuture()
             }
 
-        let connect = bootstrap.connect(host: proxy ?? host, port: proxyPort ?? port)
+        let connect = bootstrap.connect(host: proxy ?? host,
+                                        port: proxyPort ?? port)
         connect.cascadeFailure(to: upgradePromise)
         return connect.flatMap { channel in
             return upgradePromise.futureResult
