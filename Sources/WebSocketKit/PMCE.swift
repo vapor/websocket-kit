@@ -38,9 +38,9 @@ public final class PMCE:Sendable {
         /// Configures the client side of deflate.
         public struct ClientConfig: Sendable {
             
-            public let takeover:ContextTakeoverMode
-            public let maxWindowBits:UInt8?
-            public let zlibConfig:any PMCEZlibConfiguration
+            public let takeover: ContextTakeoverMode
+            public let maxWindowBits: UInt8?
+            public let zlibConfig: any PMCEZlibConfiguration
 
             public init(takeover:ContextTakeoverMode,
                         maxWindowBits:UInt8 = 15,
@@ -58,10 +58,10 @@ public final class PMCE:Sendable {
         public struct ServerConfig: Sendable {
             
             /// Whether the server reuses the compression window acorss messages (takes over context) or not.
-            public let takeover:ContextTakeoverMode
+            public let takeover: ContextTakeoverMode
             
             /// The max size of the window in bits.
-            public let maxWindowBits:UInt8?
+            public let maxWindowBits: UInt8?
             
             /// Zlib options not found in RFC- for deflate.
             public let zlibConfig: any PMCEZlibConfiguration
@@ -158,7 +158,8 @@ public final class PMCE:Sendable {
                         print("no arg for cmwb")
                     }
                     
-                }else if first == DeflateHeaderParams.smwb {
+                }
+                else if first == DeflateHeaderParams.smwb {
                     
                     if let arg = splits.last {
                         let trimmed = arg.replacingOccurrences(of: "\"",
@@ -169,11 +170,14 @@ public final class PMCE:Sendable {
                     {
                         print("no arg for smwb")
                     }
-                }else if sane == DeflateHeaderParams.cnct {
+                }
+                else if sane == DeflateHeaderParams.cnct {
                     foo.cto = .noTakeover
-                }else if sane == DeflateHeaderParams.snct {
+                }
+                else if sane == DeflateHeaderParams.snct {
                     foo.sto = .noTakeover
-                }else if sane == ZlibHeaderParams.server_cmp_level {
+                }
+                else if sane == ZlibHeaderParams.server_cmp_level {
                     print("checking for server cmp")
                     if let arg = splits.last {
                         let trimmed = arg.replacingOccurrences(of: "\"",
