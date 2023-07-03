@@ -33,7 +33,11 @@ public final class PMCE:Sendable {
         private typealias ConfArgs = (sto:ContextTakeoverMode,
                                       cto: ContextTakeoverMode,
                                       sbits:UInt8?,
-                                      cbits:UInt8?)
+                                      cbits:UInt8?,
+                                      sml:Int32?,
+                                      cml:Int32?,
+                                      scl:Int32?,
+                                      ccl:Int32?)
         
         /// Configures the client side of deflate.
         public struct ClientConfig: Sendable {
@@ -117,7 +121,7 @@ public final class PMCE:Sendable {
                 return filtered
             })
             
-            var arg = ConfArgs(.takeover, .takeover, nil,nil)
+            var arg = ConfArgs(.takeover, .takeover, nil, nil, nil, nil, nil, nil)
             
             for (idx,setting) in settings.enumerated() {
                 let setting = setting
@@ -183,6 +187,7 @@ public final class PMCE:Sendable {
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
                         print(trimmed)
+                        foo.scl = Int32(trimmed)
                     }
                     else
                     {
@@ -195,6 +200,8 @@ public final class PMCE:Sendable {
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
                         print(trimmed)
+                        print(trimmed)
+                        foo.sml = Int32(trimmed)
                     }
                     else
                     {
@@ -206,6 +213,7 @@ public final class PMCE:Sendable {
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
                         print(trimmed)
+                        foo.ccl = Int32(trimmed)
                     }
                     else
                     {
@@ -217,6 +225,7 @@ public final class PMCE:Sendable {
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
                         print(trimmed)
+                        foo.cml = Int32(trimmed)
                     }
                     else
                     {
