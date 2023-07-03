@@ -304,6 +304,7 @@ public final class PMCE:Sendable {
                                                 "=\(serverConfig.maxWindowBits!);")
             }
             
+            /// TODO add headers for zlib config
             if built.last == ";" {
                 let s = built.dropLast(1)
                 return String(data: s.data(using: .utf8)!, encoding: .utf8)!
