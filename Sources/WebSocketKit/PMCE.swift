@@ -305,6 +305,19 @@ public final class PMCE:Sendable {
             }
             
             /// TODO add headers for zlib config
+            
+            built += PMCE.DeflateConfig.ZlibHeaderParams.server_mem_level + " = " +
+            "\(serverConfig.zlibConfig.memLevel)" + ";"
+            
+            built += PMCE.DeflateConfig.ZlibHeaderParams.server_cmp_level + " = " +
+            "\(serverConfig.zlibConfig.compressionLevel)" + ";"
+            
+            built += PMCE.DeflateConfig.ZlibHeaderParams.client_mem_level + " = " +
+            "\(clientConfig.zlibConfig.memLevel)" + ";"
+            
+            built += PMCE.DeflateConfig.ZlibHeaderParams.client_cmp_level + " = " +
+            "\(clientConfig.zlibConfig.memLevel)" + ";"
+            
             if built.last == ";" {
                 let s = built.dropLast(1)
                 return String(data: s.data(using: .utf8)!, encoding: .utf8)!
