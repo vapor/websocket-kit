@@ -174,10 +174,11 @@ public final class PMCE:Sendable {
                 }else if sane == DeflateHeaderParams.snct {
                     foo.sto = .noTakeover
                 }else if sane == ZlibHeaderParams.server_cmp_level {
+                    print("checking for server cmp")
                     if let arg = splits.last {
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
-//                         = Int32(trimmed) ?? nil
+                        print(trimmed)
                     }
                     else
                     {
@@ -186,29 +187,32 @@ public final class PMCE:Sendable {
                 }
                 else if sane == ZlibHeaderParams.server_mem_level {
                     if let arg = splits.last {
+                        print("checking for server mem")
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
-//                        foo.sbits = UInt8(trimmed) ?? nil
+                        print(trimmed)
                     }
                     else
                     {
                         print("no arg for server_mem_level")
                     }
                 }else if sane == ZlibHeaderParams.client_cmp_level {
+                    print("checking for client cmp")
                     if let arg = splits.last {
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
-//                        foo.sbits = UInt8(trimmed) ?? nil
+                        print(trimmed)
                     }
                     else
                     {
                         print("no arg for server_cmp_level")
                     }
                 }else if sane == ZlibHeaderParams.client_mem_level {
+                    print("checking for client mem")
                     if let arg = splits.last {
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
-//                        foo.sbits = UInt8(trimmed) ?? nil
+                        print(trimmed)
                     }
                     else
                     {
