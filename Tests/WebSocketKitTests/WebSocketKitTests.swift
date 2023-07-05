@@ -287,43 +287,6 @@ final class WebSocketKitTests: XCTestCase {
         try server.close(mode: .all).wait()
     }
 
-    // Skipped because it never passes as the server never closes.
-    func testLocally() throws {
-        // swap to test websocket server against local client
-        try XCTSkipIf(true)
-
-        let port = Int(1337)
-        let shutdownPromise = self.elg.any().makePromise(of: Void.self)
-
-        let server = try! ServerBootstrap.webSocket(on: self.elg) { req, ws in
-            ws.onClose.whenComplete {
-                print("ws.onClose done: \($0)")
-            }
-
-            ws.onText { ws, text in
-                switch text {
-                case "shutdown":
-                    shutdownPromise.succeed(())
-                case "close":
-                    ws.close().whenComplete {
-                        print("ws.close() done \($0)")
-                    }
-                default:
-                    ws.send(text.reversed())
-                }
-            }
-
-            ws.send("welcome!")
-        }.bind(host: "localhost", port: port).wait()
-        print("Serving at ws://localhost:\(port)")
-
-        print("Waiting for server shutdown...")
-        try shutdownPromise.futureResult.wait()
-
-        print("Waiting for server close...")
-        try server.close(mode: .all).wait()
-    }
-    
     func testIPWithTLS() throws {
         let server = try ServerBootstrap.webSocket(on: self.elg, tls: true) { req, ws in
             _ = ws.close()
