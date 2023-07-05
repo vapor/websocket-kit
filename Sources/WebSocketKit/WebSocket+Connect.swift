@@ -11,7 +11,7 @@ extension WebSocket {
     ///   - configuration: Configuration for the WebSocket client.
     ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
     ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
-    /// - Returns: An future which completes when the connection to the WebSocket server is established.
+    /// - Returns: A future which completes when the connection to the WebSocket server is established.
     @preconcurrency
     public static func connect(
         to url: String,
@@ -165,7 +165,7 @@ extension WebSocket {
     ///   - configuration: Configuration for the WebSocket client.
     ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
     ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
-    /// - Returns: An future which completes when the connection to the origin server is established.
+    /// - Returns: A future which completes when the connection to the origin server is established.
     @preconcurrency
     public static func connect(
         to url: String,
