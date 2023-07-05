@@ -395,6 +395,8 @@ public final class PMCE:Sendable {
     
     private let _enabled:NIOLoopBound<Bool>
     
+    public var enabled:Bool
+    
     /// Converts windowBits to size of window.
     private static func sizeFor(bits:UInt8) -> Int32 {
         2^Int32(bits)
@@ -413,7 +415,7 @@ public final class PMCE:Sendable {
         self.extendedSocketType = socketType
         self._enabled = NIOLoopBound(true,
                                      eventLoop: channel.eventLoop)
-        
+        enabled = true
         switch extendedSocketType {
         case .server:
             print("websocket-kit: WebSocket.init() configuring as Zlib as server")

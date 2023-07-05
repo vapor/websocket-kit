@@ -201,7 +201,7 @@ public final class WebSocket: Sendable {
         promise: EventLoopPromise<Void>? = nil
     ) {
         //using compression
-        if pmce != nil {
+        if pmce != nil && pmce!.enabled {
             do {
                 // create compressed frame and send it
                 let frame = try pmce!.compressed(data, fin:fin, opCode: opcode)
@@ -330,7 +330,7 @@ public final class WebSocket: Sendable {
             
         case .text, .binary:
             // is compressed? and have pmce configured for the socket?
-            if frame.rsv1 , let pmce = pmce {
+            if frame.rsv1 , let pmce = pmce, pmce.enabled {
                
                 do {
                   
