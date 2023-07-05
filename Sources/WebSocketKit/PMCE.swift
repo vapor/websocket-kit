@@ -360,7 +360,6 @@ public final class PMCE:Sendable {
             "ZlibConf {\nmemLevel:\(memLevel)\ncompressionLvel:\(compressionLevel)"
         }
         
-        
         public static let maxRamMaxComp:ZlibConf = .init(memLevel: 9, compLevel: 9)
         public static let maxRamMinComp:ZlibConf = .init(memLevel: 9, compLevel: 1)
         
@@ -380,8 +379,8 @@ public final class PMCE:Sendable {
     }
     
     /// PMCE settings are under this header
-    public static var wsxtHeader:String {"Sec-WebSocket-Extensions"}
-
+    public static let wsxtHeader = "Sec-WebSocket-Extensions"
+    
     /// If you have to ask ...
     private let compressorBox:NIOLoopBoundBox<NIOCompressor?>
     
@@ -393,6 +392,8 @@ public final class PMCE:Sendable {
     
     // the channel whose allocator to use for compression bytebuffers as well as box event loops.
     public let channel:NIO.Channel?
+    
+    private let _enabled:NIOLoopBound<Bool>
     
     /// Converts windowBits to size of window.
     private static func sizeFor(bits:UInt8) -> Int32 {
@@ -406,9 +407,12 @@ public final class PMCE:Sendable {
     public init(config: DeflateConfig,
                 channel: Channel,
                 socketType: WebSocket.PeerType) {
+        
         self.config = config
         self.channel = channel
         self.extendedSocketType = socketType
+        self._enabled = NIOLoopBound(true,
+                                     eventLoop: channel.eventLoop)
         
         switch extendedSocketType {
         case .server:
@@ -453,6 +457,8 @@ public final class PMCE:Sendable {
             
         }
         
+        ///TODO
+        // wonder if I shold move this to enabled?
         do {
             try compressorBox.value?.startStream()
         }

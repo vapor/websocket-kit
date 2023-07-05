@@ -92,6 +92,7 @@ public final class WebSocket: Sendable {
     }
 
     @preconcurrency public func onText(_ callback: @Sendable @escaping (WebSocket, String) -> ()) {
+        print("\(self.onTextCallback._eventLoop)")
         self.onTextCallback.value = callback
     }
 
