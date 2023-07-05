@@ -9,18 +9,6 @@ import NIOSSL
 import NIOTransportServices
 import Atomics
 
-extension Data {
-    struct HexEncodingOptions: OptionSet {
-        let rawValue: Int
-        static let upperCase = HexEncodingOptions(rawValue: 1 << 0)
-    }
-
-    func hexEncodedString(options: HexEncodingOptions = []) -> String {
-        let format = options.contains(.upperCase) ? "%02hhX" : "%02hhx"
-        return self.map { String(format: format, $0) }.joined()
-    }
-}
-
 public final class WebSocketClient: Sendable {
 
     public enum Error: Swift.Error, LocalizedError {
@@ -34,8 +22,6 @@ public final class WebSocketClient: Sendable {
 
     public typealias EventLoopGroupProvider = NIOEventLoopGroupProvider
 
-    //TODO make this take a DeflateCOnfig instead of the whole PMCE
-    // might meke the flow better
     public struct Configuration: Sendable {
         public var tlsConfiguration: TLSConfiguration?
         public var maxFrameSize: Int
@@ -157,11 +143,11 @@ public final class WebSocketClient: Sendable {
                         upgradeRequestHeaders.add(contentsOf: proxyHeaders)
                     }
                 }
+                print("websocket-client: config is \(self.configuration)")
 
                 if upgradeRequestHeaders.contains(name: "sec-websocket-extensions") {
-                    print("websocket-kit: WebSocketClient.connect() extensions header detected ")
-                    print("config is \(self.configuration)")
-                    print("upgrade request headers are \(upgradeRequestHeaders)")
+                
+                    print("websocket-client: upgrade request headers are \(upgradeRequestHeaders)")
                     
                 }
                 
@@ -190,7 +176,6 @@ public final class WebSocketClient: Sendable {
                                                     config: config,
                                                     onUpgrade: onUpgrade)
                         }else {
-                            // configs were empty
                             return WebSocket.client(on: channel,
                                                     config: .init(clientConfig: self.configuration),
                                                     onUpgrade: onUpgrade)

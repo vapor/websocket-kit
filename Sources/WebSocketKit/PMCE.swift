@@ -6,6 +6,7 @@ import Foundation
 import NIOCore
 import NIOConcurrencyHelpers
 
+/// I'd like to evenually abstract out a more general websocket extension interface.
 public protocol PMCEZlibConfiguration: Codable, Equatable, Sendable,CustomDebugStringConvertible  {
     var memLevel:Int32 {get set}
     var compressionLevel:Int32 {get set}
@@ -16,7 +17,7 @@ public final class PMCE:Sendable {
     /// Configures sending and receiving compressed data with DEFLATE.
     public struct DeflateConfig: Sendable {
         
-        /// Identifies this extension per RFC-.
+        /// Identifies this extension per RFC-7692.
         public static let pmceName = "permessage-deflate"
         
         /// Represents the states for using the same compression window across messages or not.
@@ -69,7 +70,7 @@ public final class PMCE:Sendable {
             /// The max size of the window in bits.
             public let maxWindowBits: UInt8?
             
-            /// Zlib options not found in RFC- for deflate.
+            /// Zlib options not found in RFC-7692 for deflate.
             public let zlibConfig: any PMCEZlibConfiguration
 
             public init(takeover:ContextTakeoverMode,
@@ -314,9 +315,7 @@ public final class PMCE:Sendable {
                                               "=\"\(serverConfig.maxWindowBits!)\"" :
                                                 "=\(serverConfig.maxWindowBits!);")
             }
-            
-            /// TODO add headers for zlib config
-            
+                        
             built += PMCE.DeflateConfig.ZlibHeaderParams.server_mem_level + " = " +
             "\(serverConfig.zlibConfig.memLevel)" + ";"
             
@@ -354,8 +353,6 @@ public final class PMCE:Sendable {
         }
     }
     
-    ///TODO DOcument these settings and perhaps come up with a header based way to configure them
-    ///for a fully header based api maybe. but that would requrie actual acknowldgement and not getting dicked around.
     public struct ZlibConf: PMCEZlibConfiguration, CustomDebugStringConvertible {
         
         public var debugDescription: String {
@@ -389,7 +386,7 @@ public final class PMCE:Sendable {
     /// If you have to ask ...
     private let decompressorBox:NIOLoopBoundBox<NIODecompressor?>
     
-    // Tells pmce how to apply the deflate config as well as how to extract per RFC-.
+    // Tells pmce how to apply the deflate config as well as how to extract per RFC-7692.
     public let extendedSocketType:WebSocket.PeerType
     
     // the channel whose allocator to use for compression bytebuffers as well as box event loops.
@@ -445,7 +442,7 @@ public final class PMCE:Sendable {
         self.extendedSocketType = socketType
         
         self._enabled = NIOLockedValueBox(true)
-        self._logging = NIOLockedValueBox(false)
+        self._logging = NIOLockedValueBox(true)
         
         switch extendedSocketType {
         case .server:
@@ -487,7 +484,6 @@ public final class PMCE:Sendable {
             
         }
         
-        ///TODO
         // wonder if I shold move this to enabled?
         do {
             try compressorBox.value?.startStream()
@@ -643,7 +639,7 @@ public final class PMCE:Sendable {
         }
     }
     
-    // server decomp uses this as RFC- says client must mask msgs but server must not.
+    // server decomp uses this as RFC-7692 says client must mask msgs but server must not.
     private func unmasked(frame maskedFrame: WebSocketFrame) -> WebSocketFrame {
         var unmaskedData = maskedFrame.data
         unmaskedData.webSocketUnmask(maskedFrame.maskKey!)

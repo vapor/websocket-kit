@@ -33,7 +33,7 @@ public final class WebSocket: Sendable {
     }
     
     /// PMCE insance that handles compressing and decompressing of frames as well as
-    /// configuring the connection per RFC-.
+    /// configuring the connection per RFC-7692.
     public let pmce:PMCE?
     
     @usableFromInline
@@ -363,7 +363,7 @@ public final class WebSocket: Sendable {
             }
             else if frame.rsv1 && pmce == nil {
                 if pmce?.logging ?? false {
-                    print("websocket-kit: PMCE:  received compressed frame without PMCE configured! Closing per RFC-. You could have a configuration issue.")
+                    print("websocket-kit: PMCE:  received compressed frame without PMCE configured! Closing per RFC-7692. You could have a configuration issue.")
                 }
                 self.close(code: .protocolError, promise: nil)
 
