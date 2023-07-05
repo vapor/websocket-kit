@@ -204,8 +204,8 @@ public final class WebSocket: Sendable {
         if pmce != nil && pmce!.enabled {
             do {
                 // create compressed frame and send it
-                let frame = try pmce!.compressed(data, fin:fin, opCode: opcode)
-                self.channel.writeAndFlush(frame, promise: promise)
+                let compressedFrame = try pmce!.compressed(data, fin:fin, opCode: opcode)
+                self.channel.writeAndFlush(compressedFrame, promise: promise)
             }
             catch {
                 print(error)

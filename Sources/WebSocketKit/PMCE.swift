@@ -3,6 +3,9 @@ import NIOWebSocket
 import CompressNIO
 import NIO
 import Foundation
+import NIOCore
+import NIOConcurrencyHelpers
+
 
 public protocol PMCEZlibConfiguration: Codable, Equatable, Sendable,CustomDebugStringConvertible  {
     var memLevel:Int32 {get set}
@@ -393,9 +396,20 @@ public final class PMCE:Sendable {
     // the channel whose allocator to use for compression bytebuffers as well as box event loops.
     public let channel:NIO.Channel?
     
-    private let _enabled:NIOLoopBound<Bool>
-    
-    public var enabled:Bool
+    private let _enabled:NIOLockedValueBox<Bool>
+        
+    public var enabled:Bool {
+        get {
+            _enabled.withLockedValue { v in
+                v
+            }
+        }
+        set {
+            _enabled.withLockedValue { v in
+                v = newValue
+            }
+        }
+    }
     
     /// Converts windowBits to size of window.
     private static func sizeFor(bits:UInt8) -> Int32 {
@@ -413,9 +427,8 @@ public final class PMCE:Sendable {
         self.config = config
         self.channel = channel
         self.extendedSocketType = socketType
-        self._enabled = NIOLoopBound(true,
-                                     eventLoop: channel.eventLoop)
-        enabled = true
+        self._enabled = NIOLockedValueBox(true)
+      
         switch extendedSocketType {
         case .server:
             print("websocket-kit: WebSocket.init() configuring as Zlib as server")
