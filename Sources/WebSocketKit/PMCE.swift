@@ -6,7 +6,6 @@ import Foundation
 import NIOCore
 import NIOConcurrencyHelpers
 
-
 public protocol PMCEZlibConfiguration: Codable, Equatable, Sendable,CustomDebugStringConvertible  {
     var memLevel:Int32 {get set}
     var compressionLevel:Int32 {get set}
@@ -360,7 +359,7 @@ public final class PMCE:Sendable {
     public struct ZlibConf: PMCEZlibConfiguration, CustomDebugStringConvertible {
         
         public var debugDescription: String {
-            "ZlibConf {\nmemLevel:\(memLevel)\ncompressionLvel:\(compressionLevel)"
+            "ZlibConf {\nmem:\(memLevel)\ncmp:\(compressionLevel)"
         }
         
         public static let maxRamMaxComp:ZlibConf = .init(memLevel: 9, compLevel: 9)
@@ -374,14 +373,14 @@ public final class PMCE:Sendable {
         public var compressionLevel:Int32
         
         public init(memLevel:Int32, compLevel:Int32) {
-            assert( (-1...9).contains(compLevel) , "compLevel must be -1...9 ")
+            assert( (-1...9).contains(compLevel) , "compLevel must be -1(default)...9 ")
             assert( (1...9).contains(memLevel) , "memLevel must be 1...9 ")
             self.memLevel = memLevel
             self.compressionLevel = compLevel
         }
     }
     
-    /// PMCE settings are under this header
+    /// PMCE settings are under this header.
     public static let wsxtHeader = "Sec-WebSocket-Extensions"
     
     /// If you have to ask ...
@@ -396,8 +395,25 @@ public final class PMCE:Sendable {
     // the channel whose allocator to use for compression bytebuffers as well as box event loops.
     public let channel:NIO.Channel?
     
+    private let _logging:NIOLockedValueBox<Bool>
+    
+    /// Enables some logging since I dont have a Logger.
+    public var logging:Bool {
+        get {
+            _logging.withLockedValue { v in
+                v
+            }
+        }
+        set {
+            _logging.withLockedValue { v in
+                v = newValue
+            }
+        }
+    }
+    
     private let _enabled:NIOLockedValueBox<Bool>
-        
+    
+    /// This allows a server socket that has PMCE available to optionaly use it or not. So a compressed server can still talk uncompressed.
     public var enabled:Bool {
         get {
             _enabled.withLockedValue { v in
@@ -427,12 +443,13 @@ public final class PMCE:Sendable {
         self.config = config
         self.channel = channel
         self.extendedSocketType = socketType
+        
         self._enabled = NIOLockedValueBox(true)
-      
+        self._logging = NIOLockedValueBox(false)
+        
         switch extendedSocketType {
         case .server:
-            print("websocket-kit: WebSocket.init() configuring as Zlib as server")
-            
+           
             // need to determine values for other args
             let winSize = PMCE.sizeFor(bits: config.serverConfig.maxWindowBits ?? 15)
             
@@ -451,9 +468,7 @@ public final class PMCE:Sendable {
                                                    eventLoop: channel.eventLoop)
             
         case .client:
-            print("websocket-kit: WebSocket.init() configuring as client")
-            print("websocket-kit: WebSocket.init() \(config)")
-
+           
             let winSize = PMCE.sizeFor(bits: config.clientConfig.maxWindowBits ?? 15)
             let zccConf = ZlibConfiguration(windowSize: winSize,
                                             compressionLevel: config.clientConfig.zlibConfig.compressionLevel,
@@ -478,17 +493,17 @@ public final class PMCE:Sendable {
             try compressorBox.value?.startStream()
         }
         catch {
-            print("WebSocket.init() error starting stream : \(error)")
+            print("PMCE: init error starting stream : \(error)")
         }
         do {
             try decompressorBox.value?.startStream()
         }
         catch {
-            print("WebSocket.init() error starting stream : \(error)")
+            print("PMCE: init error starting stream : \(error)")
         }
     }
     
-    // websocket send calls this
+    // websocket send calls this to compress.
     public func compressed(_ buffer: ByteBuffer,
                             fin: Bool = true,
                             opCode: WebSocketOpcode = .binary) throws -> WebSocketFrame {
@@ -497,7 +512,9 @@ public final class PMCE:Sendable {
             throw IOError(errnoCode: 0, reason: "channel not configured.")
         }
         let startSize = buffer.readableBytes
-        print("compressing \(startSize) bytes for \(opCode)")
+        if logging {
+            print("PMCE: compressing \(startSize) bytes for \(opCode)")
+        }
         do {
             var mutBuffer = buffer
             let startTime = Date()
@@ -506,17 +523,21 @@ public final class PMCE:Sendable {
             try mutBuffer.compressStream(with: compressorBox.value!,
                                          flush: .sync,
                                          allocator: channel.allocator)
-            let endTime = Date()
-            let endSize = compressed.readableBytes
-            print("compressed \(startSize) to \(endSize) bytes @ \(startSize / endSize) ratio from")
-            switch extendedSocketType {
-            case .server:
-                print(" \(config.serverConfig.zlibConfig)")
-            case .client:
-                print(" \(config.clientConfig.zlibConfig)")
+            if logging {
+                let endTime = Date()
+                let endSize = compressed.readableBytes
+                
+                print("PMCE: compressed \(startSize) to \(endSize) bytes @ \(startSize / endSize) ratio from")
+                switch extendedSocketType {
+                case .server:
+                    print(" \(config.serverConfig.zlibConfig)")
+                case .client:
+                    print(" \(config.clientConfig.zlibConfig)")
+                }
+                
+                print("in \(startTime.distance(to: endTime))")
             }
             
-            print("in \(startTime.distance(to: endTime))")
             if !config.shouldTakeOverContext(isServer: extendedSocketType == .server) {
                 try compressorBox.value?.resetStream()
             }
@@ -535,12 +556,13 @@ public final class PMCE:Sendable {
             return frame
         }
         catch {
-            print("websocket-kit: send compression failed \(error)")
+            print("PMCE: send compression failed \(error)")
         }
+        
         return WebSocketFrame(fin:fin, rsv1: false, opcode:opCode, data: buffer)
     }
     
-    // websocket calls these from handleIncoming
+    // websocket calls these from handleIncoming to decompress.
     public func decompressed(_ frame: WebSocketFrame) throws -> WebSocketFrame  {
 
         guard let channel = channel else {
@@ -585,10 +607,11 @@ public final class PMCE:Sendable {
         return newFrame
     }
     
-    // websocket calls frorm handleIncoming
+    // websocket calls from handleIncoming as a server to handle client masked compressed frames. This was epxerimentally determined.
     public func unmaskedDecompressedUnamsked(frame: WebSocketFrame) throws -> WebSocketFrame {
-        print("websocket-kit: unmaksing/decomp/unmasking frame \(frame.opcode) data...")
-        
+        if logging {
+            print("PMCE: unmaksing/decomp/unmasking frame \(frame.opcode) data...")
+        }
         let unmaskedCompressedFrame = unmasked(frame: frame)
 
         // decompression

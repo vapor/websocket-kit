@@ -362,7 +362,9 @@ public final class WebSocket: Sendable {
                 }
             }
             else if frame.rsv1 && pmce == nil {
-                print("websocket-kit: received compressed frame without PMCE configured! Closing per RFC-. You could have a configuration issue.")
+                if pmce?.logging ?? false {
+                    print("websocket-kit: PMCE:  received compressed frame without PMCE configured! Closing per RFC-. You could have a configuration issue.")
+                }
                 self.close(code: .protocolError, promise: nil)
 
             }
@@ -381,7 +383,6 @@ public final class WebSocket: Sendable {
             preconditionFailure("We will never receive a continuation frame")
         default:
             // We ignore all other frames.
-            print("websocket-kit: frame.opode \(frame.opcode) ignored")
             break
         }
         
