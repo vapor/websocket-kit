@@ -66,7 +66,6 @@ public final class WebSocketClient: Sendable {
         }
     }
 
-    // might ned to mirror above init with omce alsoi
     let eventLoopGroupProvider: EventLoopGroupProvider
     let group: EventLoopGroup
     let configuration: Configuration
