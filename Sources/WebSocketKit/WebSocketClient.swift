@@ -8,6 +8,7 @@ import NIOWebSocket
 import NIOSSL
 import NIOTransportServices
 import Atomics
+import Logging
 
 public final class WebSocketClient: Sendable {
 
@@ -70,7 +71,8 @@ public final class WebSocketClient: Sendable {
     let group: EventLoopGroup
     let configuration: Configuration
     let isShutdown = ManagedAtomic(false)
-
+    private let logger = Logger(label:"WebSocketClient")
+    
     public init(eventLoopGroupProvider: EventLoopGroupProvider, configuration: Configuration = .init()) {
         self.eventLoopGroupProvider = eventLoopGroupProvider
         switch self.eventLoopGroupProvider {
@@ -143,11 +145,12 @@ public final class WebSocketClient: Sendable {
                         upgradeRequestHeaders.add(contentsOf: proxyHeaders)
                     }
                 }
-                print("websocket-client: config is \(self.configuration)")
+                
+                self.logger.debug("websocket-client: config is \(self.configuration)")
 
                 if upgradeRequestHeaders.contains(name: "sec-websocket-extensions") {
-                
-                    print("websocket-client: upgrade request headers are \(upgradeRequestHeaders)")
+                    
+                    self.logger.debug("websocket-client: upgrade request headers are \(upgradeRequestHeaders)")
                     
                 }
                 

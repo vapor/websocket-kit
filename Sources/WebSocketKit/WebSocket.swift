@@ -6,9 +6,11 @@ import Foundation
 import NIOFoundationCompat
 import CompressNIO
 import NIOConcurrencyHelpers
+import Logging
 
 public final class WebSocket: Sendable {
     
+    /// TODO see if this really must be public
     public enum PeerType: Sendable {
         case server
         case client
@@ -74,7 +76,9 @@ public final class WebSocket: Sendable {
     private let scheduledTimeoutTask: NIOLockedValueBox<Scheduled<Void>?>
     private let frameSequence: NIOLockedValueBox<WebSocketFrameSequence?>
     private let _pingInterval: NIOLockedValueBox<TimeAmount?>
-
+    
+    private let logger = Logger(label: "websocket-kit")
+    
     init(channel: Channel, type: PeerType) {
         self.channel = channel
         self.type = type
@@ -92,7 +96,6 @@ public final class WebSocket: Sendable {
     }
 
     @preconcurrency public func onText(_ callback: @Sendable @escaping (WebSocket, String) -> ()) {
-        print("\(self.onTextCallback._eventLoop)")
         self.onTextCallback.value = callback
     }
 
@@ -201,19 +204,18 @@ public final class WebSocket: Sendable {
         promise: EventLoopPromise<Void>? = nil
     ) {
         //using compression
-        if pmce != nil && pmce!.enabled {
+        if let p = pmce, p.enabled {
             do {
                 // create compressed frame and send it
-                let compressedFrame = try pmce!.compressed(data, fin:fin, opCode: opcode)
+                let compressedFrame = try p.compressed(data, fin:fin, opCode: opcode)
                 self.channel.writeAndFlush(compressedFrame, promise: promise)
             }
             catch {
-                print(error)
+                logger.error("\(error)")
             }
-
         }
         else {
-            // create normal frame and send it
+            // or not
             let frame = WebSocketFrame(
                 fin: fin,
                 rsv1:false, // denotes not compressed
@@ -358,12 +360,12 @@ public final class WebSocket: Sendable {
                     }
                 }
                 catch {
-                    print("websocket-kit: \(error)")
+                    logger.error("websocket-kit: \(error)")
                 }
             }
             else if frame.rsv1 && pmce == nil {
                 if pmce?.logging ?? false {
-                    print("websocket-kit: PMCE:  received compressed frame without PMCE configured! Closing per RFC-7692. You could have a configuration issue.")
+                    logger.error("received compressed frame without PMCE configured! Closing per RFC-7692. You could have a configuration issue.")
                 }
                 self.close(code: .protocolError, promise: nil)
 

@@ -118,8 +118,6 @@ extension WebSocket {
         WebSocket(channel: channel,
                   type: type)
         
-        print("websocket-kit: WebSocket.configure(on:...) created websocket \(webSocket) \nof \(type) \nwith \(config)")
-
         return channel.pipeline.addHandlers([
             NIOWebSocketFrameAggregator(
                 minNonFinalFragmentSize: config.minNonFinalFragmentSize,

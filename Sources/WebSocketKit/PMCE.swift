@@ -5,6 +5,7 @@ import NIO
 import Foundation
 import NIOCore
 import NIOConcurrencyHelpers
+import Logging
 
 /// I'd like to evenually abstract out a more general websocket extension interface.
 public protocol PMCEZlibConfiguration: Codable, Equatable, Sendable,CustomDebugStringConvertible  {
@@ -14,34 +15,12 @@ public protocol PMCEZlibConfiguration: Codable, Equatable, Sendable,CustomDebugS
 
 public final class PMCE:Sendable {
     
+    private let logger = Logger(label: "PMCE")
+    
     /// Configures sending and receiving compressed data with DEFLATE.
     public struct DeflateConfig: Sendable {
-        
-        /// Identifies this extension per RFC-7692.
-        public static let pmceName = "permessage-deflate"
-        
-        /// Represents the states for using the same compression window across messages or not.
-        public enum ContextTakeoverMode:String, Codable, CaseIterable, Sendable
-        {
-            case takeover
-            case noTakeover
-        }
-        
-        /// Holds the client side config.
-        public let clientConfig:ClientConfig
-        
-        /// Holds the server side config.
-        public let serverConfig:ServerConfig
-        
-        private typealias ConfArgs = (sto:ContextTakeoverMode,
-                                      cto: ContextTakeoverMode,
-                                      sbits:UInt8?,
-                                      cbits:UInt8?,
-                                      sml:Int32?,
-                                      cml:Int32?,
-                                      scl:Int32?,
-                                      ccl:Int32?)
-        
+        private static let logger = Logger(label: "PMCE")
+
         /// Configures the client side of deflate.
         public struct ClientConfig: Sendable {
             
@@ -85,10 +64,51 @@ public final class PMCE:Sendable {
             }
         }
 
+        private static let _logging:NIOLockedValueBox<Bool> = .init(false)
+        
+        /// Enables some logging since I dont have a Logger.
+        public static var logging:Bool {
+            get {
+                _logging.withLockedValue { v in
+                    v
+                }
+            }
+            set {
+                _logging.withLockedValue { v in
+                    v = newValue
+                }
+            }
+        }
+        
+        /// Identifies this extension per RFC-7692.
+        public static let pmceName = "permessage-deflate"
+        
+        /// Represents the states for using the same compression window across messages or not.
+        public enum ContextTakeoverMode:String, Codable, CaseIterable, Sendable
+        {
+            case takeover
+            case noTakeover
+        }
+        
+        /// Holds the client side config.
+        public let clientConfig:ClientConfig
+        
+        /// Holds the server side config.
+        public let serverConfig:ServerConfig
+        
+        private typealias ConfArgs = (sto:ContextTakeoverMode,
+                                      cto: ContextTakeoverMode,
+                                      sbits:UInt8?,
+                                      cbits:UInt8?,
+                                      sml:Int32?,
+                                      cml:Int32?,
+                                      scl:Int32?,
+                                      ccl:Int32?)
         /// Will init an array of DeflateConfigs from parsed header values if possible.
         public static func configsFrom(headers:HTTPHeaders) -> [DeflateConfig] {
-            print("getting configs from \(headers)")
-            
+            if logging {
+                logger.debug("getting configs from \(headers)")
+            }
             if let wsx = headers.first(name: wsxtHeader) {
                 
                 let offers = offers(in:wsx)
@@ -102,7 +122,9 @@ public final class PMCE:Sendable {
             
             }
             else {
-                print("Tried to init a PMCE config with headers that do not contain the Sec-Websocket-Extensions key")
+                if logging {
+                    DeflateConfig.logger.error("Tried to init a PMCE config with headers that do not contain the Sec-Websocket-Extensions key")
+                }
                 return [DeflateConfig]()
             }
         }
@@ -126,9 +148,8 @@ public final class PMCE:Sendable {
             
             var arg = ConfArgs(.takeover, .takeover, nil, nil, nil, nil, nil, nil)
             
-            for (idx,setting) in settings.enumerated() {
+            for (_,setting) in settings.enumerated() {
                 let setting = setting
-                print("#\(idx) \(setting)")
                 arg = self.arg(from: setting, into: &arg)
             }
             
@@ -149,10 +170,7 @@ public final class PMCE:Sendable {
             
             if let first = splits.first {
                 let sane = first.trimmingCharacters(in: .whitespacesAndNewlines)
-                
-                print("first = \(first)")
-                print("sane = \(sane)")
-                
+               
                 if first == DeflateHeaderParams.cmwb {
                     
                     if let arg = splits.last {
@@ -162,7 +180,9 @@ public final class PMCE:Sendable {
                     }
                     else
                     {
-                        print("no arg for cmwb")
+                        if logging {
+                            DeflateConfig.logger.debug("no arg for cmwb")
+                        }
                     }
                     
                 }
@@ -175,7 +195,9 @@ public final class PMCE:Sendable {
                     }
                     else
                     {
-                        print("no arg for smwb")
+                        if logging {
+                            DeflateConfig.logger.debug("no arg for smwb")
+                        }
                     }
                 }
                 else if sane == DeflateHeaderParams.cnct {
@@ -185,65 +207,70 @@ public final class PMCE:Sendable {
                     foo.sto = .noTakeover
                 }
                 else if sane == ZlibHeaderParams.server_cmp_level {
-                    print("checking for server cmp")
                     if let arg = splits.last {
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
-                        print(trimmed)
                         foo.scl = Int32(trimmed)
                     }
                     else
                     {
-                        print("no arg for server_cmp_level")
+                        if logging {
+                            DeflateConfig.logger.debug("no arg for server_cmp_level")
+                        }
                     }
                 }
                 else if sane == ZlibHeaderParams.server_mem_level {
                     if let arg = splits.last {
-                        print("checking for server mem")
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
-                        print(trimmed)
-                        print(trimmed)
+                     
                         foo.sml = Int32(trimmed)
                     }
                     else
                     {
-                        print("no arg for server_mem_level")
+                        if logging {
+                            DeflateConfig.logger.debug("no arg for server_mem_level")
+                        }
                     }
                 }else if sane == ZlibHeaderParams.client_cmp_level {
-                    print("checking for client cmp")
                     if let arg = splits.last {
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
-                        print(trimmed)
                         foo.ccl = Int32(trimmed)
                     }
                     else
                     {
-                        print("no arg for server_cmp_level")
+                        if logging {
+                            DeflateConfig.logger.debug("no arg for server_cmp_level")
+                        }
                     }
                 }else if sane == ZlibHeaderParams.client_mem_level {
-                    print("checking for client mem")
                     if let arg = splits.last {
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
-                        print(trimmed)
                         foo.cml = Int32(trimmed)
                     }
                     else
                     {
-                        print("no arg for client_mem_level")
+                        if logging {
+                            DeflateConfig.logger.debug("no arg for client_mem_level")
+                        }
                     }
                 }
                 else if first == "permessage-deflate" {
-                    print("woops")
+                    if logging {
+                        DeflateConfig.logger.error("oops something didnt parse.")
+                    }
                 }
                 else {
-                    print("unrecognized first split from setting \(setting)")
+                    if logging {
+                        DeflateConfig.logger.debug("unrecognized first split from setting \(setting)")
+                    }
                 }
             }
             else {
-                print("couldnt parse arg; no first split @ =")
+                
+                DeflateConfig.logger.error("couldnt parse arg; no first split @ =")
             }
             return foo
         }
@@ -274,9 +301,11 @@ public final class PMCE:Sendable {
         /// clientCfg : a ClientConfig
         /// serverCfg: a ServerConfig
         public init(clientCfg: ClientConfig,
-                    serverCfg: ServerConfig) {
+                    serverCfg: ServerConfig,
+                    logging:Bool  = false) {
             self.clientConfig = clientCfg
             self.serverConfig = serverCfg
+
         }
         
         /// Creates HTTPHeaders to represent this config.
@@ -489,13 +518,13 @@ public final class PMCE:Sendable {
             try compressorBox.value?.startStream()
         }
         catch {
-            print("PMCE: init error starting stream : \(error)")
+            logger.error("error starting stream : \(error)")
         }
         do {
             try decompressorBox.value?.startStream()
         }
         catch {
-            print("PMCE: init error starting stream : \(error)")
+            logger.error("error starting stream : \(error)")
         }
     }
     
@@ -508,8 +537,9 @@ public final class PMCE:Sendable {
             throw IOError(errnoCode: 0, reason: "channel not configured.")
         }
         let startSize = buffer.readableBytes
+        
         if logging {
-            print("PMCE: compressing \(startSize) bytes for \(opCode)")
+            logger.debug("compressing \(startSize) bytes for \(opCode)")
         }
         do {
             var mutBuffer = buffer
@@ -523,15 +553,15 @@ public final class PMCE:Sendable {
                 let endTime = Date()
                 let endSize = compressed.readableBytes
                 
-                print("PMCE: compressed \(startSize) to \(endSize) bytes @ \(startSize / endSize) ratio from")
+                logger.debug("compressed \(startSize) to \(endSize) bytes @ \(startSize / endSize) ratio from")
                 switch extendedSocketType {
                 case .server:
-                    print(" \(config.serverConfig.zlibConfig)")
+                    logger.debug(" \(config.serverConfig.zlibConfig)")
                 case .client:
-                    print(" \(config.clientConfig.zlibConfig)")
+                    logger.debug(" \(config.clientConfig.zlibConfig)")
                 }
                 
-                print("in \(startTime.distance(to: endTime))")
+                logger.debug("in \(startTime.distance(to: endTime))")
             }
             
             if !config.shouldTakeOverContext(isServer: extendedSocketType == .server) {
@@ -552,7 +582,7 @@ public final class PMCE:Sendable {
             return frame
         }
         catch {
-            print("PMCE: send compression failed \(error)")
+            logger.error("send compression failed \(error)")
         }
         
         return WebSocketFrame(fin:fin, rsv1: false, opcode:opCode, data: buffer)
@@ -569,26 +599,30 @@ public final class PMCE:Sendable {
         
         var data = frame.data
         let startSize = data.readableBytes
-        print("decompressing  \(startSize) bytes for \(frame.opcode)")
+        if logging {
+            logger.debug("decompressing  \(startSize) bytes for \(frame.opcode)")
+        }
         let decompressed =
         try data.decompressStream(with: self.decompressorBox.value!,
                                   maxSize: .max,
                                   allocator: channel.allocator)
-        let endTime = Date()
-        
-        let endSize = decompressed.readableBytes
-        
-        print("deompressed \(startSize) to \(endSize) bytes @ \(endSize/startSize) ratio from")
-        switch extendedSocketType {
-        case .server:
-            print(" \(config.serverConfig.zlibConfig)")
-        case .client:
-            print(" \(config.clientConfig.zlibConfig)")
+        if logging {
+            let endTime = Date()
+            
+            let endSize = decompressed.readableBytes
+            
+            logger.debug("deompressed \(startSize) to \(endSize) bytes @ \(endSize/startSize) ratio from")
+            switch extendedSocketType {
+            case .server:
+                logger.debug(" \(config.serverConfig.zlibConfig)")
+            case .client:
+                logger.debug(" \(config.clientConfig.zlibConfig)")
+            }
+            
+            logger.debug("in \(startTime.distance(to: endTime))")
         }
-        
-        print("in \(startTime.distance(to: endTime))")
         if !config.shouldTakeOverContext(isServer: extendedSocketType == .server) {
-            print("websocket-kit: resetting stream")
+            if logging { logger.debug("websocket-kit: resetting stream") }
             try decompressorBox.value?.resetStream()
         }
         
@@ -606,7 +640,7 @@ public final class PMCE:Sendable {
     // websocket calls from handleIncoming as a server to handle client masked compressed frames. This was epxerimentally determined.
     public func unmaskedDecompressedUnamsked(frame: WebSocketFrame) throws -> WebSocketFrame {
         if logging {
-            print("PMCE: unmaksing/decomp/unmasking frame \(frame.opcode) data...")
+            logger.debug("unmaksing/decomp/unmasking frame \(frame.opcode) data...")
         }
         let unmaskedCompressedFrame = unmasked(frame: frame)
 
@@ -659,7 +693,7 @@ public final class PMCE:Sendable {
             try decompressorBox.value?.finishStream()
         }
         catch {
-            print("PMCE: deinit: error finishing stream(s) : \(error)")
+            logger.error("PMCE: deinit: error finishing stream(s) : \(error)")
         }
     }
     

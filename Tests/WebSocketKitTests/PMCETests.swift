@@ -8,13 +8,14 @@
 import XCTest
 @testable import WebSocketKit
 
+///TODO Fill in some tests ?
 class PMCEConfigTests:XCTestCase {
     typealias Config = PMCE.DeflateConfig
    
     
 }
 
-// design tests
+///TODO Fill in some tests ?
 class PMCETests:XCTestCase {
    
 }
