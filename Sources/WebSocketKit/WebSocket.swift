@@ -10,7 +10,6 @@ import Logging
 
 public final class WebSocket: Sendable {
     
-    /// TODO see if this really must be public
     public enum PeerType: Sendable {
         case server
         case client
@@ -437,7 +436,6 @@ public final class WebSocket: Sendable {
         }
     }
     
-   
     /// Returns a new frame with data unmasked from the input frame.
     private func unmasked(frame maskedFrame:WebSocketFrame) -> WebSocketFrame {
         var unmaskedData = maskedFrame.data
