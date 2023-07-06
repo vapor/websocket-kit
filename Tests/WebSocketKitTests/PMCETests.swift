@@ -12,13 +12,33 @@ import XCTest
 class PMCEConfigTests:XCTestCase {
     typealias Config = PMCE.DeflateConfig
    
+    func test_configsFromHeaders_returns_no_configs_if_empty() {
+        let testSubject = PMCE.DeflateConfig.self
+        let result = testSubject.configsFrom(headers: [:])
+        XCTAssertTrue(result.isEmpty, "Empty headers can contain no config.")
+    }
+    
+    func test_configsFromHeaders_returns_one_config_from_config_headers() {
+        let testSubject = PMCE.DeflateConfig.self
+        let config = PMCE.DeflateConfig(clientCfg: .init(takeover: .noTakeover),
+                                        serverCfg: .init(takeover: .noTakeover))
+        let result = testSubject.configsFrom(headers: config.headers())
+        XCTAssertTrue(result.count == 1, "A single deflate config should produce headers for a single defalte config.")
+    }
+    
+    func test_configsFromHeaders_returns_the_same_config_from_config_headers() {
+        let testSubject = PMCE.DeflateConfig.self
+        let config = PMCE.DeflateConfig(clientCfg: .init(takeover: .noTakeover),
+                                        serverCfg: .init(takeover: .noTakeover))
+        let result = testSubject.configsFrom(headers: config.headers())
+        XCTAssertTrue(result.first == config, "A config converted to headers should be equal to a config converted from headers. ")
+    }
     
 }
 
-///TODO Fill in some tests ?
 class PMCETests:XCTestCase {
     
-    //compressoion checks
+    //compress-nio checks these would fail if api changes.
     func testCompressDcompressNodeServerResponse_deflate() {
         let string1 = "Welcome, you are connected!"
         var sBuf = ByteBuffer(string: string1)
@@ -46,6 +66,5 @@ class PMCETests:XCTestCase {
         XCTAssertEqual(string1, string2, "Comp/decomp was not symmetrical!")
 
     }
-        
    
 }
