@@ -146,14 +146,6 @@ public final class WebSocketClient: Sendable {
                     }
                 }
                 
-                self.logger.debug("websocket-client: config is \(self.configuration)")
-
-                if upgradeRequestHeaders.contains(name: "sec-websocket-extensions") {
-                    
-                    self.logger.debug("websocket-client: upgrade request headers are \(upgradeRequestHeaders)")
-                    
-                }
-                
                 let httpUpgradeRequestHandler = HTTPUpgradeRequestHandler(
                     host: host,
                     path: uri,
