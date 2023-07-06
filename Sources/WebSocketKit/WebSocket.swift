@@ -332,7 +332,9 @@ public final class WebSocket: Sendable {
             
         case .text, .binary:
             // is compressed? and have pmce configured for the socket?
-            if frame.rsv1 , let pmce = pmce, pmce.enabled {
+            if frame.rsv1 ,
+               let pmce = pmce,
+                   pmce.enabled {
                
                 do {
                   
