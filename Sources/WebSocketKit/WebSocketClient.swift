@@ -90,7 +90,7 @@ public final class WebSocketClient: Sendable {
     ///   - proxyHeaders: Headers to send to the proxy server.
     ///   - proxyConnectDeadline: Deadline for establishing the proxy connection.
     ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
-    /// - Returns: An future which completes when the connection to the origin server is established.
+    /// - Returns: A future which completes when the connection to the origin server is established.
     @preconcurrency
     public func connect(
         scheme: String,

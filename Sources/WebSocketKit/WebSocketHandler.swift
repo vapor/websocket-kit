@@ -32,7 +32,7 @@ extension WebSocket {
     /// - Parameters:
     ///   - channel: NIO channel which the client will use to communicate.
     ///   - onUpgrade: An escaping closure to be executed the channel is configured with the WebSocket handlers.
-    /// - Returns: An future which completes when the WebSocket connection to the server is established.
+    /// - Returns: A future which completes when the WebSocket connection to the server is established.
     @preconcurrency
     public static func client(
         on channel: Channel,
@@ -46,7 +46,7 @@ extension WebSocket {
     ///   - channel: NIO channel which the client/server will use to communicate.
     ///   - config: Configuration for the client channel handlers.
     ///   - onUpgrade: An escaping closure to be executed the channel is configured with the WebSocket handlers.
-    /// - Returns: An future which completes when the WebSocket connection to the server is established.
+    /// - Returns: A future which completes when the WebSocket connection to the server is established.
     @preconcurrency
     public static func client(
         on channel: Channel,
@@ -60,7 +60,7 @@ extension WebSocket {
     /// - Parameters:
     ///   - channel: NIO channel which the server will use to communicate.
     ///   - onUpgrade: An escaping closure to be executed the channel is configured with the WebSocket handlers.
-    /// - Returns: An future which completes when the WebSocket connection to the server is established.
+    /// - Returns: A future which completes when the WebSocket connection to the server is established.
     @preconcurrency
     public static func server(
         on channel: Channel,
@@ -74,7 +74,7 @@ extension WebSocket {
     ///   - channel: NIO channel which the server will use to communicate.
     ///   - config: Configuration for the server channel handlers.
     ///   - onUpgrade: An escaping closure to be executed the channel is configured with the WebSocket handlers.
-    /// - Returns: An future which completes when the WebSocket connection to the server is established.
+    /// - Returns: A future which completes when the WebSocket connection to the server is established.
     @preconcurrency
     public static func server(
         on channel: Channel,
