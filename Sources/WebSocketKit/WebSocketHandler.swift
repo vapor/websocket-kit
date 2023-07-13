@@ -14,17 +14,30 @@ extension WebSocket {
         /// Maximum frame size after aggregation.
         /// See `NIOWebSocketFrameAggregator` for details.
         public var maxAccumulatedFrameSize: Int
-
+        
+        /// Enables PMCE if present. Defaults to 'nil'
+        /// See`PMCE` for details.
+        public var deflateConfig: PMCE.DeflateConfig? = nil
+        
+        public init(withDeflateConfig deflateConfig:PMCE.DeflateConfig) {
+            self.minNonFinalFragmentSize = 0
+            self.maxAccumulatedFrameCount = Int.max
+            self.maxAccumulatedFrameSize = Int.max
+            self.deflateConfig = deflateConfig
+        }
+        
         public init() {
             self.minNonFinalFragmentSize = 0
             self.maxAccumulatedFrameCount = Int.max
             self.maxAccumulatedFrameSize = Int.max
+            self.deflateConfig = nil
         }
 
         internal init(clientConfig: WebSocketClient.Configuration) {
             self.minNonFinalFragmentSize = clientConfig.minNonFinalFragmentSize
             self.maxAccumulatedFrameCount = clientConfig.maxAccumulatedFrameCount
             self.maxAccumulatedFrameSize = clientConfig.maxAccumulatedFrameSize
+            self.deflateConfig = clientConfig.deflateConfig
         }
     }
 
@@ -38,7 +51,9 @@ extension WebSocket {
         on channel: Channel,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
-        return self.configure(on: channel, as: .client, with: Configuration(), onUpgrade: onUpgrade)
+        return self.configure(on: channel, as: .client,
+                              with: Configuration(),
+                              onUpgrade: onUpgrade)
     }
 
     /// Sets up a channel to operate as a WebSocket client.
@@ -66,7 +81,10 @@ extension WebSocket {
         on channel: Channel,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
-        return self.configure(on: channel, as: .server, with: Configuration(), onUpgrade: onUpgrade)
+        return self.configure(on: channel,
+                              as: .server,
+                              with: Configuration(),
+                              onUpgrade: onUpgrade)
     }
 
     /// Sets up a channel to operate as a WebSocket server.
@@ -90,8 +108,16 @@ extension WebSocket {
         with config: Configuration,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
-        let webSocket = WebSocket(channel: channel, type: type)
-
+        
+        let webSocket =  config.deflateConfig != nil ?
+        WebSocket(channel: channel,
+                  type: type,
+                  pmce: PMCE(config:config.deflateConfig!,
+                             channel: channel,
+                             socketType: type)) :
+        WebSocket(channel: channel,
+                  type: type)
+        
         return channel.pipeline.addHandlers([
             NIOWebSocketFrameAggregator(
                 minNonFinalFragmentSize: config.minNonFinalFragmentSize,

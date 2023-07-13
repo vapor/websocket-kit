@@ -8,8 +8,10 @@ import NIOWebSocket
 import NIOSSL
 import NIOTransportServices
 import Atomics
+import Logging
 
 public final class WebSocketClient: Sendable {
+
     public enum Error: Swift.Error, LocalizedError {
         case invalidURL
         case invalidResponseStatus(HTTPResponseHead)
@@ -34,7 +36,23 @@ public final class WebSocketClient: Sendable {
         /// Maximum frame size after aggregation.
         /// See `NIOWebSocketFrameAggregator` for details.
         public var maxAccumulatedFrameSize: Int
-
+        /// Per Message Compression Extensions Config, if any.
+        /// See `PMCE.PMCEConfig` for details.
+        public var deflateConfig:PMCE.DeflateConfig?
+        
+        // new init to support passing in PMCE.PMCEConfig
+        public init(deflateConfig:PMCE.DeflateConfig?,
+                    tlsConfiguration:TLSConfiguration? = nil,
+                    maxFrameSize:Int = 1 << 14) {
+            
+            self.tlsConfiguration = tlsConfiguration
+            self.maxFrameSize = maxFrameSize
+            self.minNonFinalFragmentSize = 0
+            self.maxAccumulatedFrameCount = Int.max
+            self.maxAccumulatedFrameSize = Int.max
+            self.deflateConfig = deflateConfig
+        }
+        
         public init(
             tlsConfiguration: TLSConfiguration? = nil,
             maxFrameSize: Int = 1 << 14
@@ -44,6 +62,7 @@ public final class WebSocketClient: Sendable {
             self.minNonFinalFragmentSize = 0
             self.maxAccumulatedFrameCount = Int.max
             self.maxAccumulatedFrameSize = Int.max
+            self.deflateConfig = nil
         }
     }
 
@@ -51,7 +70,8 @@ public final class WebSocketClient: Sendable {
     let group: EventLoopGroup
     let configuration: Configuration
     let isShutdown = ManagedAtomic(false)
-
+    private let logger = Logger(label:"WebSocketClient")
+    
     public init(eventLoopGroupProvider: EventLoopGroupProvider, configuration: Configuration = .init()) {
         self.eventLoopGroupProvider = eventLoopGroupProvider
         switch self.eventLoopGroupProvider {
@@ -124,7 +144,7 @@ public final class WebSocketClient: Sendable {
                         upgradeRequestHeaders.add(contentsOf: proxyHeaders)
                     }
                 }
-
+                
                 let httpUpgradeRequestHandler = HTTPUpgradeRequestHandler(
                     host: host,
                     path: uri,
@@ -132,13 +152,28 @@ public final class WebSocketClient: Sendable {
                     headers: upgradeRequestHeaders,
                     upgradePromise: upgradePromise
                 )
-                let httpUpgradeRequestHandlerBox = NIOLoopBound(httpUpgradeRequestHandler, eventLoop: channel.eventLoop)
+                let httpUpgradeRequestHandlerBox = NIOLoopBound(httpUpgradeRequestHandler,
+                                                                eventLoop: channel.eventLoop)
 
                 let websocketUpgrader = NIOWebSocketClientUpgrader(
                     maxFrameSize: self.configuration.maxFrameSize,
                     automaticErrorHandling: true,
                     upgradePipelineHandler: { channel, req in
-                        return WebSocket.client(on: channel, config: .init(clientConfig: self.configuration), onUpgrade: onUpgrade)
+                        
+                        let configs = PMCE.DeflateConfig.configsFrom(headers: req.headers)
+                        
+                        if let deflateConfig = configs.first {
+                            
+                            let config = WebSocket.Configuration(withDeflateConfig: deflateConfig)
+                        
+                            return WebSocket.client(on: channel,
+                                                    config: config,
+                                                    onUpgrade: onUpgrade)
+                        }else {
+                            return WebSocket.client(on: channel,
+                                                    config: .init(clientConfig: self.configuration),
+                                                    onUpgrade: onUpgrade)
+                        }
                     }
                 )
 
@@ -227,7 +262,8 @@ public final class WebSocketClient: Sendable {
                 return channel.eventLoop.makeSucceededVoidFuture()
             }
 
-        let connect = bootstrap.connect(host: proxy ?? host, port: proxyPort ?? port)
+        let connect = bootstrap.connect(host: proxy ?? host,
+                                        port: proxyPort ?? port)
         connect.cascadeFailure(to: upgradePromise)
         return connect.flatMap { channel in
             return upgradePromise.futureResult

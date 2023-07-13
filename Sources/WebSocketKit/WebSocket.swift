@@ -4,21 +4,25 @@ import NIOHTTP1
 import NIOSSL
 import Foundation
 import NIOFoundationCompat
+import CompressNIO
 import NIOConcurrencyHelpers
+import Logging
 
 public final class WebSocket: Sendable {
-    enum PeerType: Sendable {
+    
+    public enum PeerType: Sendable {
         case server
         case client
     }
-
+    
     public var eventLoop: EventLoop {
         return channel.eventLoop
     }
-
+    
     public var isClosed: Bool {
         !self.channel.isActive
     }
+
     public var closeCode: WebSocketErrorCode? {
         _closeCode.withLockedValue { $0 }
     }
@@ -28,7 +32,11 @@ public final class WebSocket: Sendable {
     public var onClose: EventLoopFuture<Void> {
         self.channel.closeFuture
     }
-
+    
+    /// PMCE insance that handles compressing and decompressing of frames as well as
+    /// configuring the connection per RFC-7692.
+    public let pmce:PMCE?
+    
     @usableFromInline
     /* private but @usableFromInline */
     internal let channel: Channel
@@ -37,12 +45,39 @@ public final class WebSocket: Sendable {
     private let onPongCallback: NIOLoopBoundBox<@Sendable (WebSocket, ByteBuffer) -> ()>
     private let onPingCallback: NIOLoopBoundBox<@Sendable (WebSocket, ByteBuffer) -> ()>
     private let type: PeerType
+    
+    /// Init with PMCE.
+    /// See PMCE class for details.
+    init(channel: Channel, type: PeerType, pmce:PMCE? = nil) {
+        
+        self.channel = channel
+        self.type = type
+        self.onTextCallback = .init({ _, _ in }, eventLoop: channel.eventLoop)
+        self.onBinaryCallback = .init({ _, _ in }, eventLoop: channel.eventLoop)
+        self.onPongCallback = .init({ _, _ in }, eventLoop: channel.eventLoop)
+        self.onPingCallback = .init({ _, _ in }, eventLoop: channel.eventLoop)
+        self.waitingForPong = .init(false)
+        self.waitingForClose = .init(false)
+        self.scheduledTimeoutTask = .init(nil)
+        self._closeCode = .init(nil)
+        self.frameSequence = .init(nil)
+        self._pingInterval = .init(nil)
+        
+        if let p = pmce {
+            self.pmce = PMCE(config: p.config, channel: channel, socketType: type)
+        }else {
+            self.pmce = nil
+        }
+    }
+    
     private let waitingForPong: NIOLockedValueBox<Bool>
     private let waitingForClose: NIOLockedValueBox<Bool>
     private let scheduledTimeoutTask: NIOLockedValueBox<Scheduled<Void>?>
     private let frameSequence: NIOLockedValueBox<WebSocketFrameSequence?>
     private let _pingInterval: NIOLockedValueBox<TimeAmount?>
-
+    
+    private let logger = Logger(label: "websocket-kit")
+    
     init(channel: Channel, type: PeerType) {
         self.channel = channel
         self.type = type
@@ -56,6 +91,7 @@ public final class WebSocket: Sendable {
         self._closeCode = .init(nil)
         self.frameSequence = .init(nil)
         self._pingInterval = .init(nil)
+        self.pmce = nil
     }
 
     @preconcurrency public func onText(_ callback: @Sendable @escaping (WebSocket, String) -> ()) {
@@ -83,7 +119,7 @@ public final class WebSocket: Sendable {
     @preconcurrency public func onPing(_ callback: @Sendable @escaping (WebSocket) -> ()) {
         self.onPingCallback.value = { ws, _ in callback(ws) }
     }
-
+    
     /// If set, this will trigger automatic pings on the connection. If ping is not answered before
     /// the next ping is sent, then the WebSocket will be presumed inactive and will be closed
     /// automatically.
@@ -106,21 +142,23 @@ public final class WebSocket: Sendable {
             }
         }
     }
-
+    
     @inlinable
     public func send<S>(_ text: S, promise: EventLoopPromise<Void>? = nil)
-        where S: Collection, S.Element == Character
+    where S: Collection, S.Element == Character
     {
+        
         let string = String(text)
         let buffer = channel.allocator.buffer(string: string)
         self.send(buffer, opcode: .text, fin: true, promise: promise)
-
+        
     }
-
+    
     public func send(_ binary: [UInt8], promise: EventLoopPromise<Void>? = nil) {
+        
         self.send(raw: binary, opcode: .binary, fin: true, promise: promise)
     }
-
+    
     public func sendPing(promise: EventLoopPromise<Void>? = nil) {
         sendPing(Data(), promise: promise)
     }
@@ -133,7 +171,7 @@ public final class WebSocket: Sendable {
             promise: promise
         )
     }
-
+    
     @inlinable
     public func send<Data>(
         raw data: Data,
@@ -141,7 +179,7 @@ public final class WebSocket: Sendable {
         fin: Bool = true,
         promise: EventLoopPromise<Void>? = nil
     )
-        where Data: DataProtocol
+    where Data: DataProtocol
     {
         if let byteBufferView = data as? ByteBufferView {
             // optimisation: converting from `ByteBufferView` to `ByteBuffer` doesn't allocate or copy any data
@@ -151,7 +189,7 @@ public final class WebSocket: Sendable {
             send(buffer, opcode: opcode, fin: fin, promise: promise)
         }
     }
-
+    
     /// Send the provided data in a WebSocket frame.
     /// - Parameters:
     ///   - data: Data to be sent.
@@ -164,21 +202,36 @@ public final class WebSocket: Sendable {
         fin: Bool = true,
         promise: EventLoopPromise<Void>? = nil
     ) {
-        let frame = WebSocketFrame(
-            fin: fin,
-            opcode: opcode,
-            maskKey: self.makeMaskKey(),
-            data: data
-        )
-        self.channel.writeAndFlush(frame, promise: promise)
+        //using compression
+        if let p = pmce, p.enabled {
+            do {
+                // create compressed frame and send it
+                let compressedFrame = try p.compressed(data, fin:fin, opCode: opcode)
+                self.channel.writeAndFlush(compressedFrame, promise: promise)
+            }
+            catch {
+                logger.error("\(error)")
+            }
+        }
+        else {
+            // or not
+            let frame = WebSocketFrame(
+                fin: fin,
+                rsv1:false, // denotes not compressed
+                opcode: opcode,
+                maskKey: self.makeMaskKey(), // auto masks out send if type is client
+                data: data
+            )
+            self.channel.writeAndFlush(frame, promise: promise)
+        }
     }
-
+    
     public func close(code: WebSocketErrorCode = .goingAway) -> EventLoopFuture<Void> {
         let promise = self.eventLoop.makePromise(of: Void.self)
         self.close(code: code, promise: promise)
         return promise.futureResult
     }
-
+    
     public func close(
         code: WebSocketErrorCode = .goingAway,
         promise: EventLoopPromise<Void>?
@@ -203,13 +256,13 @@ public final class WebSocket: Sendable {
         } else {
             codeToSend = code
         }
-
+        
         var buffer = channel.allocator.buffer(capacity: 2)
         buffer.write(webSocketErrorCode: codeToSend)
-
+        
         self.send(raw: buffer.readableBytesView, opcode: .connectionClose, fin: true, promise: promise)
     }
-
+    
     func makeMaskKey() -> WebSocketMaskingKey? {
         switch type {
         case .client:
@@ -222,7 +275,9 @@ public final class WebSocket: Sendable {
     }
 
     func handle(incoming frame: WebSocketFrame) {
+                
         switch frame.opcode {
+            
         case .connectionClose:
             if self.waitingForClose.withLockedValue({ $0 }) {
                 // peer confirmed close, time to close channel
@@ -257,7 +312,8 @@ public final class WebSocket: Sendable {
                     fin: true,
                     promise: nil
                 )
-            } else {
+            }
+            else {
                 self.close(code: .protocolError, promise: nil)
             }
         case .pong:
@@ -272,14 +328,59 @@ public final class WebSocket: Sendable {
             } else {
                 self.close(code: .protocolError, promise: nil)
             }
+            
         case .text, .binary:
-            // create a new frame sequence or use existing
-            self.frameSequence.withLockedValue { currentFrameSequence in
-                var frameSequence = currentFrameSequence ?? .init(type: frame.opcode)
-                // append this frame and update the sequence
-                frameSequence.append(frame)
-                currentFrameSequence = frameSequence
+            // is compressed? and have pmce configured for the socket?
+            if frame.rsv1 ,
+               let pmce = pmce,
+                   pmce.enabled {
+               
+                do {
+                  
+                    if frame.maskKey != nil {
+                        
+                        let newFrame = try pmce.unmaskedDecompressedUnamsked(frame: frame)
+                        // create a new frame sequence or use existing
+                        self.frameSequence.withLockedValue { currentFrameSequence in
+                            var frameSequence = currentFrameSequence ?? .init(type: frame.opcode)
+                            // append this frame and update the sequence
+                            frameSequence.append(newFrame)
+                            currentFrameSequence = frameSequence
+                        }
+                    }
+                    else {
+                      
+                        let newFrame = try pmce.decompressed(frame)
+                        // create a new frame sequence or use existing
+                        self.frameSequence.withLockedValue { currentFrameSequence in
+                            var frameSequence = currentFrameSequence ?? .init(type: frame.opcode)
+                            // append this frame and update the sequence
+                            frameSequence.append(newFrame)
+                            currentFrameSequence = frameSequence
+                        }
+                    }
+                }
+                catch {
+                    logger.error("websocket-kit: \(error)")
+                }
             }
+            else if frame.rsv1 && pmce == nil {
+                if pmce?.logging ?? false {
+                    logger.error("received compressed frame without PMCE configured! Closing per RFC-7692. You could have a configuration issue.")
+                }
+                self.close(code: .protocolError, promise: nil)
+
+            }
+            else {
+                // create a new frame sequence or use existing
+                self.frameSequence.withLockedValue { currentFrameSequence in
+                    var frameSequence = currentFrameSequence ?? .init(type: frame.opcode)
+                    // append this frame and update the sequence
+                    frameSequence.append(frame)
+                    currentFrameSequence = frameSequence
+                }
+            }
+            /// I wonder if this could affect PMCE
         case .continuation:
             /// continuations are filtered by ``NIOWebSocketFrameAggregator``
             preconditionFailure("We will never receive a continuation frame")
@@ -287,7 +388,7 @@ public final class WebSocket: Sendable {
             // We ignore all other frames.
             break
         }
-
+        
         // if this frame was final and we have a non-nil frame sequence,
         // output it to the websocket and clear storage
         self.frameSequence.withLockedValue { currentFrameSequence in
@@ -305,7 +406,7 @@ public final class WebSocket: Sendable {
             }
         }
     }
-
+    
     @Sendable
     private func pingAndScheduleNextTimeoutTask() {
         guard channel.isActive, let pingInterval = pingInterval else {
@@ -334,7 +435,21 @@ public final class WebSocket: Sendable {
             }
         }
     }
-
+    
+    /// Returns a new frame with data unmasked from the input frame.
+    private func unmasked(frame maskedFrame:WebSocketFrame) -> WebSocketFrame {
+        var unmaskedData = maskedFrame.data
+        unmaskedData.webSocketUnmask(maskedFrame.maskKey!)
+        return WebSocketFrame(fin: maskedFrame.fin,
+                              rsv1: maskedFrame.rsv1,
+                              rsv2: maskedFrame.rsv2,
+                              rsv3: maskedFrame.rsv3,
+                              opcode: maskedFrame.opcode,
+                              maskKey: maskedFrame.maskKey,//should this be nil
+                              data: unmaskedData,
+                              extensionData: maskedFrame.extensionData)
+    }
+    
     deinit {
         assert(self.isClosed, "WebSocket was not closed before deinit.")
     }
@@ -354,6 +469,7 @@ private struct WebSocketFrameSequence: Sendable {
     }
 
     mutating func append(_ frame: WebSocketFrame) {
+
         self.lock.withLockVoid {
             var data = frame.unmaskedData
             switch type {
@@ -368,3 +484,4 @@ private struct WebSocketFrameSequence: Sendable {
         }
     }
 }
+
