@@ -330,7 +330,7 @@ public final class WebSocket: Sendable {
             }
             
         case .text, .binary:
-            // is compressed? and have pmce configured for the socket?
+            // is compressed? and have pmce configured for socker and pmce negotiated?
             if frame.rsv1 ,
                let pmce = pmce,
                    pmce.enabled {
@@ -380,7 +380,6 @@ public final class WebSocket: Sendable {
                     currentFrameSequence = frameSequence
                 }
             }
-            /// I wonder if this could affect PMCE
         case .continuation:
             /// continuations are filtered by ``NIOWebSocketFrameAggregator``
             preconditionFailure("We will never receive a continuation frame")

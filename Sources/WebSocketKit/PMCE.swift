@@ -6,7 +6,7 @@ import Foundation
 import NIOCore
 import NIOConcurrencyHelpers
 import Logging
-
+	
 /// I'd like to evenually abstract out a more general websocket extension interface.
 public protocol PMCEZlibConfiguration: Codable, Equatable, Sendable,CustomDebugStringConvertible  {
     var memLevel:Int32 {get set}
@@ -385,9 +385,10 @@ public final class PMCE:Sendable {
     public struct ZlibConf: PMCEZlibConfiguration, CustomDebugStringConvertible {
         
         public var debugDescription: String {
-            "ZlibConf {\nmem:\(memLevel)\ncmp:\(compressionLevel)"
+            "ZlibConf{mem:\(memLevel), cmp:\(compressionLevel)}"
         }
         
+        /// Convenience
         public static let maxRamMaxComp:ZlibConf = .init(memLevel: 9, compLevel: 9)
         public static let maxRamMinComp:ZlibConf = .init(memLevel: 9, compLevel: 1)
         
@@ -399,26 +400,28 @@ public final class PMCE:Sendable {
         public var compressionLevel:Int32
         
         public init(memLevel:Int32, compLevel:Int32) {
-            assert( (-1...9).contains(compLevel) , "compLevel must be -1(default)...9 ")
-            assert( (1...9).contains(memLevel) , "memLevel must be 1...9 ")
+            assert( (-1...9).contains(compLevel),
+                    "compLevel must be -1(default)...9 ")
+            assert( (1...9).contains(memLevel),
+                    "memLevel must be 1...9 ")
             self.memLevel = memLevel
             self.compressionLevel = compLevel
         }
     }
     
-    /// PMCE settings are under this header.
+    /// PMCE settings are under this header as defined in RFC-7692.
     public static let wsxtHeader = "Sec-WebSocket-Extensions"
     
-    /// If you have to ask ...
+    /// Box for compressor to conform to Sendable
     private let compressorBox:NIOLoopBoundBox<NIOCompressor?>
     
-    /// If you have to ask ...
+    /// Box for compressor to conform to Sendable
     private let decompressorBox:NIOLoopBoundBox<NIODecompressor?>
     
     // Tells pmce how to apply the deflate config as well as how to extract per RFC-7692.
     public let extendedSocketType:WebSocket.PeerType
     
-    // the channel whose allocator to use for compression bytebuffers as well as box event loops.
+    // the channel whose allocator to use for compression bytebuffers and box event loops.
     public let channel:NIO.Channel?
     
     private let _logging:NIOLockedValueBox<Bool>
@@ -439,7 +442,7 @@ public final class PMCE:Sendable {
     
     private let _enabled:NIOLockedValueBox<Bool>
     
-    /// This allows a server socket that has PMCE available to optionaly use it or not. So a compressed server can still talk uncompressed.
+    /// This allows a server socket that has PMCE available to optionaly use it or not; So a compressed server can still talk uncompressed.
     public var enabled:Bool {
         get {
             _enabled.withLockedValue { v in
