@@ -440,21 +440,21 @@ public final class PMCE:Sendable {
         }
     }
     
-//    private let _enabled:NIOLockedValueBox<Bool>
+    private let _enabled:NIOLockedValueBox<Bool>
     
     /// This allows a server socket that has PMCE available to optionaly use it or not; So a compressed server can still talk uncompressed.
-//    public var enabled:Bool {
-//        get {
-//            _enabled.withLockedValue { v in
-//                v
-//            }
-//        }
-//        set {
-//            _enabled.withLockedValue { v in
-//                v = newValue
-//            }
-//        }
-//    }
+    public var enabled:Bool {
+        get {
+            _enabled.withLockedValue { v in
+                v
+            }
+        }
+        set {
+            _enabled.withLockedValue { v in
+                v = newValue
+            }
+        }
+    }
     
     /// Converts windowBits to size of window.
     private static func sizeFor(bits:UInt8) -> Int32 {
@@ -463,7 +463,7 @@ public final class PMCE:Sendable {
   
     /// Represents the alg of pmce used with the PMCE struct.
     /// Currentonly only permessage-deflate is supported.
-    let config: DeflateConfig
+    public let config: DeflateConfig
     
     public init(config: DeflateConfig,
                 channel: Channel,
@@ -473,7 +473,7 @@ public final class PMCE:Sendable {
         self.channel = channel
         self.extendedSocketType = socketType
         
-//        self._enabled = NIOLockedValueBox(true)
+        self._enabled = NIOLockedValueBox(true)
         self._logging = NIOLockedValueBox(true)
         
         switch extendedSocketType {
@@ -516,7 +516,7 @@ public final class PMCE:Sendable {
             
         }
         
-        // wonder if I shold move this to enabled?
+        //?TODO wonder if I shold move this to enabled?
         do {
             try compressorBox.value?.startStream()
         }
