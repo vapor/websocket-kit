@@ -105,6 +105,7 @@ public final class PMCE:Sendable {
                                       cml:Int32?,
                                       scl:Int32?,
                                       ccl:Int32?)
+        
         /// Will init an array of DeflateConfigs from parsed header values if possible.
         public static func configsFrom(headers:HTTPHeaders) -> [DeflateConfig] {
             if logging {
@@ -309,13 +310,13 @@ public final class PMCE:Sendable {
         }
         
         /// Creates HTTPHeaders to represent this config.
-        public func headers() -> HTTPHeaders {
+        public func headers(xt:Bool = false) -> HTTPHeaders {
             let params = headerParams(isQuoted: false)
             return [PMCE.wsxtHeader : PMCE.DeflateConfig.pmceName + (params.isEmpty ? "" : ";" + params)]
         }
         
         /// Creates header parameters for the Sec-WebSocket-Extensions header from the config.
-        public func headerParams(isQuoted:Bool = false) -> String {
+        public func headerParams(isQuoted:Bool = false, xt:Bool = false) -> String {
             var built = ""
             
             switch clientConfig.takeover {
@@ -344,18 +345,20 @@ public final class PMCE:Sendable {
                                               "=\"\(serverConfig.maxWindowBits!)\"" :
                                                 "=\(serverConfig.maxWindowBits!);")
             }
-                        
-//            built += PMCE.DeflateConfig.ZlibHeaderParams.server_mem_level + " = " +
-//            "\(serverConfig.zlibConfig.memLevel)" + ";"
-//            
-//            built += PMCE.DeflateConfig.ZlibHeaderParams.server_cmp_level + " = " +
-//            "\(serverConfig.zlibConfig.compressionLevel)" + ";"
-//            
-//            built += PMCE.DeflateConfig.ZlibHeaderParams.client_mem_level + " = " +
-//            "\(clientConfig.zlibConfig.memLevel)" + ";"
-//            
-//            built += PMCE.DeflateConfig.ZlibHeaderParams.client_cmp_level + " = " +
-//            "\(clientConfig.zlibConfig.memLevel)" + ";"
+                      
+            if xt {
+                built += PMCE.DeflateConfig.ZlibHeaderParams.server_mem_level + " = " +
+                "\(serverConfig.zlibConfig.memLevel)" + ";"
+                
+                built += PMCE.DeflateConfig.ZlibHeaderParams.server_cmp_level + " = " +
+                "\(serverConfig.zlibConfig.compressionLevel)" + ";"
+                
+                built += PMCE.DeflateConfig.ZlibHeaderParams.client_mem_level + " = " +
+                "\(clientConfig.zlibConfig.memLevel)" + ";"
+                
+                built += PMCE.DeflateConfig.ZlibHeaderParams.client_cmp_level + " = " +
+                "\(clientConfig.zlibConfig.memLevel)" + ";"
+            }
             
             if built.last == ";" {
                 let s = built.dropLast(1)
