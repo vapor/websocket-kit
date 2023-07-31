@@ -8,7 +8,8 @@ import NIOConcurrencyHelpers
 import Logging
 	
 /// I'd like to evenually abstract out a more general websocket extension interface.
-public protocol PMCEZlibConfiguration: Codable, Equatable, Sendable,CustomDebugStringConvertible  {
+public protocol PMCEZlibConfiguration: Codable, Equatable,
+                                       Sendable, CustomDebugStringConvertible  {
     var memLevel:Int32 {get set}
     var compressionLevel:Int32 {get set}
 }
@@ -288,7 +289,6 @@ public final class PMCE:Sendable {
         }
         
         /// Defines the strings for extended parameters not defined in the RFC.
-        /// TODO maybe im missing something.
         public struct ZlibHeaderParams {
             static let server_mem_level = "sml"
             static let server_cmp_level = "scl"
@@ -345,17 +345,17 @@ public final class PMCE:Sendable {
                                                 "=\(serverConfig.maxWindowBits!);")
             }
                         
-            built += PMCE.DeflateConfig.ZlibHeaderParams.server_mem_level + " = " +
-            "\(serverConfig.zlibConfig.memLevel)" + ";"
-            
-            built += PMCE.DeflateConfig.ZlibHeaderParams.server_cmp_level + " = " +
-            "\(serverConfig.zlibConfig.compressionLevel)" + ";"
-            
-            built += PMCE.DeflateConfig.ZlibHeaderParams.client_mem_level + " = " +
-            "\(clientConfig.zlibConfig.memLevel)" + ";"
-            
-            built += PMCE.DeflateConfig.ZlibHeaderParams.client_cmp_level + " = " +
-            "\(clientConfig.zlibConfig.memLevel)" + ";"
+//            built += PMCE.DeflateConfig.ZlibHeaderParams.server_mem_level + " = " +
+//            "\(serverConfig.zlibConfig.memLevel)" + ";"
+//            
+//            built += PMCE.DeflateConfig.ZlibHeaderParams.server_cmp_level + " = " +
+//            "\(serverConfig.zlibConfig.compressionLevel)" + ";"
+//            
+//            built += PMCE.DeflateConfig.ZlibHeaderParams.client_mem_level + " = " +
+//            "\(clientConfig.zlibConfig.memLevel)" + ";"
+//            
+//            built += PMCE.DeflateConfig.ZlibHeaderParams.client_cmp_level + " = " +
+//            "\(clientConfig.zlibConfig.memLevel)" + ";"
             
             if built.last == ";" {
                 let s = built.dropLast(1)
