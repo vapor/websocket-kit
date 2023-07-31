@@ -109,15 +109,19 @@ extension WebSocket {
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         
-        let webSocket =  config.deflateConfig != nil ?
-        WebSocket(channel: channel,
-                  type: type,
-                  pmce: PMCE(config:config.deflateConfig!,
-                             channel: channel,
-                             socketType: type)) :
-        WebSocket(channel: channel,
-                  type: type)
+        let webSocket:WebSocket
         
+        if let deflate = config.deflateConfig {
+            webSocket = WebSocket(channel: channel,
+                                  type: type,
+                                  pmce: PMCE(config: deflate,
+                                             channel: channel,
+                                             socketType: type))
+        }else {
+            webSocket = WebSocket(channel: channel,
+                                  type: type)
+        }
+      
         return channel.pipeline.addHandlers([
             NIOWebSocketFrameAggregator(
                 minNonFinalFragmentSize: config.minNonFinalFragmentSize,
