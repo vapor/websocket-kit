@@ -530,7 +530,7 @@ public final class PMCE:Sendable {
                                                     eventLoop: channel.eventLoop)
             
         }
-        
+        startStreams()
     }
     
     /// Starts the compress-nio streams.
@@ -720,7 +720,7 @@ public final class PMCE:Sendable {
     }
 
     deinit {
-//       stopStreams()
+       stopStreams()
     }
     
 }
