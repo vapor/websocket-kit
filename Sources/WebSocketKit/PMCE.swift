@@ -705,6 +705,16 @@ public final class PMCE:Sendable {
     
 }
 
+extension PMCE: CustomStringConvertible {
+    public var description: String {
+        """
+        enalbed : \(enabled),
+        extendedSocketType : \(self.extendedSocketType),
+        config : \(config),
+        """
+    }
+}
+
 extension PMCE.DeflateConfig: Equatable {
     public static func == (lhs: PMCE.DeflateConfig,
                            rhs: PMCE.DeflateConfig) -> Bool {
@@ -717,6 +727,7 @@ extension PMCE.DeflateConfig: CustomDebugStringConvertible {
         "DeflateConfig {\nclient:\(clientConfig)\nserver:\(serverConfig)\n}"
     }
 }
+
 extension PMCE.DeflateConfig: CustomStringConvertible {
     public var description: String {
         """
