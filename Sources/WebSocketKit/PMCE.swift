@@ -552,6 +552,7 @@ public final class PMCE:Sendable {
     /// Stops the compress-nio streams.
     public func stopStreams() {
         do {
+          
             try compressorBox.value?.finishStream()
             try decompressorBox.value?.finishStream()
         }
@@ -719,7 +720,7 @@ public final class PMCE:Sendable {
     }
 
     deinit {
-       stopStreams()
+//       stopStreams()
     }
     
 }
