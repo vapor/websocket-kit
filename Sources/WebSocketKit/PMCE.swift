@@ -717,7 +717,15 @@ extension PMCE.DeflateConfig: CustomDebugStringConvertible {
         "DeflateConfig {\nclient:\(clientConfig)\nserver:\(serverConfig)\n}"
     }
 }
-
+extension PMCE.DeflateConfig: CustomStringConvertible {
+    public var description: String {
+        """
+        PMCE {
+          client : \(self.clientConfig.debugDescription),
+          server : \(self.serverConfig.debugDescription)
+        """
+    }
+}
 extension PMCE.DeflateConfig.ClientConfig: Equatable {
     public static func == (lhs: PMCE.DeflateConfig.ClientConfig,
                            rhs: PMCE.DeflateConfig.ClientConfig) -> Bool {
@@ -754,5 +762,25 @@ extension PMCE.DeflateConfig.ClientConfig: CustomDebugStringConvertible {
 extension PMCE.DeflateConfig.ServerConfig: CustomDebugStringConvertible {
     public var debugDescription: String {
         "ServerConfig {\ntakeOver:\(takeover.rawValue.debugDescription)\nmaxWindowBits:\(maxWindowBits.debugDescription)\nzlib:\(zlibConfig.debugDescription)}"
+    }
+}
+
+extension PMCE.DeflateConfig.ClientConfig: CustomStringConvertible {
+    public var description: String {
+        """
+        takeOver : \(takeover),
+        windowBits : \(String(describing: maxWindowBits)),
+        zlib : \(zlibConfig)
+        """
+    }
+}
+
+extension PMCE.DeflateConfig.ServerConfig: CustomStringConvertible {
+    public var description: String {
+        """
+        takeOver : \(takeover),
+        windowBits : \(String(describing: maxWindowBits)),
+        zlib : \(zlibConfig)
+        """
     }
 }
