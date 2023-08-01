@@ -385,19 +385,34 @@ public final class PMCE:Sendable {
         }
     }
     
+    /// Configures zlib with more control.
     public struct ZlibConf: PMCEZlibConfiguration, CustomDebugStringConvertible {
         
         public var debugDescription: String {
-            "ZlibConf{mem:\(memLevel), cmp:\(compressionLevel)}"
+            "ZlibConf{mem : \(memLevel),\ncmp : \(compressionLevel)}"
         }
         
-        /// Convenience
+        /// Convenience members for common combinations of resource allocation.
         public static let maxRamMaxComp:ZlibConf = .init(memLevel: 9, compLevel: 9)
+        public static let maxRamMidComp:ZlibConf = .init(memLevel: 9, compLevel: 5)
         public static let maxRamMinComp:ZlibConf = .init(memLevel: 9, compLevel: 1)
         
-        public static let minRamMaxComp:ZlibConf = .init(memLevel: 1, compLevel: 9)
-        public static let minRamMinComp:ZlibConf = .init(memLevel: 1, compLevel: 1)
+        public static let midRamMinComp:ZlibConf = .init(memLevel: 5, compLevel: 1)
         public static let midRamMidComp:ZlibConf = .init(memLevel: 5, compLevel: 5)
+        public static let midRamMaxComp:ZlibConf = .init(memLevel: 5, compLevel: 9)
+        
+        public static let minRamMinComp:ZlibConf = .init(memLevel: 1, compLevel: 5)
+        public static let minRamMidComp:ZlibConf = .init(memLevel: 1, compLevel: 1)
+        public static let minRamMaxComp:ZlibConf = .init(memLevel: 1, compLevel: 9)
+
+        /// Common combinations of memory and compression allocation.
+        public static func commonConfigs() -> [ZlibConf] {
+            [
+               midRamMaxComp, midRamMidComp, midRamMinComp,
+               minRamMaxComp, minRamMinComp, minRamMinComp,
+               maxRamMaxComp, maxRamMidComp, maxRamMinComp
+            ]
+        }
         
         public var memLevel:Int32
         public var compressionLevel:Int32
@@ -418,16 +433,14 @@ public final class PMCE:Sendable {
     /// Box for compressor to conform to Sendable
     private let compressorBox:NIOLoopBoundBox<NIOCompressor?>
     
-    /// Box for compressor to conform to Sendable
+    /// Box for compressor to conform to Sendable.
     private let decompressorBox:NIOLoopBoundBox<NIODecompressor?>
     
-    // Tells pmce how to apply the deflate config as well as how to extract per RFC-7692.
+    /// Tells pmce how to apply the deflate config as well as how to extract per RFC-7692.
     public let extendedSocketType:WebSocket.PeerType
     
-    // the channel whose allocator to use for compression bytebuffers and box event loops.
+    /// the channel whose allocator to use for compression bytebuffers and box event loops.
     public let channel:NIO.Channel?
-    
-    private let _logging:NIOLockedValueBox<Bool>
     
     /// Enables some logging since I dont have a Logger.
     public var logging:Bool {
@@ -442,9 +455,8 @@ public final class PMCE:Sendable {
             }
         }
     }
-    
-    private let _enabled:NIOLockedValueBox<Bool>
-    
+    private let _logging:NIOLockedValueBox<Bool>
+
     /// This allows a server socket that has PMCE available to optionaly use it or not; So a compressed server can still talk uncompressed.
     public var enabled:Bool {
         get {
@@ -458,7 +470,8 @@ public final class PMCE:Sendable {
             }
         }
     }
-    
+    private let _enabled:NIOLockedValueBox<Bool>
+
     /// Converts windowBits to size of window.
     private static func sizeFor(bits:UInt8) -> Int32 {
         2^Int32(bits)
@@ -482,7 +495,6 @@ public final class PMCE:Sendable {
         switch extendedSocketType {
         case .server:
            
-            // need to determine values for other args
             let winSize = PMCE.sizeFor(bits: config.serverConfig.maxWindowBits ?? 15)
             
             let zscConf = ZlibConfiguration(windowSize: winSize,
@@ -519,7 +531,10 @@ public final class PMCE:Sendable {
             
         }
         
-        //?TODO wonder if I shold move this to enabled?
+    }
+    
+    /// Starts the compress-nio streams.
+    public func startStreams() {
         do {
             try compressorBox.value?.startStream()
         }
@@ -534,6 +549,16 @@ public final class PMCE:Sendable {
         }
     }
     
+    /// Stops the compress-nio streams.
+    public func stopStreams() {
+        do {
+            try compressorBox.value?.finishStream()
+            try decompressorBox.value?.finishStream()
+        }
+        catch {
+            logger.error("PMCE: deinit: error finishing stream(s) : \(error)")
+        }
+    }
     // websocket send calls this to compress.
     public func compressed(_ buffer: ByteBuffer,
                             fin: Bool = true,
@@ -694,13 +719,7 @@ public final class PMCE:Sendable {
     }
 
     deinit {
-        do {
-            try compressorBox.value?.finishStream()
-            try decompressorBox.value?.finishStream()
-        }
-        catch {
-            logger.error("PMCE: deinit: error finishing stream(s) : \(error)")
-        }
+       stopStreams()
     }
     
 }
@@ -708,7 +727,7 @@ public final class PMCE:Sendable {
 extension PMCE: CustomStringConvertible {
     public var description: String {
         """
-        enalbed : \(enabled),
+        enabled : \(enabled),
         extendedSocketType : \(self.extendedSocketType),
         config : \(config),
         """
