@@ -17,9 +17,9 @@ extension WebSocket {
         
         /// Enables PMCE if present. Defaults to 'nil'
         /// See`PMCE` for details.
-        public var deflateConfig: PMCE.DeflateConfig? = nil
+        public var deflateConfig: PMCE.PMCEConfig? = nil
         
-        public init(withDeflateConfig deflateConfig:PMCE.DeflateConfig) {
+        public init(withDeflateConfig deflateConfig:PMCE.PMCEConfig) {
             self.minNonFinalFragmentSize = 0
             self.maxAccumulatedFrameCount = Int.max
             self.maxAccumulatedFrameSize = Int.max

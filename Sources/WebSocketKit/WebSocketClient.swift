@@ -38,10 +38,10 @@ public final class WebSocketClient: Sendable {
         public var maxAccumulatedFrameSize: Int
         /// Per Message Compression Extensions Config, if any.
         /// See `PMCE.PMCEConfig` for details.
-        public var deflateConfig:PMCE.DeflateConfig?
+        public var deflateConfig:PMCE.PMCEConfig?
         
         // new init to support passing in PMCE.PMCEConfig
-        public init(deflateConfig:PMCE.DeflateConfig?,
+        public init(deflateConfig:PMCE.PMCEConfig?,
                     tlsConfiguration:TLSConfiguration? = nil,
                     maxFrameSize:Int = 1 << 14) {
             
@@ -160,7 +160,7 @@ public final class WebSocketClient: Sendable {
                     automaticErrorHandling: true,
                     upgradePipelineHandler: { channel, req in
                         
-                        let configs = PMCE.DeflateConfig.configsFrom(headers: req.headers)
+                        let configs = PMCE.PMCEConfig.configsFrom(headers: req.headers)
                         
                         if let deflateConfig = configs.first {
                             

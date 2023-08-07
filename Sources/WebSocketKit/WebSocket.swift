@@ -202,7 +202,7 @@ public final class WebSocket: Sendable {
         fin: Bool = true,
         promise: EventLoopPromise<Void>? = nil
     ) {
-        //using compression
+        // using compression ?
         if let p = pmce, p.enabled {
             do {
                 // create compressed frame and send it
@@ -214,7 +214,7 @@ public final class WebSocket: Sendable {
             }
         }
         else {
-            // or not
+            // or not.
             let frame = WebSocketFrame(
                 fin: fin,
                 rsv1:false, // denotes not compressed
@@ -330,34 +330,22 @@ public final class WebSocket: Sendable {
             }
             
         case .text, .binary:
-            // is compressed? and have pmce configured for socker and pmce negotiated?
+            // is compressed, has pmce configured and enabled ?
             if frame.rsv1 ,
                let pmce = pmce,
                    pmce.enabled {
                
                 do {
-                  
-                    if frame.maskKey != nil {
-                        
-                        let newFrame = try pmce.unmaskedDecompressedUnamsked(frame: frame)
-                        // create a new frame sequence or use existing
-                        self.frameSequence.withLockedValue { currentFrameSequence in
-                            var frameSequence = currentFrameSequence ?? .init(type: frame.opcode)
-                            // append this frame and update the sequence
-                            frameSequence.append(newFrame)
-                            currentFrameSequence = frameSequence
-                        }
-                    }
-                    else {
-                      
-                        let newFrame = try pmce.decompressed(frame)
-                        // create a new frame sequence or use existing
-                        self.frameSequence.withLockedValue { currentFrameSequence in
-                            var frameSequence = currentFrameSequence ?? .init(type: frame.opcode)
-                            // append this frame and update the sequence
-                            frameSequence.append(newFrame)
-                            currentFrameSequence = frameSequence
-                        }
+                    // decompress the frame data into a new frame.
+                    let newFrame = frame.maskKey != nil ?
+                        try pmce.unmaskedDecompressedUnamsked(frame: frame) :
+                        try pmce.decompressed(frame)
+
+                    self.frameSequence.withLockedValue { currentFrameSequence in
+                        var frameSequence = currentFrameSequence ?? .init(type: frame.opcode)
+                        // append this frame and update the sequence
+                        frameSequence.append(newFrame)
+                        currentFrameSequence = frameSequence
                     }
                 }
                 catch {
@@ -365,6 +353,7 @@ public final class WebSocket: Sendable {
                 }
             }
             else if frame.rsv1 && pmce == nil {
+                
                 if pmce?.logging ?? false {
                     logger.error("received compressed frame without PMCE configured! Closing per RFC-7692. You could have a configuration issue.")
                 }
@@ -380,6 +369,7 @@ public final class WebSocket: Sendable {
                     currentFrameSequence = frameSequence
                 }
             }
+            
         case .continuation:
             /// continuations are filtered by ``NIOWebSocketFrameAggregator``
             preconditionFailure("We will never receive a continuation frame")

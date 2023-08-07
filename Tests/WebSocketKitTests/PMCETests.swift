@@ -9,25 +9,25 @@ import XCTest
 @testable import WebSocketKit
 
 class PMCEConfigTests:XCTestCase {
-    typealias Config = PMCE.DeflateConfig
+    typealias Config = PMCE.PMCEConfig
    
     func test_configsFromHeaders_returns_no_configs_if_empty() {
-        let testSubject = PMCE.DeflateConfig.self
+        let testSubject = PMCE.PMCEConfig.self
         let result = testSubject.configsFrom(headers: [:])
         XCTAssertTrue(result.isEmpty, "Empty headers can contain no config.")
     }
     
     func test_configsFromHeaders_returns_one_config_from_config_headers() {
-        let testSubject = PMCE.DeflateConfig.self
-        let config = PMCE.DeflateConfig(clientCfg: .init(takeover: .noTakeover),
+        let testSubject = PMCE.PMCEConfig.self
+        let config = PMCE.PMCEConfig(clientCfg: .init(takeover: .noTakeover),
                                         serverCfg: .init(takeover: .noTakeover))
         let result = testSubject.configsFrom(headers: config.headers())
         XCTAssertTrue(result.count == 1, "A single deflate config should produce headers for a single defalte config.")
     }
     
     func test_configsFromHeaders_returns_the_same_config_from_config_headers() {
-        let testSubject = PMCE.DeflateConfig.self
-        let config = PMCE.DeflateConfig(clientCfg: .init(takeover: .noTakeover),
+        let testSubject = PMCE.PMCEConfig.self
+        let config = PMCE.PMCEConfig(clientCfg: .init(takeover: .noTakeover),
                                         serverCfg: .init(takeover: .noTakeover))
         let result = testSubject.configsFrom(headers: config.headers())
         XCTAssertTrue(result.first == config, "A config converted to headers should be equal to a config converted from headers. ")
