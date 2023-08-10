@@ -128,8 +128,11 @@ public final class PMCE: Sendable {
             
             for (_,setting) in settings.enumerated() {
                 let setting = setting
-                arg = self.arg(from: setting, into: &arg)
+                arg = self.arg(from: setting,
+                               into: &arg)
             }
+            logger.debug("Offer \(offer)")
+            logger.debug("arg \(arg)")
             
             /// TODO client and server zlib from xt
             let client = DeflateConfig(takeover: arg.cto,
