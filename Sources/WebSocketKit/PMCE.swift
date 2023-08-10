@@ -92,17 +92,14 @@ public final class PMCE: Sendable {
             if logging {
                 logger.debug("getting configs from \(headers)")
             }
-            if let wsx = headers.first(name: wsxtHeader) {
-                
-                let offers = offers(in:wsx)
-                
-                let requestedOfferConfigs = offers.compactMap({offer in
-                        config(from:offer)
-                    }
-                )
-                
-                return requestedOfferConfigs
             
+            if let wsx = headers.first(name: wsxtHeader),
+               let xt = headers.first(name: xwsxHeader) {
+                logger.info("XT present")
+               return offers(in:wsx).compactMap({config(from:$0)}
+                )
+            }else if let wsx = headers.first(name: wsxtHeader) {
+                return offers(in:wsx).compactMap({config(from:$0)})
             }
             else {
                 if logging {
@@ -122,11 +119,9 @@ public final class PMCE: Sendable {
 
             // settings in an offer are split with ;
             let settings = offer.split(separator:";")
-                                .filter({ setting in
-                                    
-                let filtered =  setting.trimmingCharacters(in: .whitespacesAndNewlines) !=
+                                .filter({
+                $0.trimmingCharacters(in: .whitespacesAndNewlines) !=
                                     "permessage-deflate"
-                return filtered
             })
             
             var arg = ConfArgs(.takeover, .takeover, nil, nil, nil, nil, nil, nil)
@@ -136,6 +131,7 @@ public final class PMCE: Sendable {
                 arg = self.arg(from: setting, into: &arg)
             }
             
+            /// TODO client and server zlib from xt
             let client = DeflateConfig(takeover: arg.cto,
                                        maxWindowBits: arg.cbits ?? 15 )
             let server = DeflateConfig(takeover: arg.sto,
@@ -412,6 +408,8 @@ public final class PMCE: Sendable {
     
     /// PMCE settings are under this header as defined in RFC-7692.
     public static let wsxtHeader = "Sec-WebSocket-Extensions"
+    
+    public static let xwsxHeader = "X-pmce-z"
     
     // Box for compressor to conform to Sendable
     private let compressorBox:NIOLoopBoundBox<NIOCompressor?>
