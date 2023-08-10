@@ -46,7 +46,7 @@ public final class PMCE: Sendable {
             }
         }
 
-        private static let _logging:NIOLockedValueBox<Bool> = .init(false)
+        private static let _logging:NIOLockedValueBox<Bool> = .init(true)
         
         /// Enables some logging since I dont have a Logger.
         public static var logging:Bool {
@@ -362,7 +362,7 @@ public final class PMCE: Sendable {
         }
     }
     
-    /// Configures zlib with more control.
+    /// Configures zlib with more granularity.
     public struct ZlibConf: PMCEZlibConfiguration, CustomDebugStringConvertible {
         
         public var debugDescription: String {
@@ -409,6 +409,7 @@ public final class PMCE: Sendable {
     /// PMCE settings are under this header as defined in RFC-7692.
     public static let wsxtHeader = "Sec-WebSocket-Extensions"
     
+    /// MOre granular control over Zlib memory level and compression
     public static let xwsxHeader = "X-pmce-z"
     
     // Box for compressor to conform to Sendable
