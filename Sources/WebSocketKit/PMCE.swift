@@ -746,7 +746,6 @@ extension PMCE.PMCEConfig.DeflateConfig: Equatable {
                            rhs: PMCE.PMCEConfig.DeflateConfig) -> Bool {
         return lhs.takeover == rhs.takeover &&
         lhs.maxWindowBits == rhs.maxWindowBits &&
-        // I hate swift.
         (lhs.zlibConfig.compressionLevel == rhs.zlibConfig.compressionLevel ) &&
         (lhs.zlibConfig.memLevel == rhs.zlibConfig.memLevel )
     }
