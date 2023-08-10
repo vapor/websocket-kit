@@ -136,10 +136,16 @@ public final class PMCE: Sendable {
             logger.debug("arg \(arg)")
             
             /// TODO client and server zlib from xt
+            
+            let cz = ZlibConf(memLevel: arg.cml ?? 5, compLevel: arg.ccl ?? 5)
+            let sz = ZlibConf(memLevel: arg.sml ?? 5, compLevel: arg.scl ?? 5)
+            
             let client = DeflateConfig(takeover: arg.cto,
-                                       maxWindowBits: arg.cbits ?? 15 )
+                                       maxWindowBits: arg.cbits ?? 15,
+                                       zlib: cz)
             let server = DeflateConfig(takeover: arg.sto,
-                                       maxWindowBits: arg.sbits ?? 15)
+                                       maxWindowBits: arg.sbits ?? 15,
+                                       zlib: sz)
             
             return PMCEConfig(clientCfg: client,
                                  serverCfg: server)
