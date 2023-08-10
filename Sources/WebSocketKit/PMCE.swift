@@ -159,7 +159,7 @@ public final class PMCE: Sendable {
             
             if let first = splits.first {
                 let sane = first.trimmingCharacters(in: .whitespacesAndNewlines)
-               
+                logger.debug("sane = \(sane)")
                 if first == DeflateHeaderParams.cmwb {
                     
                     if let arg = splits.last {
