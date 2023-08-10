@@ -699,6 +699,11 @@ public final class PMCE: Sendable {
     
     // server decomp uses this as RFC-7692 says client must mask msgs but server must not.
     public func unmasked(frame maskedFrame: WebSocketFrame) -> WebSocketFrame {
+        guard maskedFrame.maskKey != nil else {
+            logger.debug("tried to unmask a frame that isnt already masked.")
+            return maskedFrame
+        }
+        
         var unmaskedData = maskedFrame.data
         unmaskedData.webSocketUnmask(maskedFrame.maskKey!)
         return WebSocketFrame(fin: maskedFrame.fin,
@@ -706,7 +711,7 @@ public final class PMCE: Sendable {
                               rsv2: maskedFrame.rsv2,
                               rsv3: maskedFrame.rsv3,
                               opcode: maskedFrame.opcode,
-                              maskKey: maskedFrame.maskKey,//should this be nil
+                              maskKey: nil, // should this be nil, yes i think it should
                               data: unmaskedData,
                               extensionData: maskedFrame.extensionData)
     }
