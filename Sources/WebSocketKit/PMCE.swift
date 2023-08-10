@@ -95,7 +95,7 @@ public final class PMCE: Sendable {
             
             if let wsx = headers.first(name: wsxtHeader),
                let xt = headers.first(name: xwsxHeader) {
-                logger.info("XT present")
+                logger.info("XT present \(xt)")
                return offers(in:wsx).compactMap({config(from:$0)}
                 )
             }else if let wsx = headers.first(name: wsxtHeader) {
@@ -111,7 +111,8 @@ public final class PMCE: Sendable {
         
         /// Finds pmce offers in a header value string.
         private static func offers(in headerValue:String) -> [Substring] {
-            headerValue.split(separator: ",")
+            logger.debug("headerValue \(headerValue)")
+            return headerValue.split(separator: ",")
         }
         
         /// Creates a config from an offer substring.
