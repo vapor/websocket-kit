@@ -80,12 +80,12 @@ public final class PMCE: Sendable {
         
         private typealias ConfArgs = (sto:ContextTakeoverMode,
                                       cto: ContextTakeoverMode,
-                                      sbits:UInt8?,
-                                      cbits:UInt8?,
-                                      sml:Int32?,
-                                      cml:Int32?,
-                                      scl:Int32?,
-                                      ccl:Int32?)
+                                      sbits: UInt8?,
+                                      cbits: UInt8?,
+                                      sml: Int32?,
+                                      cml: Int32?,
+                                      scl: Int32?,
+                                      ccl: Int32?)
         
         /// Will init an array of DeflateConfigs from parsed header values if possible.
         public static func configsFrom(headers:HTTPHeaders) -> [PMCEConfig] {
@@ -93,12 +93,8 @@ public final class PMCE: Sendable {
                 logger.debug("getting configs from \(headers)")
             }
             
-            if let wsx = headers.first(name: wsxtHeader),
-               let xt = headers.first(name: xwsxHeader) {
-                logger.info("XT present \(xt)")
-               return offers(in:wsx + xt).compactMap({config(from:$0)}
-                )
-            }else if let wsx = headers.first(name: wsxtHeader) {
+            if let wsx = headers.first(name: wsxtHeader)
+            {
                 return offers(in:wsx).compactMap({config(from:$0)})
             }
             else {
@@ -221,7 +217,8 @@ public final class PMCE: Sendable {
                             PMCEConfig.logger.debug("no arg for server_mem_level")
                         }
                     }
-                }else if sane == ZlibHeaderParams.client_cmp_level {
+                }
+                else if sane == ZlibHeaderParams.client_cmp_level {
                     if let arg = splits.last {
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
@@ -233,7 +230,8 @@ public final class PMCE: Sendable {
                             PMCEConfig.logger.debug("no arg for server_cmp_level")
                         }
                     }
-                }else if sane == ZlibHeaderParams.client_mem_level {
+                }
+                else if sane == ZlibHeaderParams.client_mem_level {
                     if let arg = splits.last {
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
@@ -298,43 +296,16 @@ public final class PMCE: Sendable {
         
         /// Creates HTTPHeaders to represent this config.
         public func headers(xt:Bool = false) -> HTTPHeaders {
-            if xt {
-                let params1 = headerParams(isQuoted: false, xt: true)
-                let params2 = headerParams(isQuoted: false)
-
-                return [PMCE.xwsxHeader : (params1.isEmpty ? "" : ";" + params1),
-                        PMCE.wsxtHeader : PMCE.PMCEConfig.pmceName + (params2.isEmpty ? "" : ";" + params2)]
-                
-            }else {
-                let params = headerParams(isQuoted: false)
-                return [PMCE.wsxtHeader : PMCE.PMCEConfig.pmceName + (params.isEmpty ? "" : ";" + params)]
-            }
+            
+            let params = headerParams(isQuoted: false)
+            return [PMCE.wsxtHeader : PMCE.PMCEConfig.pmceName + (params.isEmpty ? "" : ";" + params)]
+            
         }
-        
+                
         /// Creates header parameters for the Sec-WebSocket-Extensions header from the config.
-        public func headerParams(isQuoted:Bool = false, xt:Bool = false) -> String {
-            if xt {
-                var built = ""
-
-                built += PMCE.PMCEConfig.ZlibHeaderParams.server_mem_level + " = " +
-                "\(serverConfig.zlibConfig.memLevel)" + ";"
-                
-                built += PMCE.PMCEConfig.ZlibHeaderParams.server_cmp_level + " = " +
-                "\(serverConfig.zlibConfig.compressionLevel)" + ";"
-                
-                built += PMCE.PMCEConfig.ZlibHeaderParams.client_mem_level + " = " +
-                "\(clientConfig.zlibConfig.memLevel)" + ";"
-                
-                built += PMCE.PMCEConfig.ZlibHeaderParams.client_cmp_level + " = " +
-                "\(clientConfig.zlibConfig.memLevel)" + ";"
-                if built.last == ";" {
-                    let s = built.dropLast(1)
-                    return String(data: s.data(using: .utf8)!, encoding: .utf8)!
-                }else {
-                    return built
-                }
-                
-            }else {
+        public func headerParams(isQuoted:Bool = false) -> String {
+            
+         
                 var built = ""
                 
                 switch clientConfig.takeover {
@@ -372,7 +343,6 @@ public final class PMCE: Sendable {
                 }else {
                     return built
                 }
-            }
           
         }
         
@@ -393,6 +363,7 @@ public final class PMCE: Sendable {
         }
     }
     
+    // is memLevel here the same was the window size? i think so now.
     /// Configures zlib with more granularity.
     public struct ZlibConf: PMCEZlibConfiguration, CustomDebugStringConvertible {
         
@@ -421,10 +392,13 @@ public final class PMCE: Sendable {
                maxRamMaxComp, maxRamMidComp, maxRamMinComp
             ]
         }
+        
+        public static func defaultConfig() -> ZlibConf {
+            .midRamMidComp
+        }
         ///
         public var memLevel:Int32
         
-        ///
         public var compressionLevel:Int32
         
         public init(memLevel:Int32, compLevel:Int32) {
@@ -440,7 +414,7 @@ public final class PMCE: Sendable {
     /// PMCE settings are under this header as defined in RFC-7692.
     public static let wsxtHeader = "Sec-WebSocket-Extensions"
     
-    /// MOre granular control over Zlib memory level and compression
+    /// More granuålar control over Zlib memory level and compression
     public static let xwsxHeader = "X-pmce-z"
     
     // Box for compressor to conform to Sendable
