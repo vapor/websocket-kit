@@ -292,42 +292,24 @@ public final class PMCE: Sendable {
         
         /// Creates HTTPHeaders to represent this config.
         public func headers(xt:Bool = false) -> HTTPHeaders {
-            let params = headerParams(isQuoted: false, xt:true)
-            return [PMCE.wsxtHeader : PMCE.PMCEConfig.pmceName + (params.isEmpty ? "" : ";" + params)]
+            if xt {
+                let params1 = headerParams(isQuoted: false, xt: true)
+                let params2 = headerParams(isQuoted: false)
+
+                return [PMCE.xwsxHeader : (params1.isEmpty ? "" : ";" + params1),
+                        PMCE.wsxtHeader : (params2.isEmpty ? "" : ";" + params2)]
+                
+            }else {
+                let params = headerParams(isQuoted: false)
+                return [PMCE.wsxtHeader : PMCE.PMCEConfig.pmceName + (params.isEmpty ? "" : ";" + params)]
+            }
         }
         
         /// Creates header parameters for the Sec-WebSocket-Extensions header from the config.
         public func headerParams(isQuoted:Bool = false, xt:Bool = false) -> String {
-            var built = ""
-            
-            switch clientConfig.takeover {
-            case .noTakeover:
-                built += DeflateHeaderParams.cnct + ";"
-            case .takeover:
-                built += ""
-            }
-            
-            if clientConfig.maxWindowBits != nil {
-                built += DeflateHeaderParams.cmwb + (isQuoted ?
-                                              "=\"\(clientConfig.maxWindowBits!)\"" :
-                                                "=\(clientConfig.maxWindowBits!);")
-            }
-            
-            switch serverConfig.takeover {
-            case .noTakeover:
-                built += DeflateHeaderParams.snct + ";"
-            case .takeover:
-                built += ""
-            }
-            
-            if serverConfig.maxWindowBits != nil {
-                
-                built += DeflateHeaderParams.smwb + (isQuoted ?
-                                              "=\"\(serverConfig.maxWindowBits!)\"" :
-                                                "=\(serverConfig.maxWindowBits!);")
-            }
-                      
             if xt {
+                var built = ""
+
                 built += PMCE.PMCEConfig.ZlibHeaderParams.server_mem_level + " = " +
                 "\(serverConfig.zlibConfig.memLevel)" + ";"
                 
@@ -339,14 +321,53 @@ public final class PMCE: Sendable {
                 
                 built += PMCE.PMCEConfig.ZlibHeaderParams.client_cmp_level + " = " +
                 "\(clientConfig.zlibConfig.memLevel)" + ";"
-            }
-            
-            if built.last == ";" {
-                let s = built.dropLast(1)
-                return String(data: s.data(using: .utf8)!, encoding: .utf8)!
+                if built.last == ";" {
+                    let s = built.dropLast(1)
+                    return String(data: s.data(using: .utf8)!, encoding: .utf8)!
+                }else {
+                    return built
+                }
+                
             }else {
-                return built
+                var built = ""
+                
+                switch clientConfig.takeover {
+                case .noTakeover:
+                    built += DeflateHeaderParams.cnct + ";"
+                case .takeover:
+                    built += ""
+                }
+                
+                if clientConfig.maxWindowBits != nil {
+                    built += DeflateHeaderParams.cmwb + (isQuoted ?
+                                                  "=\"\(clientConfig.maxWindowBits!)\"" :
+                                                    "=\(clientConfig.maxWindowBits!);")
+                }
+                
+                switch serverConfig.takeover {
+                case .noTakeover:
+                    built += DeflateHeaderParams.snct + ";"
+                case .takeover:
+                    built += ""
+                }
+                
+                if serverConfig.maxWindowBits != nil {
+                    
+                    built += DeflateHeaderParams.smwb + (isQuoted ?
+                                                  "=\"\(serverConfig.maxWindowBits!)\"" :
+                                                    "=\(serverConfig.maxWindowBits!);")
+                }
+                          
+             
+                
+                if built.last == ";" {
+                    let s = built.dropLast(1)
+                    return String(data: s.data(using: .utf8)!, encoding: .utf8)!
+                }else {
+                    return built
+                }
             }
+          
         }
         
         /// Uses config options to determine if context should be reused (taken over) or reset after each message.
