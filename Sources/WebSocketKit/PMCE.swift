@@ -641,6 +641,7 @@ public final class PMCE: Sendable {
             
             logger.debug("in \(startTime.distance(to: endTime))")
         }
+        
         if !config.shouldTakeOverContext(isServer: extendedSocketType == .server) {
             if logging { logger.debug("websocket-kit: resetting stream") }
             try decompressorBox.value?.resetStream()
@@ -659,11 +660,13 @@ public final class PMCE: Sendable {
     
     /// websocket calls from handleIncoming as a server to handle client masked compressed frames. This was epxerimentally determined.
     public func unmaskedDecompressedUnamsked(frame: WebSocketFrame) throws -> WebSocketFrame {
+        
         if logging {
             logger.debug("unmaksing/decomp/unmasking frame \(frame.opcode) data...")
         }
+        logger.debug("unmaskedData \(frame.unmaskedData)")
         let unmaskedCompressedFrame = unmasked(frame: frame)
-
+        logger.debug("unmaksed frame .data \(unmaskedCompressedFrame.unmaskedData)")
         // decompression
         let maskedDecompressedFrame = try self.decompressed(unmaskedCompressedFrame)
         
