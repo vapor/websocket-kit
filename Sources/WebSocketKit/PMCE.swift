@@ -14,7 +14,7 @@ public protocol PMCEZlibConfiguration: Codable, Equatable,
     var compressionLevel:Int32 {get set}
 }
 
-public final class PMCE:Sendable {
+public final class PMCE: Sendable {
     
     private let logger = Logger(label: "PMCE")
     
@@ -728,14 +728,14 @@ extension PMCE.PMCEConfig: Equatable {
 
 extension PMCE.PMCEConfig: CustomDebugStringConvertible {
     public var debugDescription: String {
-        "DeflateConfig {\nclient:\(clientConfig)\nserver:\(serverConfig)\n}"
+        "PMCEConfig {\nclient:\(clientConfig)\nserver:\(serverConfig)\n}"
     }
 }
 
 extension PMCE.PMCEConfig: CustomStringConvertible {
     public var description: String {
         """
-        PMCE {
+        PMCEConfig {
           client : \(self.clientConfig.debugDescription),
           server : \(self.serverConfig.debugDescription)
         """
@@ -757,7 +757,7 @@ extension PMCE.PMCEConfig.DeflateConfig: Equatable {
 
 extension PMCE.PMCEConfig.DeflateConfig: CustomDebugStringConvertible {
     public var debugDescription: String {
-        "ServerConfig {\ntakeOver:\(takeover.rawValue.debugDescription)\nmaxWindowBits:\(maxWindowBits.debugDescription)\nzlib:\(zlibConfig.debugDescription)}"
+        "DeflateConfig {\ntakeOver:\(takeover.rawValue.debugDescription)\nmaxWindowBits:\(maxWindowBits.debugDescription)\nzlib:\(zlibConfig.debugDescription)}"
     }
 }
 
