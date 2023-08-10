@@ -297,7 +297,7 @@ public final class PMCE: Sendable {
                 let params2 = headerParams(isQuoted: false)
 
                 return [PMCE.xwsxHeader : (params1.isEmpty ? "" : ";" + params1),
-                        PMCE.wsxtHeader : (params2.isEmpty ? "" : ";" + params2)]
+                        PMCE.wsxtHeader : PMCE.PMCEConfig.pmceName + (params2.isEmpty ? "" : ";" + params2)]
                 
             }else {
                 let params = headerParams(isQuoted: false)
