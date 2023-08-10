@@ -36,12 +36,13 @@ public final class WebSocketClient: Sendable {
         /// Maximum frame size after aggregation.
         /// See `NIOWebSocketFrameAggregator` for details.
         public var maxAccumulatedFrameSize: Int
-        /// Per Message Compression Extensions Config, if any.
+        
+        /// Per Message Compression Extensions configuration.
         /// See `PMCE.PMCEConfig` for details.
-        public var deflateConfig:PMCE.PMCEConfig?
+        public var pmceConfig:PMCE.PMCEConfig?
         
         // new init to support passing in PMCE.PMCEConfig
-        public init(deflateConfig:PMCE.PMCEConfig?,
+        public init(pmceConfig:PMCE.PMCEConfig?,
                     tlsConfiguration:TLSConfiguration? = nil,
                     maxFrameSize:Int = 1 << 14) {
             
@@ -50,7 +51,7 @@ public final class WebSocketClient: Sendable {
             self.minNonFinalFragmentSize = 0
             self.maxAccumulatedFrameCount = Int.max
             self.maxAccumulatedFrameSize = Int.max
-            self.deflateConfig = deflateConfig
+            self.pmceConfig = pmceConfig
         }
         
         public init(
@@ -62,7 +63,7 @@ public final class WebSocketClient: Sendable {
             self.minNonFinalFragmentSize = 0
             self.maxAccumulatedFrameCount = Int.max
             self.maxAccumulatedFrameSize = Int.max
-            self.deflateConfig = nil
+            self.pmceConfig = nil
         }
     }
 

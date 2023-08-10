@@ -37,7 +37,7 @@ extension WebSocket {
             self.minNonFinalFragmentSize = clientConfig.minNonFinalFragmentSize
             self.maxAccumulatedFrameCount = clientConfig.maxAccumulatedFrameCount
             self.maxAccumulatedFrameSize = clientConfig.maxAccumulatedFrameSize
-            self.deflateConfig = clientConfig.deflateConfig
+            self.deflateConfig = clientConfig.pmceConfig
         }
     }
 
