@@ -622,6 +622,7 @@ public final class PMCE: Sendable {
         if logging {
             logger.debug("decompressing  \(startSize) bytes for \(frame.opcode)")
         }
+        
         let decompressed =
         try data.decompressStream(with: self.decompressorBox.value!,
                                   maxSize: .max,
@@ -697,7 +698,7 @@ public final class PMCE: Sendable {
     }
     
     // server decomp uses this as RFC-7692 says client must mask msgs but server must not.
-    private func unmasked(frame maskedFrame: WebSocketFrame) -> WebSocketFrame {
+    public func unmasked(frame maskedFrame: WebSocketFrame) -> WebSocketFrame {
         var unmaskedData = maskedFrame.data
         unmaskedData.webSocketUnmask(maskedFrame.maskKey!)
         return WebSocketFrame(fin: maskedFrame.fin,

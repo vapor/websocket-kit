@@ -337,10 +337,14 @@ public final class WebSocket: Sendable {
                
                 do {
                     // decompress the frame data into a new frame.
-                    let newFrame = frame.maskKey != nil ?
-                        try pmce.unmaskedDecompressedUnamsked(frame: frame) :
-                        try pmce.decompressed(frame)
-
+                    let newFrame:WebSocketFrame
+                    if frame.maskKey != nil {
+                        let unmasked = pmce.unmasked(frame: frame)
+                        newFrame = try pmce.decompressed(unmasked)
+                    }else {
+                        newFrame = try pmce.decompressed(frame)
+                    }
+                    
                     self.frameSequence.withLockedValue { currentFrameSequence in
                         var frameSequence = currentFrameSequence ?? .init(type: frame.opcode)
                         // append this frame and update the sequence
