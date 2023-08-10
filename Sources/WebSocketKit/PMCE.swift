@@ -14,13 +14,6 @@ public protocol PMCEZlibConfiguration: Codable, Equatable,
     var compressionLevel:Int32 {get set}
 }
 
-public protocol WebSocketMessageExtension {
-    
-    func send(frame:WebSocketFrame)
-    func handle(incoming frame:WebSocketFrame)
-    
-}
-
 public final class PMCE:Sendable {
     
     private let logger = Logger(label: "PMCE")
@@ -401,8 +394,10 @@ public final class PMCE:Sendable {
                maxRamMaxComp, maxRamMidComp, maxRamMinComp
             ]
         }
-        
+        ///
         public var memLevel:Int32
+        
+        ///
         public var compressionLevel:Int32
         
         public init(memLevel:Int32, compLevel:Int32) {
@@ -418,19 +413,19 @@ public final class PMCE:Sendable {
     /// PMCE settings are under this header as defined in RFC-7692.
     public static let wsxtHeader = "Sec-WebSocket-Extensions"
     
-    /// Box for compressor to conform to Sendable
+    // Box for compressor to conform to Sendable
     private let compressorBox:NIOLoopBoundBox<NIOCompressor?>
     
-    /// Box for compressor to conform to Sendable.
+    // Box for compressor to conform to Sendable.
     private let decompressorBox:NIOLoopBoundBox<NIODecompressor?>
     
     /// Tells pmce how to apply the deflate config as well as how to extract per RFC-7692.
     public let extendedSocketType:WebSocket.PeerType
     
-    /// the channel whose allocator to use for compression bytebuffers and box event loops.
+    /// The channel whose allocator to use for the compression bytebuffers and the box event loops.
     public let channel:NIO.Channel?
     
-    /// Enables some logging since I dont have a Logger.
+    /// Enables/disables logging.
     public var logging:Bool {
         get {
             _logging.withLockedValue { v in
@@ -460,7 +455,7 @@ public final class PMCE:Sendable {
     }
     private let _enabled:NIOLockedValueBox<Bool>
 
-    /// Converts windowBits to size of window.
+    // Converts windowBits to size of window.
     private static func sizeFor(bits:UInt8) -> Int32 {
         2^Int32(bits)
     }
@@ -549,7 +544,7 @@ public final class PMCE:Sendable {
         }
     }
     
-    // websocket send calls this to compress.
+    /// websocket send calls this to compress.
     public func compressed(_ buffer: ByteBuffer,
                             fin: Bool = true,
                             opCode: WebSocketOpcode = .binary) throws -> WebSocketFrame {
@@ -609,7 +604,7 @@ public final class PMCE:Sendable {
         return WebSocketFrame(fin:fin, rsv1: false, opcode:opCode, data: buffer)
     }
     
-    // websocket calls these from handleIncoming to decompress.
+    /// websocket calls  from handleIncoming to decompress.
     public func decompressed(_ frame: WebSocketFrame) throws -> WebSocketFrame  {
 
         guard let channel = channel else {
@@ -658,7 +653,7 @@ public final class PMCE:Sendable {
         return newFrame
     }
     
-    // websocket calls from handleIncoming as a server to handle client masked compressed frames. This was epxerimentally determined.
+    /// websocket calls from handleIncoming as a server to handle client masked compressed frames. This was epxerimentally determined.
     public func unmaskedDecompressedUnamsked(frame: WebSocketFrame) throws -> WebSocketFrame {
         if logging {
             logger.debug("unmaksing/decomp/unmasking frame \(frame.opcode) data...")
@@ -760,13 +755,11 @@ extension PMCE.PMCEConfig.DeflateConfig: Equatable {
     
 }
 
-
 extension PMCE.PMCEConfig.DeflateConfig: CustomDebugStringConvertible {
     public var debugDescription: String {
         "ServerConfig {\ntakeOver:\(takeover.rawValue.debugDescription)\nmaxWindowBits:\(maxWindowBits.debugDescription)\nzlib:\(zlibConfig.debugDescription)}"
     }
 }
-
 
 extension PMCE.PMCEConfig.DeflateConfig: CustomStringConvertible {
     public var description: String {
