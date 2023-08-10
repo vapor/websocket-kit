@@ -96,7 +96,7 @@ public final class PMCE: Sendable {
             if let wsx = headers.first(name: wsxtHeader),
                let xt = headers.first(name: xwsxHeader) {
                 logger.info("XT present \(xt)")
-               return offers(in:wsx).compactMap({config(from:$0)}
+               return offers(in:wsx + xt).compactMap({config(from:$0)}
                 )
             }else if let wsx = headers.first(name: wsxtHeader) {
                 return offers(in:wsx).compactMap({config(from:$0)})
