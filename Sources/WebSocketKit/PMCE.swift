@@ -594,6 +594,7 @@ public final class PMCE: Sendable {
             }
             
             if !config.shouldTakeOverContext(isServer: extendedSocketType == .server) {
+                logger.debug("resetting compressor stream")
                 try compressorBox.value?.resetStream()
             }
             
@@ -631,7 +632,7 @@ public final class PMCE: Sendable {
         if logging {
             logger.debug("decompressing  \(startSize) bytes for \(frame.opcode)")
         }
-        
+        logger.debug("config \(config)")
         let decompressed =
         try data.decompressStream(with: self.decompressorBox.value!,
                                   maxSize: .max,
