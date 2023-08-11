@@ -478,11 +478,13 @@ public final class PMCE: Sendable {
         
         self._enabled = NIOLockedValueBox(true)
         self._logging = NIOLockedValueBox(true)
-        
+        logger.debug("extending ...")
         switch extendedSocketType {
         case .server:
-           
+            logger.debug("server")
+
             let winSize = PMCE.sizeFor(bits: config.serverConfig.maxWindowBits ?? 15)
+            logger.debug("window size: \(winSize)")
             
             let zscConf = ZlibConfiguration(windowSize: winSize,
                                             compressionLevel: config.serverConfig.zlibConfig.compressionLevel,
@@ -497,10 +499,14 @@ public final class PMCE: Sendable {
                                                  eventLoop: channel.eventLoop)
             self.decompressorBox = NIOLoopBoundBox(CompressionAlgorithm.deflate(configuration: zsdConf).decompressor,
                                                    eventLoop: channel.eventLoop)
-            
+            logger.debug("compressor \(zscConf)")
+            logger.debug("decompressor \(zsdConf)")
         case .client:
-           
+            logger.debug("client")
+
             let winSize = PMCE.sizeFor(bits: config.clientConfig.maxWindowBits ?? 15)
+            logger.debug("window size: \(winSize)")
+
             let zccConf = ZlibConfiguration(windowSize: winSize,
                                             compressionLevel: config.clientConfig.zlibConfig.compressionLevel,
                                             memoryLevel: config.clientConfig.zlibConfig.memLevel,
@@ -513,9 +519,12 @@ public final class PMCE: Sendable {
 
             self.compressorBox = NIOLoopBoundBox(CompressionAlgorithm.deflate(configuration: zccConf).compressor,
                                                  eventLoop: channel.eventLoop)
-            self.decompressorBox = NIOLoopBoundBox( CompressionAlgorithm.deflate(configuration: zcdConf).decompressor,
-                                                    eventLoop: channel.eventLoop)
             
+            self.decompressorBox = NIOLoopBoundBox( CompressionAlgorithm.deflate(configuration: zcdConf).decompressor,
+                                             eventLoop: channel.eventLoop)
+            
+            logger.debug("compressor \(zccConf)")
+            logger.debug("decompressor \(zcdConf)")
         }
         startStreams()
     }
@@ -699,6 +708,7 @@ public final class PMCE: Sendable {
     
     // server decomp uses this as RFC-7692 says client must mask msgs but server must not.
     public func unmasked(frame maskedFrame: WebSocketFrame) -> WebSocketFrame {
+        logger.debug("unmasked \(maskedFrame)")
         guard maskedFrame.maskKey != nil else {
             logger.debug("tried to unmask a frame that isnt already masked.")
             return maskedFrame
@@ -711,7 +721,7 @@ public final class PMCE: Sendable {
                               rsv2: maskedFrame.rsv2,
                               rsv3: maskedFrame.rsv3,
                               opcode: maskedFrame.opcode,
-                              maskKey: nil, // should this be nil, yes i think it should
+                              maskKey: nil,
                               data: unmaskedData,
                               extensionData: maskedFrame.extensionData)
     }
