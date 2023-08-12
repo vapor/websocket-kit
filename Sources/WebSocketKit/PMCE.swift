@@ -345,7 +345,7 @@ public final class PMCE: Sendable {
                 }
           
         }
-        
+        //TODO was this the takeover error perhaps?
         /// Uses config options to determine if context should be reused (taken over) or reset after each message.
         public func shouldTakeOverContext(isServer:Bool) -> Bool {
             var contextTakeOver = false
@@ -354,10 +354,10 @@ public final class PMCE: Sendable {
            
             case true:
                 
-                contextTakeOver = self.clientConfig.takeover == .takeover
+                contextTakeOver = self.serverConfig.takeover == .takeover
                 
             case false:
-                contextTakeOver = self.serverConfig.takeover == .takeover
+                contextTakeOver = self.clientConfig.takeover == .takeover
             }
             return contextTakeOver
         }
@@ -632,7 +632,7 @@ public final class PMCE: Sendable {
         if logging {
             logger.debug("decompressing  \(startSize) bytes for \(frame.opcode)")
         }
-        logger.debug("config \(config)")
+        logger.debug("config: \(config)")
         let decompressed =
         try data.decompressStream(with: self.decompressorBox.value!,
                                   maxSize: .max,
@@ -654,8 +654,10 @@ public final class PMCE: Sendable {
         }
         
         if !config.shouldTakeOverContext(isServer: extendedSocketType == .server) {
-            if logging { logger.debug("websocket-kit: resetting stream") }
+            if logging { logger.debug("websocket-kit: resetting stream.") }
             try decompressorBox.value?.resetStream()
+        }else {
+            if logging { logger.debug("websocket-kit: not restting stream.")}
         }
         
         let newFrame = WebSocketFrame(fin: frame.fin,
@@ -701,7 +703,9 @@ public final class PMCE: Sendable {
         switch extendedSocketType {
         
         case .client:
-            return WebSocketMaskingKey.random()
+            let mask = WebSocketMaskingKey.random()
+            logger.debug("created mask key \(mask) .")
+            return mask
         case .server:
             return nil
         }
@@ -709,14 +713,14 @@ public final class PMCE: Sendable {
     
     // server decomp uses this as RFC-7692 says client must mask msgs but server must not.
     public func unmasked(frame maskedFrame: WebSocketFrame) -> WebSocketFrame {
-        logger.debug("unmasked \(maskedFrame)")
-        guard maskedFrame.maskKey != nil else {
+        logger.debug("unmasking \(maskedFrame)")
+        guard let key = maskedFrame.maskKey else {
             logger.debug("tried to unmask a frame that isnt already masked.")
             return maskedFrame
         }
         
         var unmaskedData = maskedFrame.data
-        unmaskedData.webSocketUnmask(maskedFrame.maskKey!)
+        unmaskedData.webSocketUnmask(key)
         return WebSocketFrame(fin: maskedFrame.fin,
                               rsv1: maskedFrame.rsv1,
                               rsv2: maskedFrame.rsv2,
