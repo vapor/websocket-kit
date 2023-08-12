@@ -304,48 +304,43 @@ public final class PMCE: Sendable {
                 
         /// Creates header parameters for the Sec-WebSocket-Extensions header from the config.
         public func headerParams(isQuoted:Bool = false) -> String {
+            var built = ""
             
-         
-                var built = ""
+            switch clientConfig.takeover {
+            case .noTakeover:
+                built += DeflateHeaderParams.cnct + ";"
+            case .takeover:
+                built += ""
+            }
+            
+            if clientConfig.maxWindowBits != nil {
+                built += DeflateHeaderParams.cmwb + (isQuoted ?
+                                              "=\"\(clientConfig.maxWindowBits!)\"" :
+                                                "=\(clientConfig.maxWindowBits!);")
+            }
+            
+            switch serverConfig.takeover {
+            case .noTakeover:
+                built += DeflateHeaderParams.snct + ";"
+            case .takeover:
+                built += ""
+            }
+            
+            if serverConfig.maxWindowBits != nil {
                 
-                switch clientConfig.takeover {
-                case .noTakeover:
-                    built += DeflateHeaderParams.cnct + ";"
-                case .takeover:
-                    built += ""
-                }
-                
-                if clientConfig.maxWindowBits != nil {
-                    built += DeflateHeaderParams.cmwb + (isQuoted ?
-                                                  "=\"\(clientConfig.maxWindowBits!)\"" :
-                                                    "=\(clientConfig.maxWindowBits!);")
-                }
-                
-                switch serverConfig.takeover {
-                case .noTakeover:
-                    built += DeflateHeaderParams.snct + ";"
-                case .takeover:
-                    built += ""
-                }
-                
-                if serverConfig.maxWindowBits != nil {
-                    
-                    built += DeflateHeaderParams.smwb + (isQuoted ?
-                                                  "=\"\(serverConfig.maxWindowBits!)\"" :
-                                                    "=\(serverConfig.maxWindowBits!);")
-                }
-                          
-             
-                
-                if built.last == ";" {
-                    let s = built.dropLast(1)
-                    return String(data: s.data(using: .utf8)!, encoding: .utf8)!
-                }else {
-                    return built
-                }
-          
+                built += DeflateHeaderParams.smwb + (isQuoted ?
+                                              "=\"\(serverConfig.maxWindowBits!)\"" :
+                                                "=\(serverConfig.maxWindowBits!);")
+            }
+
+            if built.last == ";" {
+                let s = built.dropLast(1)
+                return String(data: s.data(using: .utf8)!, encoding: .utf8)!
+            }else {
+                return built
+            }
         }
-        //TODO was this the takeover error perhaps?
+        
         /// Uses config options to determine if context should be reused (taken over) or reset after each message.
         public func shouldTakeOverContext(isServer:Bool) -> Bool {
             var contextTakeOver = false
@@ -548,12 +543,12 @@ public final class PMCE: Sendable {
     /// Stops the compress-nio streams.
     public func stopStreams() {
         do {
-          
+            logger.debug("PMCE: stopping streams...")
             try compressorBox.value?.finishStream()
             try decompressorBox.value?.finishStream()
         }
         catch {
-            logger.error("PMCE: deinit: error finishing stream(s) : \(error)")
+            logger.error("PMCE:error finishing stream(s) : \(error)")
         }
     }
     
@@ -563,7 +558,7 @@ public final class PMCE: Sendable {
                             opCode: WebSocketOpcode = .binary) throws -> WebSocketFrame {
         
         guard let channel = channel else {
-            throw IOError(errnoCode: 0, reason: "channel not configured.")
+            throw IOError(errnoCode: 0, reason: "PMCE: channel not configured.")
         }
         let startSize = buffer.readableBytes
         
@@ -612,7 +607,7 @@ public final class PMCE: Sendable {
             return frame
         }
         catch {
-            logger.error("send compression failed \(error)")
+            logger.error("PMCE: send compression failed \(error)")
         }
         
         return WebSocketFrame(fin:fin, rsv1: false, opcode:opCode, data: buffer)
@@ -622,7 +617,7 @@ public final class PMCE: Sendable {
     public func decompressed(_ frame: WebSocketFrame) throws -> WebSocketFrame  {
 
         guard let channel = channel else {
-            throw IOError(errnoCode: 0, reason: "channel not configured.")
+            throw IOError(errnoCode: 0, reason: "PMCE: channel not configured.")
         }
         let startTime = Date()
         
@@ -630,9 +625,9 @@ public final class PMCE: Sendable {
         var data = frame.data
         let startSize = data.readableBytes
         if logging {
-            logger.debug("decompressing  \(startSize) bytes for \(frame.opcode)")
+            logger.debug("PMCE: decompressing  \(startSize) bytes for \(frame.opcode)")
         }
-        logger.debug("config: \(config)")
+        logger.debug("PMCE: config: \(config)")
         let decompressed =
         try data.decompressStream(with: self.decompressorBox.value!,
                                   maxSize: .max,
@@ -654,10 +649,10 @@ public final class PMCE: Sendable {
         }
         
         if !config.shouldTakeOverContext(isServer: extendedSocketType == .server) {
-            if logging { logger.debug("websocket-kit: resetting stream.") }
+            if logging { logger.debug("PMCE: resetting stream.") }
             try decompressorBox.value?.resetStream()
         }else {
-            if logging { logger.debug("websocket-kit: not restting stream.")}
+            if logging { logger.debug("PMCE: not restting stream.")}
         }
         
         let newFrame = WebSocketFrame(fin: frame.fin,
@@ -675,11 +670,11 @@ public final class PMCE: Sendable {
     public func unmaskedDecompressedUnamsked(frame: WebSocketFrame) throws -> WebSocketFrame {
         
         if logging {
-            logger.debug("unmaksing/decomp/unmasking frame \(frame.opcode) data...")
+            logger.debug("PMCE: unmaksing/decomp/unmasking frame \(frame.opcode) data...")
         }
-        logger.debug("unmaskedData \(frame.unmaskedData)")
+        logger.debug("PMCE: unmaskedData \(frame.unmaskedData)")
         let unmaskedCompressedFrame = unmasked(frame: frame)
-        logger.debug("unmaksed frame .data \(unmaskedCompressedFrame.unmaskedData)")
+        logger.debug("PMCE: unmaksed frame .data \(unmaskedCompressedFrame.unmaskedData)")
         // decompression
         let maskedDecompressedFrame = try self.decompressed(unmaskedCompressedFrame)
         
@@ -704,7 +699,7 @@ public final class PMCE: Sendable {
         
         case .client:
             let mask = WebSocketMaskingKey.random()
-            logger.debug("created mask key \(mask) .")
+            logger.debug("PMCE: created mask key \(mask) .")
             return mask
         case .server:
             return nil
@@ -713,9 +708,9 @@ public final class PMCE: Sendable {
     
     // server decomp uses this as RFC-7692 says client must mask msgs but server must not.
     public func unmasked(frame maskedFrame: WebSocketFrame) -> WebSocketFrame {
-        logger.debug("unmasking \(maskedFrame)")
+        logger.debug("PMCE: unmasking \(maskedFrame)")
         guard let key = maskedFrame.maskKey else {
-            logger.debug("tried to unmask a frame that isnt already masked.")
+            logger.debug("PMCE: tried to unmask a frame that isnt already masked.")
             return maskedFrame
         }
         
