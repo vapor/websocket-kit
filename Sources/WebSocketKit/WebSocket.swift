@@ -64,7 +64,9 @@ public final class WebSocket: Sendable {
         self._pingInterval = .init(nil)
         
         if let p = pmce {
-            self.pmce = PMCE(config: p.config, channel: channel, socketType: type)
+            self.pmce = PMCE(config: p.config,
+                             channel: channel,
+                             socketType: type)
         }else {
             self.pmce = nil
         }
@@ -340,7 +342,8 @@ public final class WebSocket: Sendable {
                     let newFrame:WebSocketFrame
                     if frame.maskKey != nil {
                         let unmasked = pmce.unmasked(frame: frame)
-                        newFrame = try pmce.decompressed(unmasked)
+                        newFrame = //try pmce.decompressed(unmasked)
+                        try pmce.unmaskedDecompressedUnamsked(frame: frame)
                     }else {
                         newFrame = try pmce.decompressed(frame)
                     }

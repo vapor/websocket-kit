@@ -144,7 +144,7 @@ public final class PMCE: Sendable {
                                        zlib: sz)
             
             return PMCEConfig(clientCfg: client,
-                                 serverCfg: server)
+                              serverCfg: server)
         }
         
         /// Extracts the arg from a setting substring into foo returning foo.
@@ -487,8 +487,8 @@ public final class PMCE: Sendable {
                                           strategy: .huffmanOnly)
             
             let zsdConf = ZlibConfiguration(windowSize: winSize,
-                                            compressionLevel: config.clientConfig.zlibConfig.compressionLevel,
-                                            memoryLevel: config.clientConfig.zlibConfig.memLevel,
+                                            compressionLevel: config.serverConfig.zlibConfig.compressionLevel,
+                                            memoryLevel: config.serverConfig.zlibConfig.memLevel,
                                           strategy: .huffmanOnly)
             self.compressorBox = NIOLoopBoundBox(CompressionAlgorithm.deflate(configuration: zscConf).compressor,
                                                  eventLoop: channel.eventLoop)
@@ -508,8 +508,8 @@ public final class PMCE: Sendable {
                                           strategy: .huffmanOnly)
             
             let zcdConf = ZlibConfiguration(windowSize: winSize,
-                                            compressionLevel: config.serverConfig.zlibConfig.compressionLevel,
-                                            memoryLevel: config.serverConfig.zlibConfig.memLevel,
+                                            compressionLevel: config.clientConfig.zlibConfig.compressionLevel,
+                                            memoryLevel: config.clientConfig.zlibConfig.memLevel,
                                           strategy: .huffmanOnly)
 
             self.compressorBox = NIOLoopBoundBox(CompressionAlgorithm.deflate(configuration: zccConf).compressor,
@@ -649,10 +649,10 @@ public final class PMCE: Sendable {
         }
         
         if !config.shouldTakeOverContext(isServer: extendedSocketType == .server) {
-            if logging { logger.debug("PMCE: resetting stream.") }
+            if logging { logger.debug("PMCE: resetting decompressoer stream.") }
             try decompressorBox.value?.resetStream()
         }else {
-            if logging { logger.debug("PMCE: not restting stream.")}
+            if logging { logger.debug("PMCE: not restting decompressor stream.")}
         }
         
         let newFrame = WebSocketFrame(fin: frame.fin,
