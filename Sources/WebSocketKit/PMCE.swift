@@ -602,6 +602,12 @@ public final class PMCE: Sendable {
             )
             
             frame.rsv1 = true // denotes compression
+            let slice = compressed.getSlice(at:compressed.readerIndex, length: compressed.readableBytes - 4)
+            if slice == nil {
+                logger.debug("slice was not nil")
+            }else {
+                logger.debug("slice is nil")
+            }
             frame.data = compressed.getSlice(at: compressed.readerIndex,
                                              length: compressed.readableBytes - 4) ?? compressed
 
