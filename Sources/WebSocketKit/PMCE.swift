@@ -551,7 +551,41 @@ public final class PMCE: Sendable {
             logger.error("PMCE:error finishing stream(s) : \(error)")
         }
     }
-    
+
+
+///  An endpoint uses the following algorithm to decompress a message.
+///  An endpoint uses the following algorithm to compress a message.
+///
+///   1.  Compress all the octets of the payload of the message using
+///       DEFLATE.
+///
+///   2.  If the resulting data does not end with an empty DEFLATE block
+///       with no compression (the "BTYPE" bits are set to 00), append an
+///       empty DEFLATE block with no compression to the tail end.
+///
+///   3.  Remove 4 octets (that are 0x00 0x00 0xff 0xff) from the tail end.
+///       After this step, the last octet of the compressed data contains
+///       (possibly part of) the DEFLATE header bits with the "BTYPE" bits
+///       set to 00.
+///
+///   When using DEFLATE in the first step above:
+///
+///   o  An endpoint MAY use multiple DEFLATE blocks to compress one
+///      message.
+///
+///   o  An endpoint MAY use DEFLATE blocks of any type.
+///
+///   o  An endpoint MAY use both DEFLATE blocks with the "BFINAL" bit set
+///      to 0 and DEFLATE blocks with the "BFINAL" bit set to 1.
+///
+///   o  When any DEFLATE block with the "BFINAL" bit set to 1 doesn't end
+///      at a byte boundary, an endpoint MUST add minimal padding bits of 0
+///     to make it end at a byte boundary.  The next DEFLATE block follows
+///      the padded data if any.
+///   1.  Append 4 octets of 0x00 0x00 0xff 0xff to the tail end of the
+///       payload of the message.
+///
+ ///  2.  Decompress the resulting data using DEFLATE.   
     /// websocket send calls this to compress.
     public func compressed(_ buffer: ByteBuffer,
                             fin: Bool = true,
@@ -619,8 +653,16 @@ public final class PMCE: Sendable {
         
         return WebSocketFrame(fin:fin, rsv1: false, opcode:opCode, data: buffer)
     }
-    
-    /// websocket calls  from handleIncoming to decompress.
+
+/*
+  An endpoint uses the following algorithm to decompress a message.
+
+   1.  Append 4 octets of 0x00 0x00 0xff 0xff to the tail end of the
+       payload of the message.
+
+   2.  Decompress the resulting data using DEFLATE.   
+  */
+      /// websocket calls  from handleIncoming to decompress.
     public func decompressed(_ frame: WebSocketFrame) throws -> WebSocketFrame  {
 
         guard let channel = channel else {
@@ -635,6 +677,7 @@ public final class PMCE: Sendable {
             logger.debug("PMCE: decompressing  \(startSize) bytes for \(frame.opcode)")
         }
         logger.debug("PMCE: config: \(config)")
+        
         let decompressed =
         try data.decompressStream(with: self.decompressorBox.value!,
                                   maxSize: .max,
