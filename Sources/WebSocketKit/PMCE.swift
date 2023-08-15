@@ -573,6 +573,7 @@ public final class PMCE: Sendable {
             try mutBuffer.compressStream(with: compressorBox.value!,
                                          flush: .sync,
                                          allocator: channel.allocator)
+                                        //rfc says to strip padding word off compressed
             if logging {
                 let endTime = Date()
                 let endSize = compressed.readableBytes
