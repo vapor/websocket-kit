@@ -715,8 +715,10 @@ public final class PMCE: Sendable {
                                       extensionData: nil)
         return newFrame
     }
-    
+
+        
     /// websocket calls from handleIncoming as a server to handle client masked compressed frames. This was epxerimentally determined.
+    @available(*, deprecatred)
     public func unmaskedDecompressedUnamsked(frame: WebSocketFrame) throws -> WebSocketFrame {
         
         if logging {
