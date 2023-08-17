@@ -342,8 +342,7 @@ public final class WebSocket: Sendable {
                     let newFrame:WebSocketFrame
                     if frame.maskKey != nil {
                         let unmasked = pmce.unmasked(frame: frame)
-                        newFrame = //try pmce.decompressed(unmasked)
-                        try pmce.unmaskedDecompressedUnamsked(frame: frame)
+                        newFrame = try pmce.decompressed(unmasked)
                     }else {
                         newFrame = try pmce.decompressed(frame)
                     }
