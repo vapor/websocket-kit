@@ -682,7 +682,7 @@ public final class PMCE: Sendable {
         guard let channel = channel else {
             throw IOError(errnoCode: 0, reason: "PMCE: channel not configured.")
         }
-        let notakeover = !config.shouldTakeOverContext(isServer: extendedSocketType == .server)
+        let takeover = config.shouldTakeOverContext(isServer: extendedSocketType == .server)
 
         let startTime = Date()
         
@@ -694,7 +694,7 @@ public final class PMCE: Sendable {
         }
         logger.debug("PMCE: config: \(config)")
         
-        if !notakeover {
+        if takeover {
             logger.debug("should unpad message")
 
         }else {
@@ -721,7 +721,7 @@ public final class PMCE: Sendable {
             logger.debug("in \(startTime.distance(to: endTime))")
         }
         
-        if !notakeover {
+        if !takeover {
             if logging { logger.debug("PMCE: resetting decompressoer stream.") }
             try decompressorBox.value?.resetStream()
         }else {
