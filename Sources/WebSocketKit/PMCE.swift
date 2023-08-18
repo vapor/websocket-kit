@@ -695,12 +695,12 @@ public final class PMCE: Sendable {
         logger.debug("PMCE: config: \(config)")
         
         if !notakeover {
-            logger.debug("shod not unpad messaged")
+            logger.debug("should unpad message")
 
         }else {
-            logger.debug("shold UNPAD message")
+            logger.debug("shold NOT unpad message")
         }
-        
+
         let decompressed =
         try data.decompressStream(with: self.decompressorBox.value!,
                                   maxSize: .max,
