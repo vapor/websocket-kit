@@ -594,6 +594,8 @@ public final class PMCE: Sendable {
         guard let channel = channel else {
             throw IOError(errnoCode: 0, reason: "PMCE: channel not configured.")
         }
+        let notakeover = !config.shouldTakeOverContext(isServer: extendedSocketType == .server)
+
         let startSize = buffer.readableBytes
         
         if logging {
@@ -601,6 +603,15 @@ public final class PMCE: Sendable {
         }
         do {
             var mutBuffer = buffer
+
+            if !notakeover {
+                // will pad
+                logger.debug("SHOLD PAD payload")
+            }else {
+                // will not pad
+                logger.debug("shold not pad")
+            }
+
             let startTime = Date()
             
             let compressed =
@@ -623,9 +634,11 @@ public final class PMCE: Sendable {
                 logger.debug("in \(startTime.distance(to: endTime))")
             }
             
-            if !config.shouldTakeOverContext(isServer: extendedSocketType == .server) {
+            if notakeover {
                 logger.debug("resetting compressor stream")
                 try compressorBox.value?.resetStream()
+            }else {
+                logger.debug("not resetting compressor stream.")
             }
             
             var frame = WebSocketFrame(
@@ -640,7 +653,8 @@ public final class PMCE: Sendable {
             if slice == nil {
                 logger.debug("slice was not nil")
             }else {
-                logger.debug("slice is nil")
+                logger.debug("slice is nil") // if slice is alwys nil this code below is wrong and is likely misapplied padding compsenation that never gets called
+
             }
             frame.data = compressed.getSlice(at: compressed.readerIndex,
                                              length: compressed.readableBytes - 4) ?? compressed
