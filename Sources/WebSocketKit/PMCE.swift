@@ -721,7 +721,7 @@ public final class PMCE: Sendable {
             logger.debug("in \(startTime.distance(to: endTime))")
         }
         
-        if notakeover {
+        if !notakeover {
             if logging { logger.debug("PMCE: resetting decompressoer stream.") }
             try decompressorBox.value?.resetStream()
         }else {
