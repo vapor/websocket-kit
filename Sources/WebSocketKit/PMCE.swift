@@ -750,11 +750,14 @@ public final class PMCE: Sendable {
     }
 
     public func pad(buffer:ByteBuffer) -> ByteBuffer {
-    buffer
+        logger.debug("padding")
+        var mutbuffer = buffer
+        mutbuffer.writeBytes([0x00,0x00,0xFF,0xFF])
+        return mutbuffer
     }
 
     public func unpad(buffer:ByteBuffer) -> ByteBuffer {
-        buffer
+        buffer.getSlice(at: 0, length: buffer.capacity - 4) ?? buffer
     }
     /// websocket calls from handleIncoming as a server to handle client masked compressed frames. This was epxerimentally determined.
     @available(*, deprecated)
