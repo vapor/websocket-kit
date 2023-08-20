@@ -86,7 +86,14 @@ public final class PMCE: Sendable {
                                       cml: Int32?,
                                       scl: Int32?,
                                       ccl: Int32?)
-        
+
+        private var paddingOctets:[Int] {
+             [0x00, 0x00, 0xff, 0xff].map({
+                Int(bitPattern: $0)
+             }
+             )
+        }
+
         /// Will init an array of DeflateConfigs from parsed header values if possible.
         public static func configsFrom(headers:HTTPHeaders) -> [PMCEConfig] {
             if logging {
@@ -607,6 +614,8 @@ public final class PMCE: Sendable {
             if !notakeover {
                 // will pad
                 logger.debug("SHOLD PAD payload")
+
+                mutBuffer = pad(buffer:buffer)
             }else {
                 // will not pad
                 logger.debug("shold not pad")
@@ -649,7 +658,8 @@ public final class PMCE: Sendable {
             )
             
             frame.rsv1 = true // denotes compression
-            let slice = compressed.getSlice(at:compressed.readerIndex, length: compressed.readableBytes - 4)
+            let slice = compressed.getSlice(at:compressed.readerIndex,
+                                                         length: compressed.readableBytes - 4)
             if slice == nil {
                 logger.debug("slice was not nil")
             }else {
@@ -696,7 +706,7 @@ public final class PMCE: Sendable {
         
         if takeover {
             logger.debug("should unpad message")
-
+            data = unpad(buffer:data)
         }else {
             logger.debug("shold NOT unpad message")
         }
@@ -739,7 +749,13 @@ public final class PMCE: Sendable {
         return newFrame
     }
 
-        
+    public func pad(buffer:ByteBuffer) -> ByteBuffer {
+    buffer
+    }
+
+    public func unpad(buffer:ByteBuffer) -> ByteBuffer {
+        buffer
+    }
     /// websocket calls from handleIncoming as a server to handle client masked compressed frames. This was epxerimentally determined.
     @available(*, deprecated)
     public func unmaskedDecompressedUnamsked(frame: WebSocketFrame) throws -> WebSocketFrame {
@@ -826,7 +842,7 @@ extension PMCE.PMCEConfig: Equatable {
 
 extension PMCE.PMCEConfig: CustomDebugStringConvertible {
     public var debugDescription: String {
-        "PMCEConfig {\nclient:\(clientConfig)\nserver:\(serverConfig)\n}"
+        "PMCEConfig {client:\(clientConfig)\nserver:\(serverConfig)}"
     }
 }
 
@@ -854,15 +870,14 @@ extension PMCE.PMCEConfig.DeflateConfig: Equatable {
 
 extension PMCE.PMCEConfig.DeflateConfig: CustomDebugStringConvertible {
     public var debugDescription: String {
-        "DeflateConfig {\ntakeOver:\(takeover.rawValue.debugDescription)\nmaxWindowBits:\(maxWindowBits.debugDescription)\nzlib:\(zlibConfig.debugDescription)}"
+        "DeflateConfig {takeOver:\(takeover.rawValue.debugDescription), maxWindowBits:\(maxWindowBits.debugDescription)\nzlib:\(zlibConfig.debugDescription)}"
     }
 }
 
 extension PMCE.PMCEConfig.DeflateConfig: CustomStringConvertible {
     public var description: String {
         """
-        takeOver : \(takeover),
-        windowBits : \(String(describing: maxWindowBits)),
+        takeOver : \(takeover), windowBits : \(String(describing: maxWindowBits)),
         zlib : \(zlibConfig)
         """
     }
