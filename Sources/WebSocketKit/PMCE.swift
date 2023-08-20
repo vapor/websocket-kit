@@ -757,7 +757,7 @@ public final class PMCE: Sendable {
     }
 
     public func unpad(buffer:ByteBuffer) -> ByteBuffer {
-        buffer.getSlice(at: 0, length: buffer.capacity - 4) ?? buffer
+        buffer.getSlice(at: 0, length: buffer.readableBytes - 4) ?? buffer
     }
     /// websocket calls from handleIncoming as a server to handle client masked compressed frames. This was epxerimentally determined.
     @available(*, deprecated)
