@@ -561,38 +561,7 @@ public final class PMCE: Sendable {
     }
 
 
-///  An endpoint uses the following algorithm to decompress a message.
-///  An endpoint uses the following algorithm to compress a message.
-///
-///   1.  Compress all the octets of the payload of the message using
-///       DEFLATE.
-///
-///   2.  If the resulting data does not end with an empty DEFLATE block
-///       with no compression (the "BTYPE" bits are set to 00), append an
-///       empty DEFLATE block with no compression to the tail end.
-///
-///   3.  Remove 4 octets (that are 0x00 0x00 0xff 0xff) from the tail end.
-///       After this step, the last octet of the compressed data contains
-///       (possibly part of) the DEFLATE header bits with the "BTYPE" bits
-///       set to 00.
-///
-///   When using DEFLATE in the first step above:
-///
-///   o  An endpoint MAY use multiple DEFLATE blocks to compress one
-///      message.
-///
-///   o  An endpoint MAY use DEFLATE blocks of any type.
-///
-///   o  An endpoint MAY use both DEFLATE blocks with the "BFINAL" bit set
-///      to 0 and DEFLATE blocks with the "BFINAL" bit set to 1.
-///
-///   o  When any DEFLATE block with the "BFINAL" bit set to 1 doesn't end
-///      at a byte boundary, an endpoint MUST add minimal padding bits of 0
-///     to make it end at a byte boundary.  The next DEFLATE block follows
-///      the padded data if any.
-///   1.  Append 4 octets of 0x00 0x00 0xff 0xff to the tail end of the
-///       payload of the message.
-///
+
     /// websocket send calls this to compress.
     public func compressed(_ buffer: ByteBuffer,
                             fin: Bool = true,
@@ -628,6 +597,7 @@ public final class PMCE: Sendable {
                                          flush: .sync,
                                          allocator: channel.allocator)
                                         //rfc says to strip padding word off compressed
+            mutBuffer = unpad(buffer: mutBuffer)
             if logging {
                 let endTime = Date()
                 let endSize = compressed.readableBytes
@@ -705,7 +675,7 @@ public final class PMCE: Sendable {
         
         if takeover {
             logger.debug("should unpad message")
-            data = unpad(buffer:data)
+            data = pad(buffer:data)
         }else {
             logger.debug("shold NOT unpad message")
         }
