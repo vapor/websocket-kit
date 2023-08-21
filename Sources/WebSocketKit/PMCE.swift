@@ -665,8 +665,7 @@ public final class PMCE: Sendable {
                 logger.debug("slice is not nil") // if slice is alwys nil this code below is wrong and is likely misapplied padding compsenation that never gets called
 
             }
-            frame.data = compressed.getSlice(at: compressed.readerIndex,
-                                             length: compressed.readableBytes - 4) ?? compressed
+            frame.data = slice ?? compressed
 
             return frame
         }
