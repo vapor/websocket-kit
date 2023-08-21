@@ -162,7 +162,7 @@ public final class PMCE: Sendable {
             
             if let first = splits.first {
                 let sane = first.trimmingCharacters(in: .whitespacesAndNewlines)
-                logger.debug("sane = \(sane)")
+                logger.trace("sane = \(sane)")
                 if first == DeflateHeaderParams.cmwb {
                     
                     if let arg = splits.last {
@@ -173,7 +173,7 @@ public final class PMCE: Sendable {
                     else
                     {
                         if logging {
-                            PMCEConfig.logger.debug("no arg for cmwb")
+                            PMCEConfig.logger.trace("no arg for cmwb")
                         }
                     }
                     
@@ -188,7 +188,7 @@ public final class PMCE: Sendable {
                     else
                     {
                         if logging {
-                            PMCEConfig.logger.debug("no arg for smwb")
+                            PMCEConfig.logger.trace("no arg for smwb")
                         }
                     }
                 }
@@ -207,7 +207,7 @@ public final class PMCE: Sendable {
                     else
                     {
                         if logging {
-                            PMCEConfig.logger.debug("no arg for server_cmp_level")
+                            PMCEConfig.logger.trace("no arg for server_cmp_level")
                         }
                     }
                 }
@@ -221,7 +221,7 @@ public final class PMCE: Sendable {
                     else
                     {
                         if logging {
-                            PMCEConfig.logger.debug("no arg for server_mem_level")
+                            PMCEConfig.logger.trace("no arg for server_mem_level")
                         }
                     }
                 }
@@ -234,7 +234,7 @@ public final class PMCE: Sendable {
                     else
                     {
                         if logging {
-                            PMCEConfig.logger.debug("no arg for server_cmp_level")
+                            PMCEConfig.logger.trace("no arg for server_cmp_level")
                         }
                     }
                 }
@@ -247,7 +247,7 @@ public final class PMCE: Sendable {
                     else
                     {
                         if logging {
-                            PMCEConfig.logger.debug("no arg for client_mem_level")
+                            PMCEConfig.logger.trace("no arg for client_mem_level")
                         }
                     }
                 }
@@ -258,7 +258,7 @@ public final class PMCE: Sendable {
                 }
                 else {
                     if logging {
-                        PMCEConfig.logger.debug("unrecognized first split from setting \(setting)")
+                        PMCEConfig.logger.trace("unrecognized first split from setting \(setting)")
                     }
                 }
             }
@@ -355,10 +355,11 @@ public final class PMCE: Sendable {
             switch isServer {
            
             case true:
-                
+            print("server taking context")
                 contextTakeOver = self.serverConfig.takeover == .takeover
                 
             case false:
+            print("client taking context")
                 contextTakeOver = self.clientConfig.takeover == .takeover
             }
             return contextTakeOver
@@ -370,7 +371,7 @@ public final class PMCE: Sendable {
     public struct ZlibConf: PMCEZlibConfiguration, CustomDebugStringConvertible {
         
         public var debugDescription: String {
-            "ZlibConf{mem : \(memLevel),\ncmp : \(compressionLevel)}"
+            "ZlibConf{\(memLevel), \(compressionLevel)}"
         }
         
         /// Convenience members for common combinations of resource allocation.
