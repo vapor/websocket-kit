@@ -582,9 +582,9 @@ public final class PMCE: Sendable {
 
             if !notakeover {
                 // will pad
-                logger.debug("SHOLD PAD payload")
+                logger.debug("SHOLD unpad payload")
 
-                mutBuffer = pad(buffer:buffer)
+                mutBuffer = unpad(buffer:buffer)
             }else {
                 // will not pad
                 logger.debug("shold not pad")
