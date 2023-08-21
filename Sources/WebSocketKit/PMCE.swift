@@ -592,7 +592,6 @@ public final class PMCE: Sendable {
 ///   1.  Append 4 octets of 0x00 0x00 0xff 0xff to the tail end of the
 ///       payload of the message.
 ///
- ///  2.  Decompress the resulting data using DEFLATE.   
     /// websocket send calls this to compress.
     public func compressed(_ buffer: ByteBuffer,
                             fin: Bool = true,
@@ -661,9 +660,9 @@ public final class PMCE: Sendable {
             let slice = compressed.getSlice(at:compressed.readerIndex,
                                                          length: compressed.readableBytes - 4)
             if slice == nil {
-                logger.debug("slice was not nil")
+                logger.debug("slice was nil")
             }else {
-                logger.debug("slice is nil") // if slice is alwys nil this code below is wrong and is likely misapplied padding compsenation that never gets called
+                logger.debug("slice is not nil") // if slice is alwys nil this code below is wrong and is likely misapplied padding compsenation that never gets called
 
             }
             frame.data = compressed.getSlice(at: compressed.readerIndex,
@@ -757,7 +756,8 @@ public final class PMCE: Sendable {
     }
 
     public func unpad(buffer:ByteBuffer) -> ByteBuffer {
-        buffer.getSlice(at: 0, length: buffer.readableBytes - 4) ?? buffer
+        logger.info("unpaddings")
+        return buffer.getSlice(at: 0, length: buffer.readableBytes - 4) ?? buffer
     }
     /// websocket calls from handleIncoming as a server to handle client masked compressed frames. This was epxerimentally determined.
     @available(*, deprecated)
