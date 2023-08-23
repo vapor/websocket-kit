@@ -475,26 +475,35 @@ public final class PMCE: Sendable {
             try compressorBox.value?.startStream()
         }
         catch {
-            logger.error("error starting stream : \(error)")
+            logger.error("error starting compressor stream : \(error)")
         }
         do {
             try decompressorBox.value?.startStream()
         }
         catch {
-            logger.error("error starting stream : \(error)")
+            logger.error("error starting decompressor stream : \(error)")
         }
     }
     
     /// Stops the compress-nio streams.
     public func stopStreams() {
         do {
-            logger.debug("PMCE: stopping streams...")
+            logger.debug("PMCE: stopping compressor stream...")
             try compressorBox.value?.finishStream()
+        }
+        catch {
+            logger.error("PMCE:error finishing stream(s) : \(error)")
+        }
+        
+        do {
+            logger.debug("PMCE: stopping decompressor stream...")
             try decompressorBox.value?.finishStream()
         }
         catch {
             logger.error("PMCE:error finishing stream(s) : \(error)")
         }
+        
+
     }
 
 
