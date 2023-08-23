@@ -281,7 +281,7 @@ public final class PMCE: Sendable {
         }
         
         /// Creates HTTPHeaders to represent this config.
-        public func headers(xt:Bool = false) -> HTTPHeaders {
+        public func headers() -> HTTPHeaders {
             
             let params = headerParams(isQuoted: false)
             return [PMCE.wsxtHeader : PMCE.PMCEConfig.pmceName + (params.isEmpty ? "" : ";" + params)]
