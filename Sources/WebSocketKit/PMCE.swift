@@ -153,6 +153,7 @@ public final class PMCE: Sendable {
                 if logging {
                     PMCEConfig.logger.error("Tried to init a PMCE config with headers that do not contain the Sec-Websocket-Extensions key")
                 }
+                
                 return [ClientServerPMCEConfig]()
             }
         }

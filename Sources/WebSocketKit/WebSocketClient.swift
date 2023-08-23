@@ -160,8 +160,7 @@ public final class WebSocketClient: Sendable {
                     maxFrameSize: self.configuration.maxFrameSize,
                     automaticErrorHandling: true,
                     upgradePipelineHandler: { channel, req in
-                        
-                      
+                        self.logger.debug("\(self.configuration.pmceConfig)")
                             return WebSocket.client(on: channel,
                                                     config: .init(clientConfig: self.configuration),
                                                     onUpgrade: onUpgrade)
