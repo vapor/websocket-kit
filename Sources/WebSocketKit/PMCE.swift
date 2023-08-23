@@ -130,7 +130,7 @@ public final class PMCE: Sendable {
                                       sbits: UInt8?,
                                       cbits: UInt8?)
         
-        public typealias ClientServerConfig = (client:PMCEConfig?, server:PMCEConfig?)
+        public typealias ClientServerPMCEConfig = (client:PMCEConfig?, server:PMCEConfig?)
         
         private var paddingOctets:[Int] {
              [0x00, 0x00, 0xff, 0xff].map({
@@ -140,7 +140,7 @@ public final class PMCE: Sendable {
         }
 
         /// Will init an array of ClientServerConfigs from parsed header values if possible.
-        public static func configsFrom(headers:HTTPHeaders) -> [ClientServerConfig] {
+        public static func configsFrom(headers:HTTPHeaders) -> [ClientServerPMCEConfig] {
             if logging {
                 logger.trace("getting configs from \(headers)")
             }
@@ -153,7 +153,7 @@ public final class PMCE: Sendable {
                 if logging {
                     PMCEConfig.logger.error("Tried to init a PMCE config with headers that do not contain the Sec-Websocket-Extensions key")
                 }
-                return [ClientServerConfig]()
+                return [ClientServerPMCEConfig]()
             }
         }
         
@@ -164,7 +164,7 @@ public final class PMCE: Sendable {
         }
         
         /// Creates a config from an offer substring.
-        private static func config(from offer: Substring) -> ClientServerConfig {
+        private static func config(from offer: Substring) -> ClientServerPMCEConfig {
 
             // settings in an offer are split with ;
             let settings = offer.split(separator:";")
