@@ -281,6 +281,7 @@ public final class PMCE: Sendable {
             static let smwb = "server_max_window_bits"
         }
         
+        @available(*, deprecated, message: "No longer needed with discovered API")
         /// Defines the strings for extended parameters not defined in the RFC.
         public struct ZlibHeaderParams {
             static let server_mem_level = "sml"
@@ -417,6 +418,7 @@ public final class PMCE: Sendable {
     /// PMCE settings are under this header as defined in RFC-7692.
     public static let wsxtHeader = "Sec-WebSocket-Extensions"
     
+    @available(*, deprecated, message: "No longer needed with discovered API")
     /// More granuålar control over Zlib memory level and compression
     public static let xwsxHeader = "X-pmce-z"
     
