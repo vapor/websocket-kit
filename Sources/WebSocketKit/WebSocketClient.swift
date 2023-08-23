@@ -161,14 +161,16 @@ public final class WebSocketClient: Sendable {
                     automaticErrorHandling: true,
                     upgradePipelineHandler: { channel, req in
                         
-                        let configs = PMCE.PMCEConfig.configsFrom(headers: req.headers)
+                        let clientServerConfigs = PMCE.PMCEConfig.configsFrom(headers: req.headers)
                         
-                        if let deflateConfig = configs.first {
-                            
-                            let config = WebSocket.Configuration(withDeflateConfig: deflateConfig)
-                        
+                        if let config = clientServerConfigs.first {
+                            guard let cc = config.client else {
+                                return WebSocket.client(on: channel,
+                                                        config: .init(clientConfig: self.configuration),
+                                                        onUpgrade: onUpgrade)
+                            }
                             return WebSocket.client(on: channel,
-                                                    config: config,
+                                                    config: .init(withPMCEConfig: cc),
                                                     onUpgrade: onUpgrade)
                         }else {
                             return WebSocket.client(on: channel,

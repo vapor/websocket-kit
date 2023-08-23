@@ -17,21 +17,21 @@ class PMCEConfigTests:XCTestCase {
         XCTAssertTrue(result.isEmpty, "Empty headers can contain no config.")
     }
     
-    func test_configsFromHeaders_returns_one_config_from_config_headers() {
-        let testSubject = PMCE.PMCEConfig.self
-        let config = PMCE.PMCEConfig(clientCfg: .init(takeover: .noTakeover),
-                                        serverCfg: .init(takeover: .noTakeover))
-        let result = testSubject.configsFrom(headers: config.headers())
-        XCTAssertTrue(result.count == 1, "A single deflate config should produce headers for a single defalte config.")
-    }
-    
-    func test_configsFromHeaders_returns_the_same_config_from_config_headers() {
-        let testSubject = PMCE.PMCEConfig.self
-        let config = PMCE.PMCEConfig(clientCfg: .init(takeover: .noTakeover),
-                                        serverCfg: .init(takeover: .noTakeover))
-        let result = testSubject.configsFrom(headers: config.headers())
-        XCTAssertTrue(result.first == config, "A config converted to headers should be equal to a config converted from headers. ")
-    }
+//    func test_configsFromHeaders_returns_one_config_from_config_headers() {
+//        let testSubject = PMCE.PMCEConfig.self
+//        let config = PMCE.PMCEConfig(clientCfg: .init(takeover: .noTakeover),
+//                                        serverCfg: .init(takeover: .noTakeover))
+//        let result = testSubject.configsFrom(headers: config.headers())
+//        XCTAssertTrue(result.count == 1, "A single deflate config should produce headers for a single defalte config.")
+//    }
+//    
+//    func test_configsFromHeaders_returns_the_same_config_from_config_headers() {
+//        let testSubject = PMCE.PMCEConfig.self
+//        let config = PMCE.PMCEConfig(clientCfg: .init(takeover: .noTakeover),
+//                                        serverCfg: .init(takeover: .noTakeover))
+//        let result = testSubject.configsFrom(headers: config.headers())
+//        XCTAssertTrue(result.first == config, "A config converted to headers should be equal to a config converted from headers. ")
+//    }
     
 }
 

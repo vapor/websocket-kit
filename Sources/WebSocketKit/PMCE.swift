@@ -7,45 +7,96 @@ import NIOCore
 import NIOConcurrencyHelpers
 import Logging
 	
-/// I'd like to evenually abstract out a more general websocket extension interface.
-public protocol PMCEZlibConfiguration: Codable, Equatable,
-                                       Sendable, CustomDebugStringConvertible  {
-    var memLevel:Int32 {get set}
-    var compressionLevel:Int32 {get set}
-}
-
 public final class PMCE: Sendable {
     
     private let logger = Logger(label: "PMCE")
     
     /// Configures sending and receiving compressed data with DEFLATE.
     public struct PMCEConfig: Sendable {
-        private static let logger = Logger(label: "PMCE")
-
-        /// Configures the server side of deflate.
+        
+        private static let logger = Logger(label: "PMCEConfig")
+        
         public struct DeflateConfig: Sendable {
             
-            /// Whether the server reuses the compression window acorss messages (takes over context) or not.
-            public let takeover: ContextTakeoverMode
+            public struct AgreedParameters:Sendable {
+                /// Whether the server reuses the compression window acorss messages (takes over context) or not.
+                public let takeover: ContextTakeoverMode
+                
+                /// The max size of the window in bits.
+                public let maxWindowBits: UInt8?
+                
+                init(takeover:ContextTakeoverMode? = .takeover,
+                     maxWindowBits:UInt8? = 15) {
+                    self.takeover = takeover!
+                    self.maxWindowBits = maxWindowBits
+                }
+                
+            }
             
-            /// The max size of the window in bits.
-            public let maxWindowBits: UInt8?
+            /// Configures zlib with more granularity.
+            public struct ZlibConf: CustomDebugStringConvertible, Sendable {
+                
+                public var debugDescription: String {
+                    "ZlibConf{\(memLevel), \(compressionLevel)}"
+                }
+                
+                /// Convenience members for common combinations of resource allocation.
+                public static let maxRamMaxComp:ZlibConf = .init(memLevel: 9, compLevel: 9)
+                public static let maxRamMidComp:ZlibConf = .init(memLevel: 9, compLevel: 5)
+                public static let maxRamMinComp:ZlibConf = .init(memLevel: 9, compLevel: 1)
+                
+                public static let midRamMinComp:ZlibConf = .init(memLevel: 5, compLevel: 1)
+                public static let midRamMidComp:ZlibConf = .init(memLevel: 5, compLevel: 5)
+                public static let midRamMaxComp:ZlibConf = .init(memLevel: 5, compLevel: 9)
+                
+                public static let minRamMinComp:ZlibConf = .init(memLevel: 1, compLevel: 5)
+                public static let minRamMidComp:ZlibConf = .init(memLevel: 1, compLevel: 1)
+                public static let minRamMaxComp:ZlibConf = .init(memLevel: 1, compLevel: 9)
+
+                /// Common combinations of memory and compression allocation.
+                public static func commonConfigs() -> [ZlibConf] {
+                    [
+                       midRamMaxComp, midRamMidComp, midRamMinComp,
+                       minRamMaxComp, minRamMinComp, minRamMinComp,
+                       maxRamMaxComp, maxRamMidComp, maxRamMinComp
+                    ]
+                }
+                
+                public static func defaultConfig() -> ZlibConf {
+                    .midRamMidComp
+                }
+                ///
+                public var memLevel:Int32
+                
+                public var compressionLevel:Int32
+                
+                public init(memLevel:Int32, compLevel:Int32) {
+                    assert( (-1...9).contains(compLevel),
+                            "compLevel must be -1(default)...9 ")
+                    assert( (1...9).contains(memLevel),
+                            "memLevel must be 1...9 ")
+                    self.memLevel = memLevel
+                    self.compressionLevel = compLevel
+                }
+            }
+            
+            /// These are negotiated.
+            public let agreedParams:AgreedParameters
             
             /// Zlib options not found in RFC-7692 for deflate.
-            public let zlibConfig: any PMCEZlibConfiguration
+            public let zlibConfig:ZlibConf
 
-            public init(takeover:ContextTakeoverMode,
-                        maxWindowBits:UInt8 = 15,
+            public init(agreedParams:AgreedParameters,
                         zlib:ZlibConf = .midRamMidComp) {
                 
-                assert((9...15).contains(maxWindowBits),
+                assert((9...15).contains(agreedParams.maxWindowBits!),
                        "Window size must be between the values 9 and 15")
-                self.takeover = takeover
-                self.maxWindowBits = maxWindowBits
+               
+                self.agreedParams = agreedParams
                 self.zlibConfig = zlib
             }
         }
-
+       
         private static let _logging:NIOLockedValueBox<Bool> = .init(true)
         
         /// Enables some logging since I dont have a Logger.
@@ -66,27 +117,21 @@ public final class PMCE: Sendable {
         public static let pmceName = "permessage-deflate"
         
         /// Represents the states for using the same compression window across messages or not.
-        public enum ContextTakeoverMode:String, Codable, CaseIterable, Sendable
-        {
+        public enum ContextTakeoverMode:String, Codable, CaseIterable, Sendable {
             case takeover
             case noTakeover
         }
         
-        /// Holds the client side config.
-        public let clientConfig:DeflateConfig
-        
-        /// Holds the server side config.
-        public let serverConfig:DeflateConfig
+        /// Holds the  config.
+        public let deflateConfig:DeflateConfig
         
         private typealias ConfArgs = (sto:ContextTakeoverMode,
                                       cto: ContextTakeoverMode,
                                       sbits: UInt8?,
-                                      cbits: UInt8?,
-                                      sml: Int32?,
-                                      cml: Int32?,
-                                      scl: Int32?,
-                                      ccl: Int32?)
-
+                                      cbits: UInt8?)
+        
+        public typealias ClientServerConfig = (client:PMCEConfig?, server:PMCEConfig?)
+        
         private var paddingOctets:[Int] {
              [0x00, 0x00, 0xff, 0xff].map({
                 Int(bitPattern: $0)
@@ -94,32 +139,32 @@ public final class PMCE: Sendable {
              )
         }
 
-        /// Will init an array of DeflateConfigs from parsed header values if possible.
-        public static func configsFrom(headers:HTTPHeaders) -> [PMCEConfig] {
+        /// Will init an array of ClientServerConfigs from parsed header values if possible.
+        public static func configsFrom(headers:HTTPHeaders) -> [ClientServerConfig] {
             if logging {
-                logger.debug("getting configs from \(headers)")
+                logger.trace("getting configs from \(headers)")
             }
             
             if let wsx = headers.first(name: wsxtHeader)
             {
-                return offers(in:wsx).compactMap({config(from:$0)})
+                return offers(in: wsx).compactMap({config(from: $0)})
             }
             else {
                 if logging {
                     PMCEConfig.logger.error("Tried to init a PMCE config with headers that do not contain the Sec-Websocket-Extensions key")
                 }
-                return [PMCEConfig]()
+                return [ClientServerConfig]()
             }
         }
         
         /// Finds pmce offers in a header value string.
         private static func offers(in headerValue:String) -> [Substring] {
-            logger.debug("headerValue \(headerValue)")
+            logger.trace("headerValue \(headerValue)")
             return headerValue.split(separator: ",")
         }
         
         /// Creates a config from an offer substring.
-        private static func config(from offer:Substring) -> PMCEConfig? {
+        private static func config(from offer: Substring) -> ClientServerConfig {
 
             // settings in an offer are split with ;
             let settings = offer.split(separator:";")
@@ -128,30 +173,28 @@ public final class PMCE: Sendable {
                                     "permessage-deflate"
             })
             
-            var arg = ConfArgs(.takeover, .takeover, nil, nil, nil, nil, nil, nil)
+            var arg = ConfArgs(.takeover, .takeover, nil, nil)
             
             for (_,setting) in settings.enumerated() {
                 let setting = setting
                 arg = self.arg(from: setting,
                                into: &arg)
             }
-            logger.debug("Offer \(offer)")
-            logger.debug("arg \(arg)")
+            logger.trace("Offer \(offer)")
+            logger.trace("arg \(arg)")
             
-            /// TODO client and server zlib from xt
+            let agreedClient = DeflateConfig.AgreedParameters(takeover:  arg.cto,
+                                                maxWindowBits: arg.cbits ?? 15)
+                
+            let agreedServer = DeflateConfig.AgreedParameters(takeover: arg.sto,
+                                                maxWindowBits: arg.sbits ?? 15)
             
-            let cz = ZlibConf(memLevel: arg.cml ?? 5, compLevel: arg.ccl ?? 5)
-            let sz = ZlibConf(memLevel: arg.sml ?? 5, compLevel: arg.scl ?? 5)
+          
             
-            let client = DeflateConfig(takeover: arg.cto,
-                                       maxWindowBits: arg.cbits ?? 15,
-                                       zlib: cz)
-            let server = DeflateConfig(takeover: arg.sto,
-                                       maxWindowBits: arg.sbits ?? 15,
-                                       zlib: sz)
-            
-            return PMCEConfig(clientCfg: client,
-                              serverCfg: server)
+            return (client:PMCEConfig(config: DeflateConfig(agreedParams: agreedClient,
+                                                     zlib: .midRamMidComp)),
+                    server:PMCEConfig(config: DeflateConfig(agreedParams: agreedServer,
+                                                     zlib: .midRamMidComp)) )
         }
         
         /// Extracts the arg from a setting substring into foo returning foo.
@@ -198,59 +241,6 @@ public final class PMCE: Sendable {
                 else if sane == DeflateHeaderParams.snct {
                     foo.sto = .noTakeover
                 }
-                else if sane == ZlibHeaderParams.server_cmp_level {
-                    if let arg = splits.last {
-                        let trimmed = arg.replacingOccurrences(of: "\"",
-                                                               with: "")
-                        foo.scl = Int32(trimmed)
-                    }
-                    else
-                    {
-                        if logging {
-                            PMCEConfig.logger.trace("no arg for server_cmp_level")
-                        }
-                    }
-                }
-                else if sane == ZlibHeaderParams.server_mem_level {
-                    if let arg = splits.last {
-                        let trimmed = arg.replacingOccurrences(of: "\"",
-                                                               with: "")
-                     
-                        foo.sml = Int32(trimmed)
-                    }
-                    else
-                    {
-                        if logging {
-                            PMCEConfig.logger.trace("no arg for server_mem_level")
-                        }
-                    }
-                }
-                else if sane == ZlibHeaderParams.client_cmp_level {
-                    if let arg = splits.last {
-                        let trimmed = arg.replacingOccurrences(of: "\"",
-                                                               with: "")
-                        foo.ccl = Int32(trimmed)
-                    }
-                    else
-                    {
-                        if logging {
-                            PMCEConfig.logger.trace("no arg for server_cmp_level")
-                        }
-                    }
-                }
-                else if sane == ZlibHeaderParams.client_mem_level {
-                    if let arg = splits.last {
-                        let trimmed = arg.replacingOccurrences(of: "\"",
-                                                               with: "")
-                        foo.cml = Int32(trimmed)
-                    }
-                    else
-                    {
-                        if logging {
-                            PMCEConfig.logger.trace("no arg for client_mem_level")
-                        }
-                    }
-                }
                 else if first == "permessage-deflate" {
                     if logging {
                         PMCEConfig.logger.error("oops something didnt parse.")
@@ -281,25 +271,13 @@ public final class PMCE: Sendable {
             static let smwb = "server_max_window_bits"
         }
         
-        @available(*, deprecated, message: "No longer needed with discovered API")
-        /// Defines the strings for extended parameters not defined in the RFC.
-        public struct ZlibHeaderParams {
-            static let server_mem_level = "sml"
-            static let server_cmp_level = "scl"
-            static let client_mem_level = "cml"
-            static let client_cmp_level = "ccl"
-        }
-        
         /// Creates a new PMCE config.
         ///  PMCE config speccifies both sides of the exchange.
         /// clientCfg : a ClientConfig
         /// serverCfg: a ServerConfig
-        public init(clientCfg: DeflateConfig,
-                    serverCfg: DeflateConfig,
+        public init(config: DeflateConfig,
                     logging:Bool  = false) {
-            self.clientConfig = clientCfg
-            self.serverConfig = serverCfg
-
+            self.deflateConfig = config
         }
         
         /// Creates HTTPHeaders to represent this config.
@@ -314,31 +292,31 @@ public final class PMCE: Sendable {
         public func headerParams(isQuoted:Bool = false) -> String {
             var built = ""
             
-            switch clientConfig.takeover {
+            switch deflateConfig.agreedParams.takeover {
             case .noTakeover:
                 built += DeflateHeaderParams.cnct + ";"
             case .takeover:
                 built += ""
             }
             
-            if clientConfig.maxWindowBits != nil {
+            if deflateConfig.agreedParams.maxWindowBits != nil {
                 built += DeflateHeaderParams.cmwb + (isQuoted ?
-                                              "=\"\(clientConfig.maxWindowBits!)\"" :
-                                                "=\(clientConfig.maxWindowBits!);")
+                                                     "=\"\(deflateConfig.agreedParams.maxWindowBits!)\"" :
+                                                        "=\(deflateConfig.agreedParams.maxWindowBits!);")
             }
             
-            switch serverConfig.takeover {
+            switch deflateConfig.agreedParams.takeover {
             case .noTakeover:
                 built += DeflateHeaderParams.snct + ";"
             case .takeover:
                 built += ""
             }
             
-            if serverConfig.maxWindowBits != nil {
+            if deflateConfig.agreedParams.maxWindowBits != nil {
                 
                 built += DeflateHeaderParams.smwb + (isQuoted ?
-                                              "=\"\(serverConfig.maxWindowBits!)\"" :
-                                                "=\(serverConfig.maxWindowBits!);")
+                                                     "=\"\(deflateConfig.agreedParams.maxWindowBits!)\"" :
+                                                        "=\(deflateConfig.agreedParams.maxWindowBits!);")
             }
 
             if built.last == ";" {
@@ -349,78 +327,27 @@ public final class PMCE: Sendable {
             }
         }
         
-        /// Uses config options to determine if context should be reused (taken over) or reset after each message.
-        public func shouldTakeOverContext(isServer:Bool) -> Bool {
-            var contextTakeOver = false
-            
-            switch isServer {
-           
-            case true:
-            print("server taking context")
-                contextTakeOver = self.serverConfig.takeover == .takeover
-                
-            case false:
-            print("client taking context")
-                contextTakeOver = self.clientConfig.takeover == .takeover
-            }
-            return contextTakeOver
-        }
+     
     }
     
-    // is memLevel here the same was the window size? i think so now.
-    /// Configures zlib with more granularity.
-    public struct ZlibConf: PMCEZlibConfiguration, CustomDebugStringConvertible {
+    /// MARK
+    /// Uses config options to determine if context should be reused (taken over) or reset after each message.
+    public func shouldTakeOverContext() -> Bool {
+        var contextTakeOver = false
         
-        public var debugDescription: String {
-            "ZlibConf{\(memLevel), \(compressionLevel)}"
-        }
-        
-        /// Convenience members for common combinations of resource allocation.
-        public static let maxRamMaxComp:ZlibConf = .init(memLevel: 9, compLevel: 9)
-        public static let maxRamMidComp:ZlibConf = .init(memLevel: 9, compLevel: 5)
-        public static let maxRamMinComp:ZlibConf = .init(memLevel: 9, compLevel: 1)
-        
-        public static let midRamMinComp:ZlibConf = .init(memLevel: 5, compLevel: 1)
-        public static let midRamMidComp:ZlibConf = .init(memLevel: 5, compLevel: 5)
-        public static let midRamMaxComp:ZlibConf = .init(memLevel: 5, compLevel: 9)
-        
-        public static let minRamMinComp:ZlibConf = .init(memLevel: 1, compLevel: 5)
-        public static let minRamMidComp:ZlibConf = .init(memLevel: 1, compLevel: 1)
-        public static let minRamMaxComp:ZlibConf = .init(memLevel: 1, compLevel: 9)
+        switch extendedSocketType {
+        case .server:
+            return serverConfig.deflateConfig.agreedParams.takeover == .takeover
 
-        /// Common combinations of memory and compression allocation.
-        public static func commonConfigs() -> [ZlibConf] {
-            [
-               midRamMaxComp, midRamMidComp, midRamMinComp,
-               minRamMaxComp, minRamMinComp, minRamMinComp,
-               maxRamMaxComp, maxRamMidComp, maxRamMinComp
-            ]
+        case .client:
+            return clientConfig.deflateConfig.agreedParams.takeover == .takeover
+
         }
-        
-        public static func defaultConfig() -> ZlibConf {
-            .midRamMidComp
-        }
-        ///
-        public var memLevel:Int32
-        
-        public var compressionLevel:Int32
-        
-        public init(memLevel:Int32, compLevel:Int32) {
-            assert( (-1...9).contains(compLevel),
-                    "compLevel must be -1(default)...9 ")
-            assert( (1...9).contains(memLevel),
-                    "memLevel must be 1...9 ")
-            self.memLevel = memLevel
-            self.compressionLevel = compLevel
-        }
+        return contextTakeOver
     }
     
     /// PMCE settings are under this header as defined in RFC-7692.
     public static let wsxtHeader = "Sec-WebSocket-Extensions"
-    
-    @available(*, deprecated, message: "No longer needed with discovered API")
-    /// More granuålar control over Zlib memory level and compression
-    public static let xwsxHeader = "X-pmce-z"
     
     // Box for compressor to conform to Sendable
     private let compressorBox:NIOLoopBoundBox<NIOCompressor?>
@@ -459,6 +386,7 @@ public final class PMCE: Sendable {
         set {
             _enabled.withLockedValue { v in
                 v = newValue
+                logger.debug("enabled: \(v)")
             }
         }
     }
@@ -469,36 +397,43 @@ public final class PMCE: Sendable {
         2^Int32(bits)
     }
   
-    /// Represents the alg of pmce used with the PMCE struct.
+    /// Represents the strategy of pmce used with the PMCE struct.
     /// Currentonly only permessage-deflate is supported.
-    public let config: PMCEConfig
+    public let serverConfig: PMCEConfig
+    public let clientConfig: PMCEConfig
     
-    public init(config: PMCEConfig,
+    public init(clientConfig: PMCEConfig,
+                serverConfig: PMCEConfig,
                 channel: Channel,
                 socketType: WebSocket.PeerType) {
         
-        self.config = config
+        self.clientConfig = clientConfig
+        self.serverConfig = serverConfig
+        
         self.channel = channel
         self.extendedSocketType = socketType
         
         self._enabled = NIOLockedValueBox(true)
         self._logging = NIOLockedValueBox(true)
+        
+        // i think this is where the client comp configs the server decomp
+        // and the server comp configs the client decomp
         logger.debug("extending ...")
         switch extendedSocketType {
         case .server:
             logger.debug("server")
 
-            let winSize = PMCE.sizeFor(bits: config.serverConfig.maxWindowBits ?? 15)
+            let winSize = PMCE.sizeFor(bits: serverConfig.deflateConfig.agreedParams.maxWindowBits ?? 15)
             logger.debug("window size: \(winSize)")
             
             let zscConf = ZlibConfiguration(windowSize: winSize,
-                                            compressionLevel: config.serverConfig.zlibConfig.compressionLevel,
-                                            memoryLevel: config.serverConfig.zlibConfig.memLevel,
+                                            compressionLevel: serverConfig.deflateConfig.zlibConfig.compressionLevel,
+                                            memoryLevel: serverConfig.deflateConfig.zlibConfig.memLevel,
                                           strategy: .huffmanOnly)
             
             let zsdConf = ZlibConfiguration(windowSize: winSize,
-                                            compressionLevel: config.serverConfig.zlibConfig.compressionLevel,
-                                            memoryLevel: config.serverConfig.zlibConfig.memLevel,
+                                            compressionLevel: serverConfig.deflateConfig.zlibConfig.compressionLevel,
+                                            memoryLevel: serverConfig.deflateConfig.zlibConfig.memLevel,
                                           strategy: .huffmanOnly)
             self.compressorBox = NIOLoopBoundBox(CompressionAlgorithm.deflate(configuration: zscConf).compressor,
                                                  eventLoop: channel.eventLoop)
@@ -509,17 +444,17 @@ public final class PMCE: Sendable {
         case .client:
             logger.debug("client")
 
-            let winSize = PMCE.sizeFor(bits: config.clientConfig.maxWindowBits ?? 15)
+            let winSize = PMCE.sizeFor(bits: clientConfig.deflateConfig.agreedParams.maxWindowBits ?? 15)
             logger.debug("window size: \(winSize)")
 
             let zccConf = ZlibConfiguration(windowSize: winSize,
-                                            compressionLevel: config.clientConfig.zlibConfig.compressionLevel,
-                                            memoryLevel: config.clientConfig.zlibConfig.memLevel,
+                                            compressionLevel: clientConfig.deflateConfig.zlibConfig.compressionLevel,
+                                            memoryLevel: clientConfig.deflateConfig.zlibConfig.memLevel,
                                           strategy: .huffmanOnly)
             
             let zcdConf = ZlibConfiguration(windowSize: winSize,
-                                            compressionLevel: config.clientConfig.zlibConfig.compressionLevel,
-                                            memoryLevel: config.clientConfig.zlibConfig.memLevel,
+                                            compressionLevel: clientConfig.deflateConfig.zlibConfig.compressionLevel,
+                                            memoryLevel: clientConfig.deflateConfig.zlibConfig.memLevel,
                                           strategy: .huffmanOnly)
 
             self.compressorBox = NIOLoopBoundBox(CompressionAlgorithm.deflate(configuration: zccConf).compressor,
@@ -572,7 +507,7 @@ public final class PMCE: Sendable {
         guard let channel = channel else {
             throw IOError(errnoCode: 0, reason: "PMCE: channel not configured.")
         }
-        let notakeover = !config.shouldTakeOverContext(isServer: extendedSocketType == .server)
+        let notakeover = !shouldTakeOverContext()
 
         let startSize = buffer.readableBytes
         
@@ -607,9 +542,9 @@ public final class PMCE: Sendable {
                 logger.debug("compressed \(startSize) to \(endSize) bytes @ \(startSize / endSize) ratio from")
                 switch extendedSocketType {
                 case .server:
-                    logger.debug(" \(config.serverConfig.zlibConfig)")
+                    logger.debug(" \(serverConfig.deflateConfig.zlibConfig)")
                 case .client:
-                    logger.debug(" \(config.clientConfig.zlibConfig)")
+                    logger.debug(" \(clientConfig.deflateConfig.zlibConfig)")
                 }
                 
                 logger.debug("in \(startTime.distance(to: endTime))")
@@ -663,7 +598,7 @@ public final class PMCE: Sendable {
         guard let channel = channel else {
             throw IOError(errnoCode: 0, reason: "PMCE: channel not configured.")
         }
-        let takeover = config.shouldTakeOverContext(isServer: extendedSocketType == .server)
+        let takeover = shouldTakeOverContext()
 
         let startTime = Date()
         
@@ -673,7 +608,7 @@ public final class PMCE: Sendable {
         if logging {
             logger.debug("PMCE: decompressing  \(startSize) bytes for \(frame.opcode)")
         }
-        logger.debug("PMCE: config: \(config)")
+        logger.debug("PMCE: config: \(serverConfig) \(clientConfig)")
         
         if takeover {
             logger.debug("should unpad message")
@@ -692,12 +627,8 @@ public final class PMCE: Sendable {
             let endSize = decompressed.readableBytes
             
             logger.debug("deompressed \(startSize) to \(endSize) bytes @ \(endSize/startSize) ratio from")
-            switch extendedSocketType {
-            case .server:
-                logger.debug(" \(config.serverConfig.zlibConfig)")
-            case .client:
-                logger.debug(" \(config.clientConfig.zlibConfig)")
-            }
+            logger.debug(" \(serverConfig.deflateConfig.zlibConfig) \(clientConfig.deflateConfig.zlibConfig)")
+
             
             logger.debug("in \(startTime.distance(to: endTime))")
         }
@@ -803,7 +734,8 @@ extension PMCE: CustomStringConvertible {
         """
         enabled : \(enabled),
         extendedSocketType : \(self.extendedSocketType),
-        config : \(config),
+        serverConfig : \(serverConfig),
+        clientConfig : \(clientConfig)
         """
     }
 }
@@ -817,7 +749,7 @@ extension PMCE.PMCEConfig: Equatable {
 
 extension PMCE.PMCEConfig: CustomDebugStringConvertible {
     public var debugDescription: String {
-        "PMCEConfig {client:\(clientConfig)\nserver:\(serverConfig)}"
+        "PMCEConfig {config:\(deflateConfig)}"
     }
 }
 
@@ -825,8 +757,8 @@ extension PMCE.PMCEConfig: CustomStringConvertible {
     public var description: String {
         """
         PMCEConfig {
-          client : \(self.clientConfig.debugDescription),
-          server : \(self.serverConfig.debugDescription)
+          \(self.deflateConfig.debugDescription)
+        }
         """
     }
 }
@@ -835,8 +767,8 @@ extension PMCE.PMCEConfig.DeflateConfig: Equatable {
     
     public static func == (lhs: PMCE.PMCEConfig.DeflateConfig,
                            rhs: PMCE.PMCEConfig.DeflateConfig) -> Bool {
-        return lhs.takeover == rhs.takeover &&
-        lhs.maxWindowBits == rhs.maxWindowBits &&
+        return lhs.agreedParams.takeover == rhs.agreedParams.takeover &&
+        lhs.agreedParams.maxWindowBits == rhs.agreedParams.maxWindowBits &&
         (lhs.zlibConfig.compressionLevel == rhs.zlibConfig.compressionLevel ) &&
         (lhs.zlibConfig.memLevel == rhs.zlibConfig.memLevel )
     }
@@ -845,14 +777,14 @@ extension PMCE.PMCEConfig.DeflateConfig: Equatable {
 
 extension PMCE.PMCEConfig.DeflateConfig: CustomDebugStringConvertible {
     public var debugDescription: String {
-        "DeflateConfig {takeOver:\(takeover.rawValue.debugDescription), maxWindowBits:\(maxWindowBits.debugDescription)\nzlib:\(zlibConfig.debugDescription)}"
+        "DeflateConfig {agreedParams:\(agreedParams), zlib:\(zlibConfig)}"
     }
 }
 
 extension PMCE.PMCEConfig.DeflateConfig: CustomStringConvertible {
     public var description: String {
         """
-        takeOver : \(takeover), windowBits : \(String(describing: maxWindowBits)),
+        agreedParams : \(agreedParams),
         zlib : \(zlibConfig)
         """
     }

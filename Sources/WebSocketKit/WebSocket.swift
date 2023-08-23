@@ -64,9 +64,7 @@ public final class WebSocket: Sendable {
         self._pingInterval = .init(nil)
         
         if let p = pmce {
-            self.pmce = PMCE(config: p.config,
-                             channel: channel,
-                             socketType: type)
+            self.pmce = p
         }else {
             self.pmce = nil
         }

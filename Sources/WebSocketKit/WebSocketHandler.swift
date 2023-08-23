@@ -17,27 +17,27 @@ extension WebSocket {
         
         /// Enables PMCE if present. Defaults to 'nil'
         /// See`PMCE` for details.
-        public var deflateConfig: PMCE.PMCEConfig? = nil
+        public var pmceConfig: PMCE.PMCEConfig? = nil
         
-        public init(withDeflateConfig deflateConfig:PMCE.PMCEConfig) {
+        public init(withPMCEConfig config:PMCE.PMCEConfig) {
             self.minNonFinalFragmentSize = 0
             self.maxAccumulatedFrameCount = Int.max
             self.maxAccumulatedFrameSize = Int.max
-            self.deflateConfig = deflateConfig
+            self.pmceConfig = config
         }
         
         public init() {
             self.minNonFinalFragmentSize = 0
             self.maxAccumulatedFrameCount = Int.max
             self.maxAccumulatedFrameSize = Int.max
-            self.deflateConfig = nil
+            self.pmceConfig = nil
         }
 
         internal init(clientConfig: WebSocketClient.Configuration) {
             self.minNonFinalFragmentSize = clientConfig.minNonFinalFragmentSize
             self.maxAccumulatedFrameCount = clientConfig.maxAccumulatedFrameCount
             self.maxAccumulatedFrameSize = clientConfig.maxAccumulatedFrameSize
-            self.deflateConfig = clientConfig.pmceConfig
+            self.pmceConfig = clientConfig.pmceConfig
         }
     }
 
@@ -111,10 +111,11 @@ extension WebSocket {
         
         let webSocket:WebSocket
         
-        if let deflate = config.deflateConfig {
+        if let deflate = config.pmceConfig {
             webSocket = WebSocket(channel: channel,
                                   type: type,
-                                  pmce: PMCE(config: deflate,
+                                  pmce: PMCE(clientConfig: deflate,
+                                             serverConfig: deflate,
                                              channel: channel,
                                              socketType: type))
         }else {
