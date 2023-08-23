@@ -161,25 +161,10 @@ public final class WebSocketClient: Sendable {
                     automaticErrorHandling: true,
                     upgradePipelineHandler: { channel, req in
                         
-                        let clientServerConfigs = PMCE.PMCEConfig.configsFrom(headers: req.headers)
-                        
-                        if let config = clientServerConfigs.first {
-                            guard let cc = config.client else {
-                                self.logger.trace("no client config in headers.")
-                                return WebSocket.client(on: channel,
-                                                        config: .init(clientConfig: self.configuration),
-                                                        onUpgrade: onUpgrade)
-                            }
-                            self.logger.trace("using \(cc) client config")
-                            return WebSocket.client(on: channel,
-                                                    config: .init(withPMCEConfig: cc),
-                                                    onUpgrade: onUpgrade)
-                        }else {
-                            self.logger.trace("no client-server config in headers.")
+                      
                             return WebSocket.client(on: channel,
                                                     config: .init(clientConfig: self.configuration),
                                                     onUpgrade: onUpgrade)
-                        }
                     }
                 )
 
