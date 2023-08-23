@@ -25,7 +25,7 @@ public final class PMCE: Sendable {
                 /// The max size of the window in bits.
                 public let maxWindowBits: UInt8?
                 
-                init(takeover:ContextTakeoverMode? = .takeover,
+                public init(takeover:ContextTakeoverMode? = .takeover,
                      maxWindowBits:UInt8? = 15) {
                     self.takeover = takeover!
                     self.maxWindowBits = maxWindowBits
