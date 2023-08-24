@@ -202,10 +202,9 @@ public final class WebSocket: Sendable {
         fin: Bool = true,
         promise: EventLoopPromise<Void>? = nil
     ) {
-        // using compression ?
-        if let p = pmce, p.enabled {
+        if let p = pmce,
+               p.enabled {
             do {
-                // create compressed frame and send it
                 let compressedFrame = try p.compressed(data, fin:fin, opCode: opcode)
                 self.channel.writeAndFlush(compressedFrame, promise: promise)
             }
@@ -214,10 +213,9 @@ public final class WebSocket: Sendable {
             }
         }
         else {
-            // or not.
             let frame = WebSocketFrame(
                 fin: fin,
-                rsv1:false, // denotes not compressed
+                rsv1:false,
                 opcode: opcode,
                 maskKey: self.makeMaskKey(), // auto masks out send if type is client
                 data: data
@@ -336,7 +334,6 @@ public final class WebSocket: Sendable {
                    pmce.enabled {
                
                 do {
-                    // decompress the frame data into a new frame.
                     let newFrame:WebSocketFrame
                     if frame.maskKey != nil {
                         let unmasked = pmce.unmasked(frame: frame)
@@ -359,7 +356,7 @@ public final class WebSocket: Sendable {
             else if frame.rsv1 && pmce == nil {
                 
                 if pmce?.logging ?? false {
-                    logger.error("received compressed frame without PMCE configured! Closing per RFC-7692. You could have a configuration issue.")
+                    logger.error("received compressed frame without PMCE configured! Closing per RFC-7692. You could have a configuration issue or something went wrong with PMCE negotiation.")
                 }
                 self.close(code: .protocolError, promise: nil)
 

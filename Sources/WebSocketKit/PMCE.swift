@@ -6,7 +6,8 @@ import Foundation
 import NIOCore
 import NIOConcurrencyHelpers
 import Logging
-	
+
+/// The PMCE class coordinates compression and decompression.
 public final class PMCE: Sendable {
     
     private let logger = Logger(label: "PMCE")
@@ -130,7 +131,8 @@ public final class PMCE: Sendable {
                                       sbits: UInt8?,
                                       cbits: UInt8?)
         
-        public typealias ClientServerPMCEConfig = (client:PMCEConfig?, server:PMCEConfig?)
+        public typealias ClientServerPMCEConfig = (client:PMCEConfig?,
+                                                   server:PMCEConfig?)
         
         private var paddingOctets:[Int] {
              [0x00, 0x00, 0xff, 0xff].map({
@@ -142,7 +144,7 @@ public final class PMCE: Sendable {
         /// Will init an array of ClientServerConfigs from parsed header values if possible.
         public static func configsFrom(headers:HTTPHeaders) -> [ClientServerPMCEConfig] {
             if logging {
-                logger.trace("getting configs from \(headers)")
+                logger.trace("getting configs from \(headers) ...")
             }
             
             if let wsx = headers.first(name: wsxtHeader)
@@ -151,9 +153,8 @@ public final class PMCE: Sendable {
             }
             else {
                 if logging {
-                    PMCEConfig.logger.error("Tried to init a PMCE config with headers that do not contain the Sec-Websocket-Extensions key")
+                    logger.trace("no configs found ...")
                 }
-                
                 return [ClientServerPMCEConfig]()
             }
         }
@@ -290,7 +291,7 @@ public final class PMCE: Sendable {
         }
                 
         /// Creates header parameters for the Sec-WebSocket-Extensions header from the config.
-        public func headerParams(isQuoted:Bool = false) -> String {
+        private func headerParams(isQuoted:Bool = false) -> String {
             var built = ""
             
             switch deflateConfig.agreedParams.takeover {
@@ -331,10 +332,8 @@ public final class PMCE: Sendable {
      
     }
     
-    /// MARK
     /// Uses config options to determine if context should be reused (taken over) or reset after each message.
     public func shouldTakeOverContext() -> Bool {
-        var contextTakeOver = false
         
         switch extendedSocketType {
         case .server:
@@ -344,7 +343,6 @@ public final class PMCE: Sendable {
             return clientConfig.deflateConfig.agreedParams.takeover == .takeover
 
         }
-        return contextTakeOver
     }
     
     /// PMCE settings are under this header as defined in RFC-7692.
@@ -377,6 +375,9 @@ public final class PMCE: Sendable {
     }
     private let _logging:NIOLockedValueBox<Bool>
 
+    ///TODO: this hsld be tested, kinda needs to live on the config instead perhaps
+    /// as it should be consulted before adding headers in the handshake.
+    ///
     /// This allows a server socket that has PMCE available to optionaly use it or not; So a compressed server can still talk uncompressed.
     public var enabled:Bool {
         get {
@@ -506,8 +507,6 @@ public final class PMCE: Sendable {
         
 
     }
-
-
 
     /// websocket send calls this to compress.
     public func compressed(_ buffer: ByteBuffer,
@@ -661,45 +660,19 @@ public final class PMCE: Sendable {
         return newFrame
     }
 
-    public func pad(buffer:ByteBuffer) -> ByteBuffer {
+    private func pad(buffer:ByteBuffer) -> ByteBuffer {
         logger.debug("padding")
         var mutbuffer = buffer
         mutbuffer.writeBytes([0x00,0x00,0xFF,0xFF])
         return mutbuffer
     }
 
-    public func unpad(buffer:ByteBuffer) -> ByteBuffer {
+    private func unpad(buffer:ByteBuffer) -> ByteBuffer {
         logger.info("unpaddings")
         return buffer.getSlice(at: 0, length: buffer.readableBytes - 4) ?? buffer
     }
     /// websocket calls from handleIncoming as a server to handle client masked compressed frames. This was epxerimentally determined.
-    @available(*, deprecated)
-    public func unmaskedDecompressedUnamsked(frame: WebSocketFrame) throws -> WebSocketFrame {
-        
-        if logging {
-            logger.debug("PMCE: unmaksing/decomp/unmasking frame \(frame.opcode) data...")
-        }
-        logger.debug("PMCE: unmaskedData \(frame.unmaskedData)")
-        let unmaskedCompressedFrame = unmasked(frame: frame)
-        logger.debug("PMCE: unmaksed frame .data \(unmaskedCompressedFrame.unmaskedData)")
-        // decompression
-        let maskedDecompressedFrame = try self.decompressed(unmaskedCompressedFrame)
-        
-        // 2nd unmask
-        let unmaskedDecompressedFrame = unmasked(frame: maskedDecompressedFrame)
-        
-        // append this frame and update the sequence
-        let newFrame = WebSocketFrame(fin: frame.fin,
-                                      rsv1: false,
-                                      rsv2: frame.rsv2,
-                                      rsv3: frame.rsv3,
-                                      opcode: frame.opcode,
-                                      maskKey: frame.maskKey, // should this be nil
-                                      data: unmaskedDecompressedFrame.data,
-                                      extensionData: nil)
-        return newFrame
-    }
-    
+  
     // client compression uses this
     private func makeMaskKey() -> WebSocketMaskingKey? {
         switch extendedSocketType {

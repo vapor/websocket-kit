@@ -146,11 +146,14 @@ public final class WebSocketClient: Sendable {
                     }
                 }
                 
+                ///TODO need to disabe if pmce is disabled
+                /// but that state is on pmce o websocket not websocketclient
                 
+                self.logger.debug("injecting headers for \(self.configuration.pmceConfig)")
                 
                 var headers = upgradeRequestHeaders
                 if  let pmceHeaders = self.configuration.pmceConfig?.headers() {
-                    headers.add(contentsOf: pmceHeaders)
+                        headers.add(contentsOf: pmceHeaders)
                 }
 
                 let httpUpgradeRequestHandler = HTTPUpgradeRequestHandler(
@@ -167,8 +170,7 @@ public final class WebSocketClient: Sendable {
                     maxFrameSize: self.configuration.maxFrameSize,
                     automaticErrorHandling: true,
                     upgradePipelineHandler: { channel, req in
-                        self.logger.debug(" upgrader \(self.configuration.pmceConfig)")
-                        
+                    
                             return WebSocket.client(on: channel,
                                                     config: .init(clientConfig: self.configuration),
                                                     onUpgrade: onUpgrade)
