@@ -146,11 +146,18 @@ public final class WebSocketClient: Sendable {
                     }
                 }
                 
+                
+                
+                var headers = upgradeRequestHeaders
+                if  let pmceHeaders = self.configuration.pmceConfig?.headers() {
+                    headers.add(contentsOf: pmceHeaders)
+                }
+
                 let httpUpgradeRequestHandler = HTTPUpgradeRequestHandler(
                     host: host,
                     path: uri,
                     query: query,
-                    headers: upgradeRequestHeaders,
+                    headers: headers,
                     upgradePromise: upgradePromise
                 )
                 let httpUpgradeRequestHandlerBox = NIOLoopBound(httpUpgradeRequestHandler,
