@@ -76,7 +76,7 @@ public final class WebSocket: Sendable {
     private let frameSequence: NIOLockedValueBox<WebSocketFrameSequence?>
     private let _pingInterval: NIOLockedValueBox<TimeAmount?>
     
-    private let logger = Logger(label: "websocket-kit")
+    internal let logger = Logger(label: "websocket-kit")
     
     init(channel: Channel, type: PeerType) {
         self.channel = channel

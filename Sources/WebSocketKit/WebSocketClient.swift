@@ -161,6 +161,7 @@ public final class WebSocketClient: Sendable {
                     automaticErrorHandling: true,
                     upgradePipelineHandler: { channel, req in
                         self.logger.debug(" upgrader \(self.configuration.pmceConfig)")
+                        
                             return WebSocket.client(on: channel,
                                                     config: .init(clientConfig: self.configuration),
                                                     onUpgrade: onUpgrade)

@@ -112,6 +112,7 @@ extension WebSocket {
         let webSocket:WebSocket
         
         if let deflate = config.pmceConfig {
+           print("FUCKING CLASS METHODS HAVE NO LGGER deflate config \(deflate)")
             webSocket = WebSocket(channel: channel,
                                   type: type,
                                   pmce: PMCE(clientConfig: deflate,
