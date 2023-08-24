@@ -160,7 +160,7 @@ public final class PMCE: Sendable {
         }
         
         /// Finds pmce offers in a header value string.
-        private static func offers(in headerValue:String) -> [Substring] {
+        private static func offers(in headerValue: String) -> [Substring] {
             logger.trace("headerValue \(headerValue)")
             return headerValue.split(separator: ",")
         }
@@ -182,8 +182,7 @@ public final class PMCE: Sendable {
                 arg = self.arg(from: setting,
                                into: &arg)
             }
-            logger.trace("Offer \(offer)")
-            logger.trace("arg \(arg)")
+            logger.trace("Offer \(offer) arg \(arg)")
             
             let agreedClient = DeflateConfig.AgreedParameters(takeover:  arg.cto,
                                                 maxWindowBits: arg.cbits ?? 15)
@@ -243,20 +242,20 @@ public final class PMCE: Sendable {
                 else if sane == DeflateHeaderParams.snct {
                     foo.sto = .noTakeover
                 }
-                else if first == "permessage-deflate" {
+                else if first == PMCE.PMCEConfig.pmceName {
                     if logging {
-                        PMCEConfig.logger.error("oops something didnt parse.")
+                        PMCEConfig.logger.error("oops something didnt parse in \(setting).")
                     }
                 }
                 else {
                     if logging {
-                        PMCEConfig.logger.trace("unrecognized first split from setting \(setting)")
+                        PMCEConfig.logger.trace("unrecognized first split from setting \(setting). Maybe the header is malformed ?")
                     }
                 }
             }
             else {
                 
-                PMCEConfig.logger.error("couldnt parse arg; no first split @ =")
+                PMCEConfig.logger.error("couldnt parse arg; no first split @ =. Maybe header is malformed.")
             }
             return foo
         }
@@ -275,14 +274,15 @@ public final class PMCE: Sendable {
         
         /// Creates a new PMCE config.
         ///  PMCE config speccifies both sides of the exchange.
-        /// clientCfg : a ClientConfig
-        /// serverCfg: a ServerConfig
+        ///  config : a DeflateConfig
+        ///  logging: enable logging?
         public init(config: DeflateConfig,
                     logging:Bool  = false) {
             self.deflateConfig = config
         }
         
         /// Creates HTTPHeaders to represent this config.
+        /// These are part of the handshake to enable pmce.
         public func headers() -> HTTPHeaders {
             
             let params = headerParams(isQuoted: false)
@@ -290,7 +290,6 @@ public final class PMCE: Sendable {
             
         }
                 
-        /// Creates header parameters for the Sec-WebSocket-Extensions header from the config.
         private func headerParams(isQuoted:Bool = false) -> String {
             var built = ""
             
