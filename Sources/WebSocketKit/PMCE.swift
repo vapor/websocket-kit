@@ -7,12 +7,10 @@ import NIOCore
 import NIOConcurrencyHelpers
 import Logging
 
-/// The PMCE class coordinates compression and decompression.
+/// The PMCE class provides methods for exchanging compressed and decompressed frames following RFC 7692.
 public final class PMCE: Sendable {
     
-    private let logger = Logger(label: "PMCE")
-    
-    /// Configures sending and receiving compressed data with DEFLATE.
+    /// Configures sending and receiving compressed data with DEFLATE as outline in RFC 7692.
     public struct PMCEConfig: Sendable {
         
         private static let logger = Logger(label: "PMCEConfig")
@@ -133,13 +131,6 @@ public final class PMCE: Sendable {
         
         public typealias ClientServerPMCEConfig = (client:PMCEConfig?,
                                                    server:PMCEConfig?)
-        
-        private var paddingOctets:[Int] {
-             [0x00, 0x00, 0xff, 0xff].map({
-                Int(bitPattern: $0)
-             }
-             )
-        }
 
         /// Will init an array of ClientServerConfigs from parsed header values if possible.
         public static func configsFrom(headers:HTTPHeaders) -> [ClientServerPMCEConfig] {
@@ -159,13 +150,11 @@ public final class PMCE: Sendable {
             }
         }
         
-        /// Finds pmce offers in a header value string.
         private static func offers(in headerValue: String) -> [Substring] {
             logger.trace("headerValue \(headerValue)")
             return headerValue.split(separator: ",")
         }
         
-        /// Creates a config from an offer substring.
         private static func config(from offer: Substring) -> ClientServerPMCEConfig {
 
             // settings in an offer are split with ;
@@ -198,7 +187,6 @@ public final class PMCE: Sendable {
                                                      zlib: .midRamMidComp)) )
         }
         
-        /// Extracts the arg from a setting substring into foo returning foo.
         private static func arg(from setting:Substring,
                                 into foo:inout ConfArgs) -> ConfArgs {
             
@@ -273,16 +261,13 @@ public final class PMCE: Sendable {
         }
         
         /// Creates a new PMCE config.
-        ///  PMCE config speccifies both sides of the exchange.
         ///  config : a DeflateConfig
-        ///  logging: enable logging?
-        public init(config: DeflateConfig,
-                    logging:Bool  = false) {
+        public init(config: DeflateConfig) {
             self.deflateConfig = config
         }
         
         /// Creates HTTPHeaders to represent this config.
-        /// These are part of the handshake to enable pmce.
+        /// RFC 7692 has more detailed infofrmation.
         public func headers() -> HTTPHeaders {
             
             let params = headerParams(isQuoted: false)
@@ -330,8 +315,8 @@ public final class PMCE: Sendable {
         
      
     }
-    
-    /// Uses config options to determine if context should be reused (taken over) or reset after each message.
+        
+    /// Uses config options to determine if the compressor or decompressor context should be reused (taken over) or reset after each message.
     public func shouldTakeOverContext() -> Bool {
         
         switch extendedSocketType {
@@ -344,19 +329,13 @@ public final class PMCE: Sendable {
         }
     }
     
-    /// PMCE settings are under this header as defined in RFC-7692.
+    /// Header name to contain PMCE settings as defined in RFC-7692.
     public static let wsxtHeader = "Sec-WebSocket-Extensions"
     
-    // Box for compressor to conform to Sendable
-    private let compressorBox:NIOLoopBoundBox<NIOCompressor?>
-    
-    // Box for compressor to conform to Sendable.
-    private let decompressorBox:NIOLoopBoundBox<NIODecompressor?>
-    
-    /// Tells pmce how to apply the deflate config as well as how to extract per RFC-7692.
+    /// Tells PMCE how to apply the DEFLATE config as well as how to extract per RFC-7692.
     public let extendedSocketType:WebSocket.PeerType
     
-    /// The channel whose allocator to use for the compression bytebuffers and the box event loops.
+    /// The channel whose allocator to use for the compression ByteBuffers and  box event loops.
     public let channel:NIO.Channel?
     
     /// Enables/disables logging.
@@ -372,11 +351,9 @@ public final class PMCE: Sendable {
             }
         }
     }
-    private let _logging:NIOLockedValueBox<Bool>
 
-    ///TODO: this hsld be tested, kinda needs to live on the config instead perhaps
-    /// as it should be consulted before adding headers in the handshake.
-    ///
+    //this may be deprecated will drive it out in tests hopefully
+    /// prett sure the new init flows means this isnt requried. it was a first attempt when things were still more mixed up and less SRP.
     /// This allows a server socket that has PMCE available to optionaly use it or not; So a compressed server can still talk uncompressed.
     public var enabled:Bool {
         get {
@@ -391,41 +368,43 @@ public final class PMCE: Sendable {
             }
         }
     }
-    private let _enabled:NIOLockedValueBox<Bool>
 
-    // Converts windowBits to size of window.
-    private static func sizeFor(bits:UInt8) -> Int32 {
-        2^Int32(bits)
-    }
-  
-    /// Represents the strategy of pmce used with the PMCE struct.
-    /// Currentonly only permessage-deflate is supported.
+    /// Represents the strategy of pmce used with the server.
     public let serverConfig: PMCEConfig
+    
+    /// Represents the strategy of pmce used with the client.
     public let clientConfig: PMCEConfig
     
+    ///  Registers a callback to be called when a TEXT frame arrives.
+    /// - Parameters:
+    ///   - clientConfig: PMCE cofiguration for the client side.
+    ///   - serverConfig: PMCE configuration for the server side.
+    ///   - peerType: The peer role of the socket this PMCE will be used wtth.
+    ///   - channel: The channel whose allocation is used for comp/decomp streams.
+    ///
+    /// - returns: Initialized PMCE.
     public init(clientConfig: PMCEConfig,
                 serverConfig: PMCEConfig,
                 channel: Channel,
-                socketType: WebSocket.PeerType) {
+                peerType: WebSocket.PeerType) {
         
         self.clientConfig = clientConfig
         self.serverConfig = serverConfig
         
         self.channel = channel
-        self.extendedSocketType = socketType
+        self.extendedSocketType = peerType
         
         self._enabled = NIOLockedValueBox(true)
         self._logging = NIOLockedValueBox(true)
         
-        // i think this is where the client comp configs the server decomp
-        // and the server comp configs the client decomp
-        logger.debug("extending ...")
+       
+
         switch extendedSocketType {
         case .server:
-            logger.debug("server")
+            logger.trace("server")
 
             let winSize = PMCE.sizeFor(bits: serverConfig.deflateConfig.agreedParams.maxWindowBits ?? 15)
-            logger.debug("window size: \(winSize)")
+            logger.trace("window size: \(winSize)")
             
             let zscConf = ZlibConfiguration(windowSize: winSize,
                                             compressionLevel: serverConfig.deflateConfig.zlibConfig.compressionLevel,
@@ -440,13 +419,14 @@ public final class PMCE: Sendable {
                                                  eventLoop: channel.eventLoop)
             self.decompressorBox = NIOLoopBoundBox(CompressionAlgorithm.deflate(configuration: zsdConf).decompressor,
                                                    eventLoop: channel.eventLoop)
-            logger.debug("compressor \(zscConf)")
-            logger.debug("decompressor \(zsdConf)")
+            logger.trace("compressor \(zscConf)")
+            logger.trace("decompressor \(zsdConf)")
+            
         case .client:
-            logger.debug("client")
+            logger.trace("client")
 
             let winSize = PMCE.sizeFor(bits: clientConfig.deflateConfig.agreedParams.maxWindowBits ?? 15)
-            logger.debug("window size: \(winSize)")
+            logger.trace("window size: \(winSize)")
 
             let zccConf = ZlibConfiguration(windowSize: winSize,
                                             compressionLevel: clientConfig.deflateConfig.zlibConfig.compressionLevel,
@@ -464,13 +444,14 @@ public final class PMCE: Sendable {
             self.decompressorBox = NIOLoopBoundBox( CompressionAlgorithm.deflate(configuration: zcdConf).decompressor,
                                              eventLoop: channel.eventLoop)
             
-            logger.debug("compressor \(zccConf)")
-            logger.debug("decompressor \(zcdConf)")
+            logger.trace("compressor \(zccConf)")
+            logger.trace("decompressor \(zcdConf)")
         }
         startStreams()
     }
     
-    /// Starts the compress-nio streams.
+    ///  Starts compress-nio streams for DEFLATE support.
+    /// - returns: Void
     public func startStreams() {
         do {
             try compressorBox.value?.startStream()
@@ -486,7 +467,8 @@ public final class PMCE: Sendable {
         }
     }
     
-    /// Stops the compress-nio streams.
+    ///  Stops compress-nio streams for DEFLATE support.
+    /// - returns: Void
     public func stopStreams() {
         do {
             logger.debug("PMCE: stopping compressor stream...")
@@ -520,19 +502,13 @@ public final class PMCE: Sendable {
         let startSize = buffer.readableBytes
         
         if logging {
-            logger.debug("compressing \(startSize) bytes for \(opCode)")
+            logger.trace("compressing \(startSize) bytes for \(opCode)")
         }
         do {
             var mutBuffer = buffer
 
             if !notakeover {
-                // will pad
-                logger.debug("SHOLD unpad payload")
-
                 mutBuffer = unpad(buffer:buffer)
-            }else {
-                // will not pad
-                logger.debug("shold not pad")
             }
 
             let startTime = Date()
@@ -547,22 +523,22 @@ public final class PMCE: Sendable {
                 let endTime = Date()
                 let endSize = compressed.readableBytes
                 
-                logger.debug("compressed \(startSize) to \(endSize) bytes @ \(startSize / endSize) ratio from")
+                logger.trace("compressed \(startSize) to \(endSize) bytes @ \(startSize / endSize) ratio from")
                 switch extendedSocketType {
                 case .server:
-                    logger.debug(" \(serverConfig.deflateConfig.zlibConfig)")
+                    logger.trace(" \(serverConfig.deflateConfig.zlibConfig)")
                 case .client:
-                    logger.debug(" \(clientConfig.deflateConfig.zlibConfig)")
+                    logger.trace(" \(clientConfig.deflateConfig.zlibConfig)")
                 }
                 
-                logger.debug("in \(startTime.distance(to: endTime))")
+                logger.trace("in \(startTime.distance(to: endTime))")
             }
             
             if notakeover {
-                logger.debug("resetting compressor stream")
+                logger.trace("resetting compressor stream")
                 try compressorBox.value?.resetStream()
             }else {
-                logger.debug("not resetting compressor stream.")
+                logger.trace("not resetting compressor stream.")
             }
             
             var frame = WebSocketFrame(
@@ -575,12 +551,6 @@ public final class PMCE: Sendable {
             frame.rsv1 = true // denotes compression
             let slice = compressed.getSlice(at:compressed.readerIndex,
                                                          length: compressed.readableBytes - 4)
-            if slice == nil {
-                logger.debug("slice was nil")
-            }else {
-                logger.debug("slice is not nil") // if slice is alwys nil this code below is wrong and is likely misapplied padding compsenation that never gets called
-
-            }
             frame.data = slice ?? compressed
 
             return frame
@@ -592,15 +562,7 @@ public final class PMCE: Sendable {
         return WebSocketFrame(fin:fin, rsv1: false, opcode:opCode, data: buffer)
     }
 
-/*
-  An endpoint uses the following algorithm to decompress a message.
-
-   1.  Append 4 octets of 0x00 0x00 0xff 0xff to the tail end of the
-       payload of the message.
-
-   2.  Decompress the resulting data using DEFLATE.   
-  */
-      /// websocket calls  from handleIncoming to decompress.
+    /// Websocket calls  from handleIncoming to decompress.
     public func decompressed(_ frame: WebSocketFrame) throws -> WebSocketFrame  {
 
         guard let channel = channel else {
@@ -614,15 +576,12 @@ public final class PMCE: Sendable {
         var data = frame.data
         let startSize = data.readableBytes
         if logging {
-            logger.debug("PMCE: decompressing  \(startSize) bytes for \(frame.opcode)")
+            logger.trace("PMCE: decompressing  \(startSize) bytes for \(frame.opcode)")
         }
-        logger.debug("PMCE: config: \(serverConfig) \(clientConfig)")
+        logger.trace("PMCE: config: \(serverConfig) \(clientConfig)")
         
         if takeover {
-            logger.debug("should unpad message")
             data = pad(buffer:data)
-        }else {
-            logger.debug("shold NOT unpad message")
         }
 
         let decompressed =
@@ -634,18 +593,18 @@ public final class PMCE: Sendable {
             
             let endSize = decompressed.readableBytes
             
-            logger.debug("deompressed \(startSize) to \(endSize) bytes @ \(endSize/startSize) ratio from")
-            logger.debug(" \(serverConfig.deflateConfig.zlibConfig) \(clientConfig.deflateConfig.zlibConfig)")
+            logger.trace("deompressed \(startSize) to \(endSize) bytes @ \(endSize/startSize) ratio from")
+            logger.trace(" \(serverConfig.deflateConfig.zlibConfig) \(clientConfig.deflateConfig.zlibConfig)")
 
             
-            logger.debug("in \(startTime.distance(to: endTime))")
+            logger.trace("in \(startTime.distance(to: endTime))")
         }
         
         if !takeover {
-            if logging { logger.debug("PMCE: resetting decompressoer stream.") }
+            if logging { logger.trace("PMCE: resetting decompressoer stream.") }
             try decompressorBox.value?.resetStream()
         }else {
-            if logging { logger.debug("PMCE: not restting decompressor stream.")}
+            if logging { logger.trace("PMCE: not restting decompressor stream.")}
         }
         
         let newFrame = WebSocketFrame(fin: frame.fin,
@@ -659,37 +618,11 @@ public final class PMCE: Sendable {
         return newFrame
     }
 
-    private func pad(buffer:ByteBuffer) -> ByteBuffer {
-        logger.debug("padding")
-        var mutbuffer = buffer
-        mutbuffer.writeBytes([0x00,0x00,0xFF,0xFF])
-        return mutbuffer
-    }
-
-    private func unpad(buffer:ByteBuffer) -> ByteBuffer {
-        logger.info("unpaddings")
-        return buffer.getSlice(at: 0, length: buffer.readableBytes - 4) ?? buffer
-    }
-    /// websocket calls from handleIncoming as a server to handle client masked compressed frames. This was epxerimentally determined.
-  
-    // client compression uses this
-    private func makeMaskKey() -> WebSocketMaskingKey? {
-        switch extendedSocketType {
-        
-        case .client:
-            let mask = WebSocketMaskingKey.random()
-            logger.debug("PMCE: created mask key \(mask) .")
-            return mask
-        case .server:
-            return nil
-        }
-    }
-    
-    // server decomp uses this as RFC-7692 says client must mask msgs but server must not.
+    /// Server decomp uses this as RFC-7692 says client must mask msgs but server must not.
     public func unmasked(frame maskedFrame: WebSocketFrame) -> WebSocketFrame {
-        logger.debug("PMCE: unmasking \(maskedFrame)")
+        logger.trace("PMCE: unmasking \(maskedFrame)")
         guard let key = maskedFrame.maskKey else {
-            logger.debug("PMCE: tried to unmask a frame that isnt already masked.")
+            logger.trace("PMCE: tried to unmask a frame that isnt already masked.")
             return maskedFrame
         }
         
@@ -705,12 +638,59 @@ public final class PMCE: Sendable {
                               extensionData: maskedFrame.extensionData)
     }
 
+    ///
+    private let logger = Logger(label: "PMCE")
+    private let _logging:NIOLockedValueBox<Bool>
+    private let _enabled:NIOLockedValueBox<Bool>
+
+    // Converts windowBits to size of window.
+    private static func sizeFor(bits:UInt8) -> Int32 {
+        2^Int32(bits)
+    }
+    
+    private func pad(buffer:ByteBuffer) -> ByteBuffer {
+        logger.trace("padding buffer with \(paddingOctets)")
+        var mutbuffer = buffer
+        mutbuffer.writeBytes(paddingOctets)
+        return mutbuffer
+    }
+
+    private func unpad(buffer:ByteBuffer) -> ByteBuffer {
+        logger.trace("unpadding \(buffer)")
+        return buffer.getSlice(at: 0, length: buffer.readableBytes - 4) ?? buffer
+    }
+    
+    // client compression uses this
+    private func makeMaskKey() -> WebSocketMaskingKey? {
+        switch extendedSocketType {
+        
+        case .client:
+            let mask = WebSocketMaskingKey.random()
+            logger.trace("PMCE: created mask key \(mask) .")
+            return mask
+        case .server:
+            logger.trace("PMCE: mask key is nil due to extending server socket type.")
+            return nil
+        }
+    }
+    
+    // Box for compressor to conform to Sendable.
+    private let compressorBox:NIOLoopBoundBox<NIOCompressor?>
+    
+    // 4 bytes used for compress and decompress when context takeover is being used.
+    private let paddingOctets:[UInt8] = [0x00, 0x00, 0xff, 0xff]
+
+    // Box for compressor to conform to Sendable.
+    private let decompressorBox:NIOLoopBoundBox<NIODecompressor?>
+    
+    // sometimes see internalError when server gets ctrl-c'd. I think it is related to the issues Ive seeen with stopping the server in general via ctrl-c.
     deinit {
        stopStreams()
     }
     
 }
 
+// any ideas to make it prettier or even add colors are welcome, reviiewers.
 extension PMCE: CustomStringConvertible {
     public var description: String {
         """

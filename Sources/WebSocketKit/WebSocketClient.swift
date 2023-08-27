@@ -145,15 +145,14 @@ public final class WebSocketClient: Sendable {
                         upgradeRequestHeaders.add(contentsOf: proxyHeaders)
                     }
                 }
-                
-                ///TODO need to disabe if pmce is disabled
-                /// but that state is on pmce o websocket not websocketclient
-                
-                self.logger.debug("injecting headers for \(self.configuration.pmceConfig)")
+                                
+               
                 
                 var headers = upgradeRequestHeaders
-                if  let pmceHeaders = self.configuration.pmceConfig?.headers() {
-                        headers.add(contentsOf: pmceHeaders)
+                if  let pmce = self.configuration.pmceConfig {
+                    let pmceHeaders = pmce.headers()
+                    self.logger.trace("injecting headers for pmce config \(pmce)")
+                    headers.add(contentsOf: pmceHeaders)
                 }
 
                 let httpUpgradeRequestHandler = HTTPUpgradeRequestHandler(
@@ -163,6 +162,7 @@ public final class WebSocketClient: Sendable {
                     headers: headers,
                     upgradePromise: upgradePromise
                 )
+                
                 let httpUpgradeRequestHandlerBox = NIOLoopBound(httpUpgradeRequestHandler,
                                                                 eventLoop: channel.eventLoop)
 
@@ -171,9 +171,9 @@ public final class WebSocketClient: Sendable {
                     automaticErrorHandling: true,
                     upgradePipelineHandler: { channel, req in
                     
-                            return WebSocket.client(on: channel,
-                                                    config: .init(clientConfig: self.configuration),
-                                                    onUpgrade: onUpgrade)
+                        return WebSocket.client(on: channel,
+                                                config: .init(clientConfig: self.configuration),
+                                                onUpgrade: onUpgrade)
                     }
                 )
 

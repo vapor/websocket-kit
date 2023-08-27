@@ -46,8 +46,11 @@ public final class WebSocket: Sendable {
     private let onPingCallback: NIOLoopBoundBox<@Sendable (WebSocket, ByteBuffer) -> ()>
     private let type: PeerType
     
-    /// Init with PMCE.
-    /// See PMCE class for details.
+    /// Initializes a WebSocket..
+    /// - Parameters:
+    ///   - channel: Channel for commuication.
+    ///   - type: Client or Server role.
+    ///   - pmce: An optional PMCE instance  to use with the socket when pmce is needed via the protocol in RFC 7692.
     init(channel: Channel, type: PeerType, pmce:PMCE? = nil) {
         
         self.channel = channel
@@ -62,12 +65,8 @@ public final class WebSocket: Sendable {
         self._closeCode = .init(nil)
         self.frameSequence = .init(nil)
         self._pingInterval = .init(nil)
-        
-        if let p = pmce {
-            self.pmce = p
-        }else {
-            self.pmce = nil
-        }
+        self.pmce = pmce
+    
     }
     
     private let waitingForPong: NIOLockedValueBox<Bool>
@@ -78,6 +77,10 @@ public final class WebSocket: Sendable {
     
     internal let logger = Logger(label: "websocket-kit")
     
+    /// Initializes a WebSocket..
+    /// - Parameters:
+    ///   - channel: Channel for commuication.
+    ///   - type: Client or Server role.
     init(channel: Channel, type: PeerType) {
         self.channel = channel
         self.type = type
@@ -93,15 +96,26 @@ public final class WebSocket: Sendable {
         self._pingInterval = .init(nil)
         self.pmce = nil
     }
-
+    
+    ///  Registers a callback to be called when a TEXT frame arrives.
+    /// - Parameters:
+    ///   - callback: A sendable secaping closure that accepts a WebSocket instance and a String
+    /// - returns: Void
     @preconcurrency public func onText(_ callback: @Sendable @escaping (WebSocket, String) -> ()) {
         self.onTextCallback.value = callback
     }
-
+    ///  Registers a callback to be called when a BIN frame arrives.
+    /// - Parameters:
+    ///   - callback: A sendable secaping closure that accepts a WebSocket instance and a ByteBuffer
+    /// - returns: Void
     @preconcurrency public func onBinary(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onBinaryCallback.value = callback
     }
     
+    ///  Registers a callback to be called when a PONG frame arrives.
+    /// - Parameters:
+    ///   - callback: A sendable secaping closure that accepts a WebSocket instance and a ByteBuffer
+    /// - returns: Void
     public func onPong(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onPongCallback.value = callback
     }
@@ -110,7 +124,11 @@ public final class WebSocket: Sendable {
     @preconcurrency public func onPong(_ callback: @Sendable @escaping (WebSocket) -> ()) {
         self.onPongCallback.value = { ws, _ in callback(ws) }
     }
-
+    
+    ///  Registers a callback to be called when a PING frame is sent.
+    /// - Parameters:
+    ///   - callback: A sendable secaping closure that accepts a WebSocket instance and a ByteBuffer
+    /// - returns: Void
     public func onPing(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onPingCallback.value = callback
     }
@@ -224,6 +242,10 @@ public final class WebSocket: Sendable {
         }
     }
     
+    ///  Registers a callback to be called when a TEXT frame arrives.
+    /// - Parameters:
+    ///   - code: The reason for closing as a WebSocketErrorCode
+    /// - returns: Void ELF.
     public func close(code: WebSocketErrorCode = .goingAway) -> EventLoopFuture<Void> {
         let promise = self.eventLoop.makePromise(of: Void.self)
         self.close(code: code, promise: promise)
@@ -260,7 +282,7 @@ public final class WebSocket: Sendable {
         
         self.send(raw: buffer.readableBytesView, opcode: .connectionClose, fin: true, promise: promise)
     }
-    
+
     func makeMaskKey() -> WebSocketMaskingKey? {
         switch type {
         case .client:
@@ -271,7 +293,7 @@ public final class WebSocket: Sendable {
             return nil
         }
     }
-
+    
     func handle(incoming frame: WebSocketFrame) {
                 
         switch frame.opcode {
@@ -426,8 +448,7 @@ public final class WebSocket: Sendable {
         }
     }
     
-    /// Returns a new frame with data unmasked from the input frame.
-    private func unmasked(frame maskedFrame:WebSocketFrame) -> WebSocketFrame {
+    func unmasked(frame maskedFrame:WebSocketFrame) -> WebSocketFrame {
         var unmaskedData = maskedFrame.data
         unmaskedData.webSocketUnmask(maskedFrame.maskKey!)
         return WebSocketFrame(fin: maskedFrame.fin,

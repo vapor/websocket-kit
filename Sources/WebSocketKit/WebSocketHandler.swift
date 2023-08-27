@@ -117,7 +117,7 @@ extension WebSocket {
                                   pmce: PMCE(clientConfig: deflate,
                                              serverConfig: deflate,
                                              channel: channel,
-                                             socketType: type))
+                                             peerType: type))
         }else {
             webSocket = WebSocket(channel: channel,
                                   type: type)
