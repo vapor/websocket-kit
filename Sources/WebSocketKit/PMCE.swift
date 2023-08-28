@@ -25,7 +25,7 @@ public final class PMCE: Sendable {
                 public let maxWindowBits: UInt8?
                 
                 public init(takeover:ContextTakeoverMode? = .takeover,
-                     maxWindowBits:UInt8? = 15) {
+                            maxWindowBits:UInt8? = 15) {
                     self.takeover = takeover!
                     self.maxWindowBits = maxWindowBits
                 }
@@ -82,7 +82,7 @@ public final class PMCE: Sendable {
             /// These are negotiated.
             public let agreedParams:AgreedParameters
             
-            /// Zlib options not found in RFC-7692 for deflate.
+            /// Zlib options not found in RFC-7692 for deflate can be passed in by the initialing side..
             public let zlibConfig:ZlibConf
 
             public init(agreedParams:AgreedParameters,
