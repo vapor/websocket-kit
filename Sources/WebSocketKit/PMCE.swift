@@ -159,11 +159,11 @@ public final class PMCE: Sendable {
         private static func config(from offer: Substring) -> ClientServerPMCEConfig {
 
             // settings in an offer are split with ;
-            let settings = offer.split(separator:";")
-                                .filter({
-                $0.trimmingCharacters(in: .whitespacesAndNewlines) !=
-                                    "permessage-deflate"
-            })
+            // You will need to add a dependency on https://github.com/apple/swift-algorithms.git for this.
+            let settings = offer
+                .split(separator:";")
+                .map { $0.trimmingPrefix(\.isWhitespace).trimmingSuffix(\.isWhitespace) }
+                .filter { $0 != "permessage-deflate" }
             
             var arg = ConfArgs(.takeover, .takeover, nil, nil)
             
