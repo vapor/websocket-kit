@@ -537,7 +537,6 @@ public final class PMCE: Sendable {
             logger.error("PMCE: send compression failed \(error)")
         }
         
-        return WebSocketFrame(fin:fin, rsv1: false, opcode:opCode, data: buffer)
     }
 
     /// Websocket calls  from handleIncoming to decompress.
