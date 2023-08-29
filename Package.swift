@@ -20,7 +20,6 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio-transport-services.git", from: "1.16.0"),
         .package(url: "https://github.com/apple/swift-atomics.git", from: "1.1.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
-
     ],
     targets: [
         .target(name: "WebSocketKit", dependencies: [
