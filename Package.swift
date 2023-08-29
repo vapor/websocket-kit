@@ -33,7 +33,7 @@ let package = Package(
             .product(name: "NIOTransportServices", package: "swift-nio-transport-services"),
             .product(name: "Atomics", package: "swift-atomics"),
             .product(name:"CompressNIO", package:"compress-nio"),
-            .product(name: "Logging", package: "swift-log")
+            .product(name: "Logging", package: "swift-log"),
         ]),
         .testTarget(name: "WebSocketKitTests", dependencies: [
             .target(name: "WebSocketKit"),
