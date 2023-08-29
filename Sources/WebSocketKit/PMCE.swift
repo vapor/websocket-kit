@@ -13,7 +13,7 @@ public final class PMCE: Sendable {
     /// Configures sending and receiving compressed data with DEFLATE as outline in RFC 7692.
     public struct PMCEConfig: Sendable {
         
-        private static let logger = Logger(label: "PMCEConfig")
+        public static var logger = Logger(label: "PMCEConfig")
         
         public struct DeflateConfig: Sendable {
             
@@ -42,17 +42,17 @@ public final class PMCE: Sendable {
                 }
                 
                 /// Convenience members for common combinations of resource allocation.
-                public static let maxRamMaxComp:ZlibConf = .init(memLevel: 9, compLevel: 9)
-                public static let maxRamMidComp:ZlibConf = .init(memLevel: 9, compLevel: 5)
-                public static let maxRamMinComp:ZlibConf = .init(memLevel: 9, compLevel: 1)
+                public static let maxRamMaxComp: ZlibConf = .init(memLevel: 9, compLevel: 9)
+                public static let maxRamMidComp: ZlibConf = .init(memLevel: 9, compLevel: 5)
+                public static let maxRamMinComp: ZlibConf = .init(memLevel: 9, compLevel: 1)
                 
-                public static let midRamMinComp:ZlibConf = .init(memLevel: 5, compLevel: 1)
-                public static let midRamMidComp:ZlibConf = .init(memLevel: 5, compLevel: 5)
-                public static let midRamMaxComp:ZlibConf = .init(memLevel: 5, compLevel: 9)
+                public static let midRamMinComp: ZlibConf = .init(memLevel: 5, compLevel: 1)
+                public static let midRamMidComp: ZlibConf = .init(memLevel: 5, compLevel: 5)
+                public static let midRamMaxComp: ZlibConf = .init(memLevel: 5, compLevel: 9)
                 
-                public static let minRamMinComp:ZlibConf = .init(memLevel: 1, compLevel: 5)
-                public static let minRamMidComp:ZlibConf = .init(memLevel: 1, compLevel: 1)
-                public static let minRamMaxComp:ZlibConf = .init(memLevel: 1, compLevel: 9)
+                public static let minRamMinComp: ZlibConf = .init(memLevel: 1, compLevel: 5)
+                public static let minRamMidComp: ZlibConf = .init(memLevel: 1, compLevel: 1)
+                public static let minRamMaxComp: ZlibConf = .init(memLevel: 1, compLevel: 9)
 
                 /// Common combinations of memory and compression allocation.
                 public static func commonConfigs() -> [ZlibConf] {
@@ -66,6 +66,7 @@ public final class PMCE: Sendable {
                 public static func defaultConfig() -> ZlibConf {
                     .midRamMidComp
                 }
+                
                 public var memLevel:Int32
                 
                 public var compressionLevel:Int32
@@ -96,22 +97,6 @@ public final class PMCE: Sendable {
                 self.zlibConfig = zlib
             }
         }
-       
-        private static let _logging:NIOLockedValueBox<Bool> = .init(true)
-        
-        /// Enables some logging since I dont have a Logger.
-        public static var logging:Bool {
-            get {
-                _logging.withLockedValue { v in
-                    v
-                }
-            }
-            set {
-                _logging.withLockedValue { v in
-                    v = newValue
-                }
-            }
-        }
         
         /// Identifies this extension per RFC-7692.
         public static let pmceName = "permessage-deflate"
@@ -135,24 +120,17 @@ public final class PMCE: Sendable {
 
         /// Will init an array of ClientServerConfigs from parsed header values if possible.
         public static func configsFrom(headers:HTTPHeaders) -> [ClientServerPMCEConfig] {
-            if logging {
-                logger.trace("getting configs from \(headers) ...")
-            }
             
             if let wsx = headers.first(name: wsxtHeader)
             {
                 return offers(in: wsx).compactMap({config(from: $0)})
             }
             else {
-                if logging {
-                    logger.trace("no configs found ...")
-                }
                 return []
             }
         }
         
         private static func offers(in headerValue: String) -> [Substring] {
-            logger.trace("headerValue \(headerValue)")
             return headerValue.split(separator: ",")
         }
         
@@ -216,14 +194,10 @@ public final class PMCE: Sendable {
                     foo.sto = .noTakeover
                 }
                 else if first == PMCE.PMCEConfig.pmceName {
-                    if logging {
                         PMCEConfig.logger.error("oops something didnt parse in \(setting).")
-                    }
                 }
                 else {
-                    if logging {
                         PMCEConfig.logger.trace("unrecognized first split from setting \(setting). Maybe the header is malformed ?")
-                    }
                 }
             }
             else {
@@ -317,22 +291,6 @@ public final class PMCE: Sendable {
         }
     }
 
-    //this may be deprecated will drive it out in tests hopefully
-    /// prett sure the new init flows means this isnt requried. it was a first attempt when things were still more mixed up and less SRP.
-    /// This allows a server socket that has PMCE available to optionaly use it or not; So a compressed server can still talk uncompressed.
-    public var enabled:Bool {
-        get {
-            _enabled.withLockedValue { v in
-                v
-            }
-        }
-        set {
-            _enabled.withLockedValue { v in
-                v = newValue
-                logger.debug("enabled: \(v)")
-            }
-        }
-    }
 
     /// Represents the strategy of pmce used with the server.
     public let serverConfig: PMCEConfig
@@ -645,7 +603,6 @@ public final class PMCE: Sendable {
 extension PMCE: CustomStringConvertible {
     public var description: String {
         """
-        enabled : \(enabled),
         extendedSocketType : \(self.extendedSocketType),
         serverConfig : \(serverConfig),
         clientConfig : \(clientConfig)

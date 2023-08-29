@@ -222,7 +222,7 @@ public final class WebSocket: Sendable {
     ) {
         if let p = pmce {
             do {
-                let compressedFrame = try p.compressed(data, fin:fin, opCode: opcode)
+                let compressedFrame = try p.compressed(data, fin: fin, opCode: opcode)
                 self.channel.writeAndFlush(compressedFrame, promise: promise)
             }
             catch {
@@ -232,7 +232,7 @@ public final class WebSocket: Sendable {
         else {
             let frame = WebSocketFrame(
                 fin: fin,
-                rsv1:false,
+                rsv1: false,
                 opcode: opcode,
                 maskKey: self.makeMaskKey(), // auto masks out send if type is client
                 data: data
