@@ -276,41 +276,21 @@ public final class PMCE: Sendable {
         }
                 
         private func headerParams(isQuoted:Bool = false) -> String {
-            var built = ""
+            let q = isQuoted ? "\"" : ""
+            var components: [String] = []
             
-            switch deflateConfig.agreedParams.takeover {
-            case .noTakeover:
-                built += DeflateHeaderParams.cnct + ";"
-            case .takeover:
-                built += ""
+            if deflateConfig.agreedParams.takeover == .noTakeover {
+                components += [DeflateHeaderParams.cnct, DeflateHeaderParams.snct]
             }
             
-            if deflateConfig.agreedParams.maxWindowBits != nil {
-                built += DeflateHeaderParams.cmwb + (isQuoted ?
-                                                     "=\"\(deflateConfig.agreedParams.maxWindowBits!)\"" :
-                                                        "=\(deflateConfig.agreedParams.maxWindowBits!);")
+            if let mwb = deflateConfig.agreedParams.maxWindowBits {
+                components += [
+                    "\(DeflateHeaderParams.cmwb)=\(q)\(mwb)\(q)",
+                    "\(DeflateHeaderParams.smwb)=\(q)\(mwb)\(q)",
+                ]
             }
             
-            switch deflateConfig.agreedParams.takeover {
-            case .noTakeover:
-                built += DeflateHeaderParams.snct + ";"
-            case .takeover:
-                built += ""
-            }
-            
-            if deflateConfig.agreedParams.maxWindowBits != nil {
-                
-                built += DeflateHeaderParams.smwb + (isQuoted ?
-                                                     "=\"\(deflateConfig.agreedParams.maxWindowBits!)\"" :
-                                                        "=\(deflateConfig.agreedParams.maxWindowBits!);")
-            }
-
-            if built.last == ";" {
-                let s = built.dropLast(1)
-                return String(data: s.data(using: .utf8)!, encoding: .utf8)!
-            }else {
-                return built
-            }
+            return components.joined(separator: ";")
         }
         
      
