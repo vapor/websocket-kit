@@ -168,8 +168,7 @@ public final class PMCE: Sendable {
             
             var arg = ConfArgs(.takeover, .takeover, nil, nil)
             
-            for (_,setting) in settings.enumerated() {
-                let setting = setting
+            for setting in settings {
                 arg = self.arg(from: setting,
                                into: &arg)
             }
