@@ -516,7 +516,6 @@ public final class PMCE: Sendable {
                 logger.trace("resetting compressor stream")
                 try compressorBox.value?.resetStream()
             }else {
-                logger.trace("not resetting compressor stream.")
             }
             
             var frame = WebSocketFrame(
