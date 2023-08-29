@@ -220,10 +220,14 @@ public final class WebSocket: Sendable {
         fin: Bool = true,
         promise: EventLoopPromise<Void>? = nil
     ) {
-        if let p = pmce,
-               p.enabled {
+        if let p = pmce {
+            do {
                 let compressedFrame = try p.compressed(data, fin:fin, opCode: opcode)
                 self.channel.writeAndFlush(compressedFrame, promise: promise)
+            }
+            catch {
+                logger.error("\(error)")
+            }
         }
         else {
             let frame = WebSocketFrame(
