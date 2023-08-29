@@ -621,7 +621,7 @@ public final class PMCE: Sendable {
 
     // Converts windowBits to size of window.
     private static func sizeFor(bits:UInt8) -> Int32 {
-        2^Int32(bits)
+        1 << Int32(bits)
     }
     
     private func pad(buffer:ByteBuffer) -> ByteBuffer {
