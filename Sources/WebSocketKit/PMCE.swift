@@ -195,7 +195,7 @@ public final class PMCE: Sendable {
             if let first = splits.first {
                 let sane = first.trimmingCharacters(in: .whitespacesAndNewlines)
                 logger.trace("sane = \(sane)")
-                if first == DeflateHeaderParams.cmwb {
+                if trimmedName == DeflateHeaderParams.cmwb {
                     
                     if let arg = splits.last {
                         let trimmed = arg.replacingOccurrences(of: "\"",
