@@ -108,15 +108,10 @@ public final class PMCE: Sendable {
         }
         
         /// Holds the  config.
-        public let deflateConfig:DeflateConfig
+        public let deflateConfig: DeflateConfig
         
-        private typealias ConfArgs = (sto:ContextTakeoverMode,
-                                      cto: ContextTakeoverMode,
-                                      sbits: UInt8?,
-                                      cbits: UInt8?)
-        
-        public typealias ClientServerPMCEConfig = (client:PMCEConfig?,
-                                                   server:PMCEConfig?)
+        public typealias ClientServerPMCEConfig = (client: PMCEConfig?,
+                                                   server: PMCEConfig?)
 
         /// Will init an array of ClientServerConfigs from parsed header values if possible.
         public static func configsFrom(headers:HTTPHeaders) -> [ClientServerPMCEConfig] {
@@ -129,6 +124,56 @@ public final class PMCE: Sendable {
                 return []
             }
         }
+        
+        /// Defines the strings for headers parameters from RFC.
+        public enum DeflateHeaderParams {
+            // applies to client compressor, server decompressor
+            static let cnct = "client_no_context_takeover"
+            // applies to server compressor, client decompressor
+            static let snct = "server_no_context_takeover"
+            // applies to client compressor, server decompressor
+            static let cmwb = "client_max_window_bits"
+            // applies to server compressor, client decompressor
+            static let smwb = "server_max_window_bits"
+        }
+        
+        /// Creates a new PMCE config.
+        ///  config : a DeflateConfig
+        public init(config: DeflateConfig) {
+            self.deflateConfig = config
+        }
+        
+        /// Creates HTTPHeaders to represent this config.
+        /// RFC 7692 has more detailed infofrmation.
+        public func headers() -> HTTPHeaders {
+            
+            let params = headerParams(isQuoted: false)
+            return [PMCE.wsxtHeader : PMCE.PMCEConfig.pmceName + (params.isEmpty ? "" : ";" + params)]
+            
+        }
+                
+        private func headerParams(isQuoted:Bool = false) -> String {
+            let q = isQuoted ? "\"" : ""
+            var components: [String] = []
+            
+            if deflateConfig.agreedParams.takeover == .noTakeover {
+                components += [DeflateHeaderParams.cnct, DeflateHeaderParams.snct]
+            }
+            
+            if let mwb = deflateConfig.agreedParams.maxWindowBits {
+                components += [
+                    "\(DeflateHeaderParams.cmwb)=\(q)\(mwb)\(q)",
+                    "\(DeflateHeaderParams.smwb)=\(q)\(mwb)\(q)",
+                ]
+            }
+            
+            return components.joined(separator: ";")
+        }
+        
+        private typealias ConfArgs = (sto:ContextTakeoverMode,
+                                      cto: ContextTakeoverMode,
+                                      sbits: UInt8?,
+                                      cbits: UInt8?)
         
         private static func offers(in headerValue: String) -> [Substring] {
             return headerValue.split(separator: ",")
@@ -206,52 +251,6 @@ public final class PMCE: Sendable {
             }
             return foo
         }
-        
-        /// Defines the strings for headers parameters from RFC.
-        public enum DeflateHeaderParams {
-            // applies to client compressor, server decompressor
-            static let cnct = "client_no_context_takeover"
-            // applies to server compressor, client decompressor
-            static let snct = "server_no_context_takeover"
-            // applies to client compressor, server decompressor
-            static let cmwb = "client_max_window_bits"
-            // applies to server compressor, client decompressor
-            static let smwb = "server_max_window_bits"
-        }
-        
-        /// Creates a new PMCE config.
-        ///  config : a DeflateConfig
-        public init(config: DeflateConfig) {
-            self.deflateConfig = config
-        }
-        
-        /// Creates HTTPHeaders to represent this config.
-        /// RFC 7692 has more detailed infofrmation.
-        public func headers() -> HTTPHeaders {
-            
-            let params = headerParams(isQuoted: false)
-            return [PMCE.wsxtHeader : PMCE.PMCEConfig.pmceName + (params.isEmpty ? "" : ";" + params)]
-            
-        }
-                
-        private func headerParams(isQuoted:Bool = false) -> String {
-            let q = isQuoted ? "\"" : ""
-            var components: [String] = []
-            
-            if deflateConfig.agreedParams.takeover == .noTakeover {
-                components += [DeflateHeaderParams.cnct, DeflateHeaderParams.snct]
-            }
-            
-            if let mwb = deflateConfig.agreedParams.maxWindowBits {
-                components += [
-                    "\(DeflateHeaderParams.cmwb)=\(q)\(mwb)\(q)",
-                    "\(DeflateHeaderParams.smwb)=\(q)\(mwb)\(q)",
-                ]
-            }
-            
-            return components.joined(separator: ";")
-        }
-        
      
     }
         
@@ -264,7 +263,6 @@ public final class PMCE: Sendable {
 
         case .client:
             return clientConfig.deflateConfig.agreedParams.takeover == .takeover
-
         }
     }
     
@@ -363,9 +361,8 @@ public final class PMCE: Sendable {
         }
     }
     
-    func stopStreams() {
+    private func stopStreams() {
         do {
-            logger.debug("PMCE: stopping compressor stream...")
             try compressorBox.value?.finishStream()
         }
         catch {
@@ -373,13 +370,11 @@ public final class PMCE: Sendable {
         }
         
         do {
-            logger.debug("PMCE: stopping decompressor stream...")
             try decompressorBox.value?.finishStream()
         }
         catch {
             logger.error("PMCE:error finishing stream(s) : \(error)")
         }
-        
 
     }
 
@@ -461,8 +456,9 @@ public final class PMCE: Sendable {
         return newFrame
     }
 
-    /// Server decomp uses this as RFC-7692 says client must mask msgs but server must not.
-    public func unmasked(frame maskedFrame: WebSocketFrame) -> WebSocketFrame {
+    // Server decomp uses this as RFC-7692 says client must mask msgs but server must not.
+    func unmasked(frame maskedFrame: WebSocketFrame) -> WebSocketFrame {
+
         guard let key = maskedFrame.maskKey else {
             logger.trace("PMCE: tried to unmask a frame that isnt already masked.")
             return maskedFrame
@@ -471,13 +467,13 @@ public final class PMCE: Sendable {
         var unmaskedData = maskedFrame.data
         unmaskedData.webSocketUnmask(key)
         return WebSocketFrame(fin: maskedFrame.fin,
-                              rsv1: maskedFrame.rsv1,
-                              rsv2: maskedFrame.rsv2,
-                              rsv3: maskedFrame.rsv3,
-                              opcode: maskedFrame.opcode,
-                              maskKey: nil,
-                              data: unmaskedData,
-                              extensionData: maskedFrame.extensionData)
+                                rsv1: maskedFrame.rsv1,
+                                rsv2: maskedFrame.rsv2,
+                                rsv3: maskedFrame.rsv3,
+                                opcode: maskedFrame.opcode,
+                                maskKey: nil,
+                                data: unmaskedData,
+                                extensionData: maskedFrame.extensionData)
     }
 
     ///
