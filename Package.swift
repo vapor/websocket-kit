@@ -36,7 +36,7 @@ let package = Package(
             .product(name: "Logging", package: "swift-log")
         ]),
         .testTarget(name: "WebSocketKitTests", dependencies: [
-            .target(name: "WebSocketKit")
+            .target(name: "WebSocketKit"),
         ]),
     ]
 )
