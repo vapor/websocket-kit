@@ -200,7 +200,7 @@ public final class PMCE: Sendable {
                     if let arg = splits.last {
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
-                        foo.cbits = UInt8(trimmed) ?? nil
+                        foo.cbits = UInt8(trimmed)
                     }
                     else
                     {
