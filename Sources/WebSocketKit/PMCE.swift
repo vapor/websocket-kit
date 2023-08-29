@@ -147,7 +147,7 @@ public final class PMCE: Sendable {
                 if logging {
                     logger.trace("no configs found ...")
                 }
-                return [ClientServerPMCEConfig]()
+                return []
             }
         }
         
