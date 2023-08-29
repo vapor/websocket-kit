@@ -162,8 +162,8 @@ public final class PMCE: Sendable {
             // You will need to add a dependency on https://github.com/apple/swift-algorithms.git for this.
             let settings = offer
                 .split(separator:";")
-                .map { $0.trimmingPrefix(\.isWhitespace).trimmingSuffix(\.isWhitespace) }
-                .filter { $0 != "permessage-deflate" }
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { $0 != PMCE.PMCEConfig.pmceName }
             
             var arg = ConfArgs(.takeover, .takeover, nil, nil)
             
@@ -171,7 +171,6 @@ public final class PMCE: Sendable {
                 arg = self.arg(from: setting,
                                into: &arg)
             }
-            logger.trace("Offer \(offer) arg \(arg)")
             
             let agreedClient = DeflateConfig.AgreedParameters(takeover:  arg.cto,
                                                 maxWindowBits: arg.cbits ?? 15)
@@ -187,28 +186,19 @@ public final class PMCE: Sendable {
                                                      zlib: .midRamMidComp)) )
         }
         
-        private static func arg(from setting:Substring,
+        private static func arg(from setting:String,
                                 into foo:inout ConfArgs) -> ConfArgs {
             
             let splits = setting.split(separator:"=")
             
             if let first = splits.first {
-                let sane = first.trimmingCharacters(in: .whitespacesAndNewlines)
-                logger.trace("sane = \(sane)")
+                let trimmedName = first.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmedName == DeflateHeaderParams.cmwb {
                     
                     if let arg = splits.last {
-                        let trimmed = arg.replacing("\"", with: "")
-                                                               with: "")
+                        let trimmed = arg.trimmingCharacters(in: .whitespacesAndNewlines)
                         foo.cbits = UInt8(trimmed)
                     }
-                    else
-                    {
-                        if logging {
-                            PMCEConfig.logger.trace("no arg for cmwb")
-                        }
-                    }
-                    
                 }
                 else if first == DeflateHeaderParams.smwb {
                     
@@ -217,17 +207,12 @@ public final class PMCE: Sendable {
                                                                with: "")
                         foo.sbits = UInt8(trimmed) ?? nil
                     }
-                    else
-                    {
-                        if logging {
-                            PMCEConfig.logger.trace("no arg for smwb")
-                        }
-                    }
+                   
                 }
-                else if sane == DeflateHeaderParams.cnct {
+                else if trimmedName == DeflateHeaderParams.cnct {
                     foo.cto = .noTakeover
                 }
-                else if sane == DeflateHeaderParams.snct {
+                else if trimmedName == DeflateHeaderParams.snct {
                     foo.sto = .noTakeover
                 }
                 else if first == PMCE.PMCEConfig.pmceName {
@@ -532,10 +517,6 @@ public final class PMCE: Sendable {
 
             return frame
         }
-        catch {
-            logger.error("PMCE: send compression failed \(error)")
-        }
-        
     }
 
     /// Websocket calls  from handleIncoming to decompress.
@@ -596,7 +577,6 @@ public final class PMCE: Sendable {
 
     /// Server decomp uses this as RFC-7692 says client must mask msgs but server must not.
     public func unmasked(frame maskedFrame: WebSocketFrame) -> WebSocketFrame {
-        logger.trace("PMCE: unmasking \(maskedFrame)")
         guard let key = maskedFrame.maskKey else {
             logger.trace("PMCE: tried to unmask a frame that isnt already masked.")
             return maskedFrame
@@ -625,14 +605,12 @@ public final class PMCE: Sendable {
     }
     
     private func pad(buffer:ByteBuffer) -> ByteBuffer {
-        logger.trace("padding buffer with \(paddingOctets)")
         var mutbuffer = buffer
         mutbuffer.writeBytes(paddingOctets)
         return mutbuffer
     }
 
     private func unpad(buffer:ByteBuffer) -> ByteBuffer {
-        logger.trace("unpadding \(buffer)")
         return buffer.getSlice(at: 0, length: buffer.readableBytes - 4) ?? buffer
     }
     
@@ -642,10 +620,8 @@ public final class PMCE: Sendable {
         
         case .client:
             let mask = WebSocketMaskingKey.random()
-            logger.trace("PMCE: created mask key \(mask) .")
             return mask
         case .server:
-            logger.trace("PMCE: mask key is nil due to extending server socket type.")
             return nil
         }
     }
@@ -666,7 +642,6 @@ public final class PMCE: Sendable {
     
 }
 
-// any ideas to make it prettier or even add colors are welcome, reviiewers.
 extension PMCE: CustomStringConvertible {
     public var description: String {
         """
@@ -693,11 +668,7 @@ extension PMCE.PMCEConfig: CustomDebugStringConvertible {
 
 extension PMCE.PMCEConfig: CustomStringConvertible {
     public var description: String {
-        """
-        PMCEConfig {
-          \(self.deflateConfig.debugDescription)
-        }
-        """
+       debugDescription
     }
 }
 
@@ -715,15 +686,14 @@ extension PMCE.PMCEConfig.DeflateConfig: Equatable {
 
 extension PMCE.PMCEConfig.DeflateConfig: CustomDebugStringConvertible {
     public var debugDescription: String {
-        "DeflateConfig {agreedParams:\(agreedParams), zlib:\(zlibConfig)}"
+        """
+        DeflateConfig {agreedParams:\(agreedParams), zlib:\(zlibConfig)}
+        """
     }
 }
 
 extension PMCE.PMCEConfig.DeflateConfig: CustomStringConvertible {
     public var description: String {
-        """
-        agreedParams : \(agreedParams),
-        zlib : \(zlibConfig)
-        """
+       debugDescription
     }
 }
