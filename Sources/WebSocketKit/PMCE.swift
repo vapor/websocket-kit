@@ -66,7 +66,6 @@ public final class PMCE: Sendable {
                 public static func defaultConfig() -> ZlibConf {
                     .midRamMidComp
                 }
-                ///
                 public var memLevel:Int32
                 
                 public var compressionLevel:Int32
