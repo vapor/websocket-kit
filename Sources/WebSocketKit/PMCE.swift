@@ -249,7 +249,7 @@ public final class PMCE: Sendable {
         }
         
         /// Defines the strings for headers parameters from RFC.
-        public struct DeflateHeaderParams {
+        public enum DeflateHeaderParams {
             // applies to client compressor, server decompressor
             static let cnct = "client_no_context_takeover"
             // applies to server compressor, client decompressor
