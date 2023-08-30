@@ -226,7 +226,7 @@ public final class WebSocket: Sendable {
                 self.channel.writeAndFlush(compressedFrame, promise: promise)
             }
             catch {
-                logger.error("\(error)")
+                promise?.fail(error)
             }
         }
         else {

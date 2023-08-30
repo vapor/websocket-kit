@@ -389,7 +389,7 @@ public final class PMCE: Sendable {
                                        data: compressed)
             
             frame.rsv1 = true
-            let slice = compressed.getSlice(at:compressed.readerIndex,
+            let slice = compressed.getSlice(at: compressed.readerIndex,
                                             length: compressed.readableBytes - 4)
             frame.data = slice ?? compressed
 
