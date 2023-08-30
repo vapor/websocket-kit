@@ -10,6 +10,10 @@ import Logging
 /// The PMCE class provides methods for exchanging compressed and decompressed frames following RFC 7692.
 public final class PMCE: Sendable {
     
+    /// A PMCE Config for client and server.
+    public typealias ClientServerPMCEConfig = (client: PMCEConfig?,
+                                               server: PMCEConfig?)
+    
     /// Configures sending and receiving compressed data with DEFLATE as outline in RFC 7692.
     public struct PMCEConfig: Sendable {
         
@@ -17,7 +21,7 @@ public final class PMCE: Sendable {
         
         public struct DeflateConfig: Sendable {
             
-            public struct AgreedParameters:Hashable, Sendable {
+            public struct AgreedParameters: Hashable, Sendable {
                 /// Whether the server reuses the compression window acorss messages (takes over context) or not.
                 public let takeover: ContextTakeoverMode
                 
@@ -116,10 +120,6 @@ public final class PMCE: Sendable {
         /// Holds the  config.
         public let deflateConfig: DeflateConfig
         
-        /// A PMCE Config for client and server.
-        public typealias ClientServerPMCEConfig = (client: PMCEConfig?,
-                                                   server: PMCEConfig?)
-
         /// This can be used to inspec offers in a typed way.
         /// .
         /// - parameters
@@ -203,7 +203,7 @@ public final class PMCE: Sendable {
             var arg = ConfArgs(.takeover, .takeover, nil, nil)
             
             for setting in settings {
-                arg = self.arg(from: setting)
+                arg = self.configArgs(from: setting)
             }
             
             let agreedClient = DeflateConfig.AgreedParameters(takeover:  arg.cto,
@@ -220,35 +220,39 @@ public final class PMCE: Sendable {
                                                              zlib: .defaultConfig())) )
         }
         
-        private static func arg(from setting:String) -> ConfArgs {
+        private static func configArgs(from setting: String) -> ConfArgs {
+            
             var conf = ConfArgs(.takeover, .takeover, nil, nil)
-            let splits = setting.split(separator:"=")
+            let splits = setting.split(separator: "=")
             
             if let first = splits.first {
                 
                 let trimmedName = first.trimmingCharacters(in: .whitespacesAndNewlines)
-                if trimmedName == DeflateHeaderParams.cmwb {
+                
+                switch trimmedName {
                     
-                    if let arg = splits.last {
-                        conf.cbits = UInt8(arg.trimmingCharacters(in: .whitespacesAndNewlines))
-                    }
-                }
-                else if first == DeflateHeaderParams.smwb {
+                    case DeflateHeaderParams.cmwb:
+                        if let arg = splits.last {
+                            conf.cbits = UInt8(arg.trimmingCharacters(in: .whitespacesAndNewlines))
+                        }
+                        
+                    case DeflateHeaderParams.smwb:
+                        if let arg = splits.last {
+                            let trimmed = arg.replacingOccurrences(of: "\"",
+                                                                   with: "")
+                            conf.sbits = UInt8(trimmed) ?? nil
+                        }
+                        
+                    case DeflateHeaderParams.cnct:
+                        conf.cto = .noTakeover
                     
-                    if let arg = splits.last {
-                        let trimmed = arg.replacingOccurrences(of: "\"",
-                                                               with: "")
-                        conf.sbits = UInt8(trimmed) ?? nil
-                    }
-                   
+                    case DeflateHeaderParams.snct:
+                        conf.sto = .noTakeover
+                    
+                default:
+                    break
                 }
-                else if trimmedName == DeflateHeaderParams.cnct {
-                    conf.cto = .noTakeover
                 }
-                else if trimmedName == DeflateHeaderParams.snct {
-                    conf.sto = .noTakeover
-                }
-            }
 
             return conf
         }
@@ -491,13 +495,13 @@ public final class PMCE: Sendable {
     }
     
     // for takeover
-    private func pad(buffer:ByteBuffer) -> ByteBuffer {
+    private func pad(buffer: ByteBuffer) -> ByteBuffer {
         var mutbuffer = buffer
         mutbuffer.writeBytes(paddingOctets)
         return mutbuffer
     }
 
-    private func unpad(buffer:ByteBuffer) -> ByteBuffer {
+    private func unpad(buffer: ByteBuffer) -> ByteBuffer {
         return buffer.getSlice(at: 0, length: buffer.readableBytes - 4) ?? buffer
     }
     
@@ -512,8 +516,8 @@ public final class PMCE: Sendable {
         }
     }
     
-    private let compressorBox:NIOLoopBoundBox<NIOCompressor?>
-    private let decompressorBox:NIOLoopBoundBox<NIODecompressor?>
+    private let compressorBox: NIOLoopBoundBox<NIOCompressor?>
+    private let decompressorBox: NIOLoopBoundBox<NIODecompressor?>
 
     // 4 bytes used for compress and decompress when context takeover is being used.
     private let paddingOctets:[UInt8] = [0x00, 0x00, 0xff, 0xff]
