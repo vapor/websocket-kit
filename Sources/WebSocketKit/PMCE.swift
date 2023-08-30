@@ -303,8 +303,10 @@ public final class PMCE: Sendable {
         
         switch extendedSocketType {
         case .server:
+            
 
             let winSize = PMCE.sizeFor(bits: serverConfig.deflateConfig.agreedParams.maxWindowBits)
+            logger.trace("extending server with window size \(winSize)")
             
             let zscConf = ZlibConfiguration(windowSize: winSize,
                                             compressionLevel: serverConfig.deflateConfig.zlibConfig.compressionLevel,
@@ -324,6 +326,7 @@ public final class PMCE: Sendable {
         case .client:
 
             let winSize = PMCE.sizeFor(bits: clientConfig.deflateConfig.agreedParams.maxWindowBits ?? 15)
+            logger.trace("extending client with window size \(winSize)")
 
             let zccConf = ZlibConfiguration(windowSize: winSize,
                                             compressionLevel: clientConfig.deflateConfig.zlibConfig.compressionLevel,
@@ -427,8 +430,8 @@ public final class PMCE: Sendable {
         guard let channel = channel else {
             throw IOError(errnoCode: 0, reason: "PMCE: channel not configured.")
         }
+        
         let takeover = shouldTakeOverContext()
-
 
         var data = frame.data
         
@@ -440,7 +443,6 @@ public final class PMCE: Sendable {
         try data.decompressStream(with: self.decompressorBox.value!,
                                   maxSize: .max,
                                   allocator: channel.allocator)
-        
         
         if !takeover {
             try decompressorBox.value?.resetStream()
