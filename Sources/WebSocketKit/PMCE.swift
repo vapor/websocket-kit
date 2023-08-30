@@ -84,9 +84,15 @@ public final class PMCE: Sendable {
             /// These are negotiated.
             public let agreedParams: AgreedParameters
             
-            /// Zlib options not found in RFC-7692 for deflate can be passed in by the initialing side..
+            /// Zlib options not found in RFC-7692 for deflate can be ß	passed in by the initialing side..
             public let zlibConfig: ZlibConf
-
+            
+            /// Creates a new PMCE config.
+            ///
+            ///    - agreedParameters : These are speccified in the RFC and come over the wire.
+            ///    - zlib: THese are settings not sent over the wire but control resource usage and are thus configurabble.
+            ///
+            /// - returns: Initialized config.
             public init(agreedParams: AgreedParameters,
                         zlib: ZlibConf = .defaultConfig()) {
                 
@@ -114,7 +120,11 @@ public final class PMCE: Sendable {
         public typealias ClientServerPMCEConfig = (client: PMCEConfig?,
                                                    server: PMCEConfig?)
 
-        /// Will init an array of ClientServerConfigs from parsed header values if possible.
+        /// This can be used to inspec offers in a typed way.
+        /// .
+        /// - parameters
+        ///    - headers : HTTPHeaders
+        /// - returns: An array of Initialized configs found in the provided headers...
         public static func configsFrom(headers:HTTPHeaders) -> [ClientServerPMCEConfig] {
             
             if let wsx = headers.first(name: wsxtHeader)
@@ -139,13 +149,16 @@ public final class PMCE: Sendable {
         }
         
         /// Creates a new PMCE config.
-        ///  config : a DeflateConfig
+        /// - parameters
+        ///    - config : a DeflateConfig
+        /// - returns: Initialized config.
         public init(config: DeflateConfig) {
             self.deflateConfig = config
         }
         
-        /// Creates HTTPHeaders to represent this config.
-        /// RFC 7692 has more detailed infofrmation.
+       
+        ///
+        /// - returns: Headers that represent this configutation per RFC 7692..
         public func headers() -> HTTPHeaders {
             
             let params = headerParams(isQuoted: false)
@@ -196,21 +209,21 @@ public final class PMCE: Sendable {
             }
             
             let agreedClient = DeflateConfig.AgreedParameters(takeover:  arg.cto,
-                                                maxWindowBits: arg.cbits ?? 15)
+                                                              maxWindowBits: arg.cbits ?? 15)
                 
             let agreedServer = DeflateConfig.AgreedParameters(takeover: arg.sto,
-                                                maxWindowBits: arg.sbits ?? 15)
+                                                              maxWindowBits: arg.sbits ?? 15)
             
           
             
-            return (client:PMCEConfig(config: DeflateConfig(agreedParams: agreedClient,
-                                                     zlib: .defaultConfig())),
-                    server:PMCEConfig(config: DeflateConfig(agreedParams: agreedServer,
-                                                     zlib: .defaultConfig())) )
+            return (client: PMCEConfig(config: DeflateConfig(agreedParams: agreedClient,
+                                                             zlib: .defaultConfig())),
+                    server :PMCEConfig(config: DeflateConfig(agreedParams: agreedServer,
+                                                             zlib: .defaultConfig())) )
         }
         
         private static func arg(from setting:String,
-                                into foo:inout ConfArgs) -> ConfArgs {
+                                into conf:inout ConfArgs) -> ConfArgs {
             
             let splits = setting.split(separator:"=")
             
@@ -220,8 +233,7 @@ public final class PMCE: Sendable {
                 if trimmedName == DeflateHeaderParams.cmwb {
                     
                     if let arg = splits.last {
-                        let trimmed = arg.trimmingCharacters(in: .whitespacesAndNewlines)
-                        foo.cbits = UInt8(trimmed)
+                        conf.cbits = UInt8(arg.trimmingCharacters(in: .whitespacesAndNewlines))
                     }
                 }
                 else if first == DeflateHeaderParams.smwb {
@@ -229,33 +241,25 @@ public final class PMCE: Sendable {
                     if let arg = splits.last {
                         let trimmed = arg.replacingOccurrences(of: "\"",
                                                                with: "")
-                        foo.sbits = UInt8(trimmed) ?? nil
+                        conf.sbits = UInt8(trimmed) ?? nil
                     }
                    
                 }
                 else if trimmedName == DeflateHeaderParams.cnct {
-                    foo.cto = .noTakeover
+                    conf.cto = .noTakeover
                 }
                 else if trimmedName == DeflateHeaderParams.snct {
-                    foo.sto = .noTakeover
-                }
-                else if first == PMCE.PMCEConfig.pmceName {
-                        PMCEConfig.logger.error("oops something didnt parse in \(setting).")
-                }
-                else {
-                        PMCEConfig.logger.trace("unrecognized first split from setting \(setting). Maybe the header is malformed ?")
+                    conf.sto = .noTakeover
                 }
             }
-            else {
-                
-                PMCEConfig.logger.error("couldnt parse arg; no first split @ =. Maybe header is malformed.")
-            }
-            return foo
+
+            return conf
         }
-     
     }
         
-    /// Uses config options to determine if the compressor or decompressor context should be reused (taken over) or reset after each message.
+    ///  If context is taken over, messages can refer to data sent in previous messages, otherwise each message has its own context for compression operations..
+    ///
+    /// - returns: If context takeover is speccified from the config for this peer type..
     public func shouldTakeOverContext() -> Bool {
         
         switch extendedSocketType {
@@ -305,17 +309,18 @@ public final class PMCE: Sendable {
         case .server:
             
             let winSize = Int32(serverConfig.deflateConfig.agreedParams.maxWindowBits)
-            logger.trace("extending server with window size \(winSize)")
+            logger.trace("extending server with window size \(winSize)\n\(serverConfig)")
             
             let zscConf = ZlibConfiguration(windowSize: winSize,
                                             compressionLevel: serverConfig.deflateConfig.zlibConfig.compressionLevel,
                                             memoryLevel: serverConfig.deflateConfig.zlibConfig.memLevel,
-                                          strategy: .huffmanOnly)
+                                            strategy: .huffmanOnly)
             
             let zsdConf = ZlibConfiguration(windowSize: winSize,
                                             compressionLevel: serverConfig.deflateConfig.zlibConfig.compressionLevel,
                                             memoryLevel: serverConfig.deflateConfig.zlibConfig.memLevel,
-                                          strategy: .huffmanOnly)
+                                            strategy: .huffmanOnly)
+            
             self.compressorBox = NIOLoopBoundBox(CompressionAlgorithm.deflate(configuration: zscConf).compressor,
                                                  eventLoop: channel.eventLoop)
             self.decompressorBox = NIOLoopBoundBox(CompressionAlgorithm.deflate(configuration: zsdConf).decompressor,
@@ -326,7 +331,7 @@ public final class PMCE: Sendable {
 
             let winSize = Int32(clientConfig.deflateConfig.agreedParams.maxWindowBits)
             
-            logger.trace("extending client with window size \(winSize)")
+            logger.trace("extending client with window size \(winSize)\n\(clientConfig)")
 
             let zccConf = ZlibConfiguration(windowSize: winSize,
                                             compressionLevel: clientConfig.deflateConfig.zlibConfig.compressionLevel,
@@ -365,7 +370,7 @@ public final class PMCE: Sendable {
         }
     }
     
-    private func stopStreams() {
+    func stopStreams() {
         do {
             try compressorBox.value?.finishStream()
         }
@@ -382,7 +387,13 @@ public final class PMCE: Sendable {
 
     }
 
-    /// websocket send calls this to compress.
+    ///  Compresses a ByteBuffer into a compressed WebSocketFrame.
+    /// - Parameters:
+    ///   - buffer: ByteBuffer to use as data for the compressed frame.
+    ///   - fin: is final frame ?
+    ///   - opcode: Idenfities the type of frame payload..
+    ///
+    /// - returns: Compressed WebSocketFrame.
     public func compressed(_ buffer: ByteBuffer,
                             fin: Bool = true,
                             opCode: WebSocketOpcode = .binary) throws -> WebSocketFrame {
@@ -408,23 +419,26 @@ public final class PMCE: Sendable {
                 try compressorBox.value?.resetStream()
             }
             
-            var frame = WebSocketFrame(
-                fin: true,
-                opcode: opCode,
-                maskKey: self.makeMaskKey(),
-                data: compressed
-            )
+            var frame = WebSocketFrame(fin: fin,
+                                       opcode: opCode,
+                                       maskKey: self.makeMaskKey(),
+                                       data: compressed)
             
-            frame.rsv1 = true // denotes compression
+            frame.rsv1 = true
             let slice = compressed.getSlice(at:compressed.readerIndex,
-                                                         length: compressed.readableBytes - 4)
+                                            length: compressed.readableBytes - 4)
             frame.data = slice ?? compressed
 
             return frame
         }
     }
 
-    /// Websocket calls  from handleIncoming to decompress.
+    ///  Dompresses a WebSocketFrame into an un-compressed WebSocketFrame.
+    /// - Parameters:
+    ///   - frame: a compressed WebSocketFrame..
+ 
+    ///
+    /// - returns: Deompressed WebSocketFrame.
     public func decompressed(_ frame: WebSocketFrame) throws -> WebSocketFrame  {
 
         guard let channel = channel else {
@@ -448,15 +462,14 @@ public final class PMCE: Sendable {
             try decompressorBox.value?.resetStream()
         }
         
-        let newFrame = WebSocketFrame(fin: frame.fin,
-                                      rsv1: false,
-                                      rsv2: frame.rsv2,
-                                      rsv3: frame.rsv3,
-                                      opcode: frame.opcode,
-                                      maskKey: frame.maskKey,
-                                      data: decompressed,
-                                      extensionData: nil)
-        return newFrame
+        return WebSocketFrame(fin: frame.fin,
+                              rsv1: false,
+                              rsv2: frame.rsv2,
+                              rsv3: frame.rsv3,
+                              opcode: frame.opcode,
+                              maskKey: frame.maskKey,
+                              data: decompressed,
+                              extensionData: nil)
     }
 
     // Server decomp uses this as RFC-7692 says client must mask msgs but server must not.
@@ -479,7 +492,7 @@ public final class PMCE: Sendable {
                                 extensionData: maskedFrame.extensionData)
     }
 
-    public let logger = Logger(label: "PMCE")
+    private let logger = Logger(label: "PMCE")
     
     // for takeover
     private func pad(buffer:ByteBuffer) -> ByteBuffer {
