@@ -17,7 +17,7 @@ public final class PMCE: Sendable {
         
         public struct DeflateConfig: Sendable {
             
-            public struct AgreedParameters:Sendable {
+            public struct AgreedParameters:Hashable, Sendable {
                 /// Whether the server reuses the compression window acorss messages (takes over context) or not.
                 public let takeover: ContextTakeoverMode
                 
@@ -35,7 +35,7 @@ public final class PMCE: Sendable {
             }
             
             /// Configures zlib with more granularity.
-            public struct ZlibConf: CustomDebugStringConvertible, Sendable {
+            public struct ZlibConf: Hashable, CustomDebugStringConvertible, Sendable {
                 
                 public var debugDescription: String {
                     "ZlibConf{memLevel:\(memLevel), compLevel: \(compressionLevel)}"
@@ -479,9 +479,9 @@ public final class PMCE: Sendable {
                                 extensionData: maskedFrame.extensionData)
     }
 
-    ///
-    private let logger = Logger(label: "PMCE")
+    public let logger = Logger(label: "PMCE")
     
+    // for takeover
     private func pad(buffer:ByteBuffer) -> ByteBuffer {
         var mutbuffer = buffer
         mutbuffer.writeBytes(paddingOctets)
@@ -492,7 +492,6 @@ public final class PMCE: Sendable {
         return buffer.getSlice(at: 0, length: buffer.readableBytes - 4) ?? buffer
     }
     
-    // client compression uses this
     private func makeMaskKey() -> WebSocketMaskingKey? {
         switch extendedSocketType {
         
@@ -504,16 +503,12 @@ public final class PMCE: Sendable {
         }
     }
     
-    // Box for compressor to conform to Sendable.
     private let compressorBox:NIOLoopBoundBox<NIOCompressor?>
-    
+    private let decompressorBox:NIOLoopBoundBox<NIODecompressor?>
+
     // 4 bytes used for compress and decompress when context takeover is being used.
     private let paddingOctets:[UInt8] = [0x00, 0x00, 0xff, 0xff]
 
-    // Box for compressor to conform to Sendable.
-    private let decompressorBox:NIOLoopBoundBox<NIODecompressor?>
-    
-    // sometimes see internalError when server gets ctrl-c'd. I think it is related to the issues Ive seeen with stopping the server in general via ctrl-c.
     deinit {
        stopStreams()
     }
@@ -534,6 +529,14 @@ extension PMCE.PMCEConfig: Equatable {
     public static func == (lhs: PMCE.PMCEConfig,
                            rhs: PMCE.PMCEConfig) -> Bool {
         return lhs.headerParams() == rhs.headerParams()
+    }
+}
+
+extension PMCE.PMCEConfig: Hashable {
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(deflateConfig.hashValue )
+        hasher.combine(self.headerParams())
     }
 }
 
@@ -559,6 +562,13 @@ extension PMCE.PMCEConfig.DeflateConfig: Equatable {
         (lhs.zlibConfig.memLevel == rhs.zlibConfig.memLevel )
     }
     
+}
+
+extension PMCE.PMCEConfig.DeflateConfig: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(self.agreedParams)
+        hasher.combine(self.zlibConfig)
+    }
 }
 
 extension PMCE.PMCEConfig.DeflateConfig: CustomDebugStringConvertible {
