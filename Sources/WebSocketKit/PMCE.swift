@@ -195,7 +195,6 @@ public final class PMCE: Sendable {
         private static func config(from offer: Substring) -> ClientServerPMCEConfig {
 
             // settings in an offer are split with ;
-            // You will need to add a dependency on https://github.com/apple/swift-algorithms.git for this.
             let settings = offer
                 .split(separator: ";")
                 .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -204,8 +203,7 @@ public final class PMCE: Sendable {
             var arg = ConfArgs(.takeover, .takeover, nil, nil)
             
             for setting in settings {
-                arg = self.arg(from: setting,
-                               into: &arg)
+                arg = self.arg(from: setting)
             }
             
             let agreedClient = DeflateConfig.AgreedParameters(takeover:  arg.cto,
@@ -222,9 +220,8 @@ public final class PMCE: Sendable {
                                                              zlib: .defaultConfig())) )
         }
         
-        private static func arg(from setting:String,
-                                into conf:inout ConfArgs) -> ConfArgs {
-            
+        private static func arg(from setting:String) -> ConfArgs {
+            var conf = ConfArgs(.takeover, .takeover, nil, nil)
             let splits = setting.split(separator:"=")
             
             if let first = splits.first {
@@ -353,39 +350,6 @@ public final class PMCE: Sendable {
         }
         startStreams()
     }
-    
-   
-    func startStreams() {
-        do {
-            try compressorBox.value?.startStream()
-        }
-        catch {
-            logger.error("error starting compressor stream : \(error)")
-        }
-        do {
-            try decompressorBox.value?.startStream()
-        }
-        catch {
-            logger.error("error starting decompressor stream : \(error)")
-        }
-    }
-    
-    func stopStreams() {
-        do {
-            try compressorBox.value?.finishStream()
-        }
-        catch {
-            logger.error("PMCE:error finishing stream(s) : \(error)")
-        }
-        
-        do {
-            try decompressorBox.value?.finishStream()
-        }
-        catch {
-            logger.error("PMCE:error finishing stream(s) : \(error)")
-        }
-
-    }
 
     ///  Compresses a ByteBuffer into a compressed WebSocketFrame.
     /// - Parameters:
@@ -494,6 +458,38 @@ public final class PMCE: Sendable {
 
     private let logger = Logger(label: "PMCE")
     
+    func startStreams() {
+        do {
+            try compressorBox.value?.startStream()
+        }
+        catch {
+            logger.error("error starting compressor stream : \(error)")
+        }
+        do {
+            try decompressorBox.value?.startStream()
+        }
+        catch {
+            logger.error("error starting decompressor stream : \(error)")
+        }
+    }
+    
+    func stopStreams() {
+        do {
+            try compressorBox.value?.finishStream()
+        }
+        catch {
+            logger.error("PMCE:error finishing stream(s) : \(error)")
+        }
+        
+        do {
+            try decompressorBox.value?.finishStream()
+        }
+        catch {
+            logger.error("PMCE:error finishing stream(s) : \(error)")
+        }
+
+    }
+    
     // for takeover
     private func pad(buffer:ByteBuffer) -> ByteBuffer {
         var mutbuffer = buffer
@@ -553,15 +549,11 @@ extension PMCE.PMCEConfig: Hashable {
     }
 }
 
-extension PMCE.PMCEConfig: CustomDebugStringConvertible {
-    public var debugDescription: String {
-        "PMCEConfig {config: \(deflateConfig)}"
-    }
-}
-
 extension PMCE.PMCEConfig: CustomStringConvertible {
     public var description: String {
-       debugDescription
+        """
+        PMCEConfig {config: \(deflateConfig)}
+        """
     }
 }
 
@@ -584,16 +576,10 @@ extension PMCE.PMCEConfig.DeflateConfig: Hashable {
     }
 }
 
-extension PMCE.PMCEConfig.DeflateConfig: CustomDebugStringConvertible {
-    public var debugDescription: String {
-        """
-        DeflateConfig {agreedParams: \(agreedParams), zlib: \(zlibConfig)}
-        """
-    }
-}
-
 extension PMCE.PMCEConfig.DeflateConfig: CustomStringConvertible {
     public var description: String {
-       debugDescription
+          """
+          DeflateConfig {agreedParams: \(agreedParams), zlib: \(zlibConfig)}
+          """
     }
 }

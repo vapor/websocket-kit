@@ -39,12 +39,12 @@ public final class WebSocketClient: Sendable {
         
         /// Per Message Compression Extensions configuration.
         /// See `PMCE.PMCEConfig` for details.
-        public var pmceConfig:PMCE.PMCEConfig?
+        public var pmceConfig: PMCE.PMCEConfig?
         
         // new init to support passing in PMCE.PMCEConfig
-        public init(pmceConfig:PMCE.PMCEConfig?,
-                    tlsConfiguration:TLSConfiguration? = nil,
-                    maxFrameSize:Int = 1 << 14) {
+        public init(pmceConfig: PMCE.PMCEConfig?,
+                    tlsConfiguration: TLSConfiguration? = nil,
+                    maxFrameSize: Int = 1 << 14) {
             
             self.tlsConfiguration = tlsConfiguration
             self.maxFrameSize = maxFrameSize
