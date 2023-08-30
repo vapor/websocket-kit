@@ -22,11 +22,11 @@ public final class PMCE: Sendable {
                 public let takeover: ContextTakeoverMode
                 
                 /// The max size of the window in bits.
-                public let maxWindowBits: UInt8?
+                public let maxWindowBits: UInt8
                 
                 public init(
                     takeover: ContextTakeoverMode = .takeover,
-                    maxWindowBits: UInt8? = 15
+                    maxWindowBits: UInt8 = 15
                 ) {
                     self.takeover = takeover
                     self.maxWindowBits = maxWindowBits
@@ -38,7 +38,7 @@ public final class PMCE: Sendable {
             public struct ZlibConf: CustomDebugStringConvertible, Sendable {
                 
                 public var debugDescription: String {
-                    "ZlibConf{\(memLevel), \(compressionLevel)}"
+                    "ZlibConf{memLevel:\(memLevel), compLevel: \(compressionLevel)}"
                 }
                 
                 /// Convenience members for common combinations of resource allocation.
@@ -67,11 +67,11 @@ public final class PMCE: Sendable {
                     .midRamMidComp
                 }
                 
-                public var memLevel:Int32
+                public var memLevel: Int32
                 
-                public var compressionLevel:Int32
+                public var compressionLevel: Int32
                 
-                public init(memLevel:Int32, compLevel:Int32) {
+                public init(memLevel: Int32, compLevel: Int32) {
                     assert( (-1...9).contains(compLevel),
                             "compLevel must be -1(default)...9 ")
                     assert( (1...9).contains(memLevel),
@@ -82,15 +82,15 @@ public final class PMCE: Sendable {
             }
             
             /// These are negotiated.
-            public let agreedParams:AgreedParameters
+            public let agreedParams: AgreedParameters
             
             /// Zlib options not found in RFC-7692 for deflate can be passed in by the initialing side..
-            public let zlibConfig:ZlibConf
+            public let zlibConfig: ZlibConf
 
-            public init(agreedParams:AgreedParameters,
-                        zlib:ZlibConf = .midRamMidComp) {
+            public init(agreedParams: AgreedParameters,
+                        zlib: ZlibConf = .defaultConfig()) {
                 
-                assert((9...15).contains(agreedParams.maxWindowBits!),
+                assert((9...15).contains(agreedParams.maxWindowBits),
                        "Window size must be between the values 9 and 15")
                
                 self.agreedParams = agreedParams
@@ -102,7 +102,7 @@ public final class PMCE: Sendable {
         public static let pmceName = "permessage-deflate"
         
         /// Represents the states for using the same compression window across messages or not.
-        public enum ContextTakeoverMode:String, Codable, CaseIterable, Sendable {
+        public enum ContextTakeoverMode: String, Codable, CaseIterable, Sendable {
             case takeover
             case noTakeover
         }
@@ -110,6 +110,7 @@ public final class PMCE: Sendable {
         /// Holds the  config.
         public let deflateConfig: DeflateConfig
         
+        /// A PMCE Config for client and server.
         public typealias ClientServerPMCEConfig = (client: PMCEConfig?,
                                                    server: PMCEConfig?)
 
@@ -160,17 +161,16 @@ public final class PMCE: Sendable {
                 components += [DeflateHeaderParams.cnct, DeflateHeaderParams.snct]
             }
             
-            if let mwb = deflateConfig.agreedParams.maxWindowBits {
-                components += [
-                    "\(DeflateHeaderParams.cmwb)=\(q)\(mwb)\(q)",
-                    "\(DeflateHeaderParams.smwb)=\(q)\(mwb)\(q)",
-                ]
-            }
+             let mwb = deflateConfig.agreedParams.maxWindowBits
+             components += [
+                "\(DeflateHeaderParams.cmwb)=\(q)\(mwb)\(q)",
+                "\(DeflateHeaderParams.smwb)=\(q)\(mwb)\(q)",
+             ]
             
             return components.joined(separator: ";")
         }
         
-        private typealias ConfArgs = (sto:ContextTakeoverMode,
+        private typealias ConfArgs = (sto: ContextTakeoverMode,
                                       cto: ContextTakeoverMode,
                                       sbits: UInt8?,
                                       cbits: UInt8?)
@@ -184,7 +184,7 @@ public final class PMCE: Sendable {
             // settings in an offer are split with ;
             // You will need to add a dependency on https://github.com/apple/swift-algorithms.git for this.
             let settings = offer
-                .split(separator:";")
+                .split(separator: ";")
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { $0 != PMCE.PMCEConfig.pmceName }
             
@@ -204,9 +204,9 @@ public final class PMCE: Sendable {
           
             
             return (client:PMCEConfig(config: DeflateConfig(agreedParams: agreedClient,
-                                                     zlib: .midRamMidComp)),
+                                                     zlib: .defaultConfig())),
                     server:PMCEConfig(config: DeflateConfig(agreedParams: agreedServer,
-                                                     zlib: .midRamMidComp)) )
+                                                     zlib: .defaultConfig())) )
         }
         
         private static func arg(from setting:String,
@@ -215,6 +215,7 @@ public final class PMCE: Sendable {
             let splits = setting.split(separator:"=")
             
             if let first = splits.first {
+                
                 let trimmedName = first.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmedName == DeflateHeaderParams.cmwb {
                     
@@ -270,10 +271,10 @@ public final class PMCE: Sendable {
     public static let wsxtHeader = "Sec-WebSocket-Extensions"
     
     /// Tells PMCE how to apply the DEFLATE config as well as how to extract per RFC-7692.
-    public let extendedSocketType:WebSocket.PeerType
+    public let extendedSocketType: WebSocket.PeerType
     
     /// The channel whose allocator to use for the compression ByteBuffers and  box event loops.
-    public let channel:NIO.Channel?
+    public let channel: NIO.Channel?
    
     /// Represents the strategy of pmce used with the server.
     public let serverConfig: PMCEConfig
@@ -303,7 +304,7 @@ public final class PMCE: Sendable {
         switch extendedSocketType {
         case .server:
 
-            let winSize = PMCE.sizeFor(bits: serverConfig.deflateConfig.agreedParams.maxWindowBits ?? 15)
+            let winSize = PMCE.sizeFor(bits: serverConfig.deflateConfig.agreedParams.maxWindowBits)
             
             let zscConf = ZlibConfiguration(windowSize: winSize,
                                             compressionLevel: serverConfig.deflateConfig.zlibConfig.compressionLevel,
