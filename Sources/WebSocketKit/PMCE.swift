@@ -311,12 +311,12 @@ public final class PMCE: Sendable {
             let zscConf = ZlibConfiguration(windowSize: winSize,
                                             compressionLevel: serverConfig.deflateConfig.zlibConfig.compressionLevel,
                                             memoryLevel: serverConfig.deflateConfig.zlibConfig.memLevel,
-                                            strategy: .huffmanOnly)
+                                            strategy: .default)
             
             let zsdConf = ZlibConfiguration(windowSize: winSize,
                                             compressionLevel: serverConfig.deflateConfig.zlibConfig.compressionLevel,
                                             memoryLevel: serverConfig.deflateConfig.zlibConfig.memLevel,
-                                            strategy: .huffmanOnly)
+                                            strategy: .default)
             
             self.compressorBox = NIOLoopBoundBox(CompressionAlgorithm.deflate(configuration: zscConf).compressor,
                                                  eventLoop: channel.eventLoop)
