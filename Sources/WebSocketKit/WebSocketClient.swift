@@ -146,12 +146,9 @@ public final class WebSocketClient: Sendable {
                     }
                 }
                                 
-               
-                
                 var headers = upgradeRequestHeaders
                 if  let pmce = self.configuration.pmceConfig {
                     let pmceHeaders = pmce.headers()
-                    self.logger.trace("injecting headers for pmce config \(pmce)")
                     headers.add(contentsOf: pmceHeaders)
                 }
 

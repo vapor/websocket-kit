@@ -387,6 +387,7 @@ public final class PMCE: Sendable {
         guard let channel = channel else {
             throw IOError(errnoCode: 0, reason: "PMCE: channel not configured.")
         }
+        
         let notakeover = !shouldTakeOverContext()
 
         do {
@@ -402,7 +403,6 @@ public final class PMCE: Sendable {
 
             if notakeover {
                 try compressorBox.value?.resetStream()
-            }else {
             }
             
             var frame = WebSocketFrame(
@@ -526,9 +526,9 @@ public final class PMCE: Sendable {
 extension PMCE: CustomStringConvertible {
     public var description: String {
         """
-        extendedSocketType : \(self.extendedSocketType),
-        serverConfig : \(serverConfig),
-        clientConfig : \(clientConfig)
+        extendedSocketType: \(self.extendedSocketType),
+        serverConfig: \(serverConfig),
+        clientConfig: \(clientConfig)
         """
     }
 }
@@ -542,7 +542,7 @@ extension PMCE.PMCEConfig: Equatable {
 
 extension PMCE.PMCEConfig: CustomDebugStringConvertible {
     public var debugDescription: String {
-        "PMCEConfig {config:\(deflateConfig)}"
+        "PMCEConfig {config: \(deflateConfig)}"
     }
 }
 
@@ -567,7 +567,7 @@ extension PMCE.PMCEConfig.DeflateConfig: Equatable {
 extension PMCE.PMCEConfig.DeflateConfig: CustomDebugStringConvertible {
     public var debugDescription: String {
         """
-        DeflateConfig {agreedParams:\(agreedParams), zlib:\(zlibConfig)}
+        DeflateConfig {agreedParams: \(agreedParams), zlib: \(zlibConfig)}
         """
     }
 }

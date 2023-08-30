@@ -33,9 +33,9 @@ public final class WebSocket: Sendable {
         self.channel.closeFuture
     }
     
-    /// PMCE insance that handles compressing and decompressing of frames as well as
+    /// PMCE instance that handles compressing and decompressing of frames as well as
     /// configuring the connection per RFC-7692.
-    public let pmce:PMCE?
+    public let pmce: PMCE?
     
     @usableFromInline
     /* private but @usableFromInline */
