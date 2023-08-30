@@ -304,8 +304,7 @@ public final class PMCE: Sendable {
         switch extendedSocketType {
         case .server:
             
-
-            let winSize = PMCE.sizeFor(bits: serverConfig.deflateConfig.agreedParams.maxWindowBits)
+            let winSize = Int32(serverConfig.deflateConfig.agreedParams.maxWindowBits)
             logger.trace("extending server with window size \(winSize)")
             
             let zscConf = ZlibConfiguration(windowSize: winSize,
@@ -325,7 +324,8 @@ public final class PMCE: Sendable {
             
         case .client:
 
-            let winSize = PMCE.sizeFor(bits: clientConfig.deflateConfig.agreedParams.maxWindowBits ?? 15)
+            let winSize = Int32(clientConfig.deflateConfig.agreedParams.maxWindowBits)
+            
             logger.trace("extending client with window size \(winSize)")
 
             let zccConf = ZlibConfiguration(windowSize: winSize,
@@ -481,11 +481,6 @@ public final class PMCE: Sendable {
 
     ///
     private let logger = Logger(label: "PMCE")
-
-    // Converts windowBits to size of window.
-    private static func sizeFor(bits:UInt8) -> Int32 {
-        1 << Int32(bits)
-    }
     
     private func pad(buffer:ByteBuffer) -> ByteBuffer {
         var mutbuffer = buffer
