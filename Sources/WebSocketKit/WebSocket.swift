@@ -117,7 +117,7 @@ public final class WebSocket: Sendable {
 
     }
 
-    public func send(_ binary: [UInt8], promise: EventLoopPromise<Void>? = nil) {
+    public func send(_ binary: some DataProtocol, promise: EventLoopPromise<Void>? = nil) {
         self.send(raw: binary, opcode: .binary, fin: true, promise: promise)
     }
 
