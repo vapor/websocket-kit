@@ -117,8 +117,7 @@ public final class WebSocketClient: Sendable {
                     uri = path
                 } else {
                     let relativePath = path.hasPrefix("/") ? path : "/" + path
-                    let port = proxyPort.map { ":\($0)" } ?? ""
-                    uri = "\(scheme)://\(host)\(relativePath)\(port)"
+                    uri = "\(scheme)://\(host):\(port)\(relativePath)"
 
                     if scheme == "ws" {
                         upgradeRequestHeaders.add(contentsOf: proxyHeaders)
