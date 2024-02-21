@@ -193,6 +193,7 @@ extension WebSocket {
             proxyPort: proxyPort,
             proxyHeaders: proxyHeaders,
             proxyConnectDeadline: proxyConnectDeadline,
+            configuration: configuration,
             on: eventLoopGroup,
             onUpgrade: onUpgrade
         )
