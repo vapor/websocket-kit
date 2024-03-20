@@ -76,7 +76,7 @@ func generateRSAPrivateKey() -> OpaquePointer {
     precondition(generateRC == 1)
 
     let pkey = CNIOBoringSSL_EVP_PKEY_new()!
-    let assignRC = CNIOBoringSSL_EVP_PKEY_assign(pkey, EVP_PKEY_RSA, rsa)
+    let assignRC = CNIOBoringSSL_EVP_PKEY_assign_RSA(pkey, rsa)
     
     precondition(assignRC == 1)
     return pkey
@@ -125,7 +125,7 @@ func generateSelfSignedCert(keygenFunction: () -> OpaquePointer = generateRSAPri
                                                      NID_commonName,
                                                      MBSTRING_UTF8,
                                                      UnsafeMutablePointer(mutating: pointer),
-                                                     CInt(commonName.lengthOfBytes(using: .utf8)),
+                                                     ossl_ssize_t(commonName.lengthOfBytes(using: .utf8)),
                                                      -1,
                                                      0)
         }

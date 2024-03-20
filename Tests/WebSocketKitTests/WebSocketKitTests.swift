@@ -516,8 +516,8 @@ final class WebSocketKitTests: XCTestCase {
             return XCTFail("couldn't get port from \(String(reflecting: server.localAddress))")
         }
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
-            ws.onPong {
-                $0.close(promise: closePromise)
+            ws.onPong { webSocket, _ in
+                webSocket.close(promise: closePromise)
                 promise.succeed()
             }
             ws.sendPing()
@@ -536,8 +536,8 @@ final class WebSocketKitTests: XCTestCase {
         }
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
             ws.pingInterval = .milliseconds(100)
-            ws.onPong {
-                $0.close(promise: closePromise)
+            ws.onPong { webSocket, _ in
+                webSocket.close(promise: closePromise)
                 promise.succeed()
             }
         }.cascadeFailure(to: closePromise)
