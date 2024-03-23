@@ -22,7 +22,7 @@ public final class WebSocket: Sendable {
     public var closeCode: WebSocketErrorCode? {
         _closeCode.withLockedValue { $0 }
     }
-    
+
     private let _closeCode: NIOLockedValueBox<WebSocketErrorCode?>
 
     public var onClose: EventLoopFuture<Void> {
@@ -65,11 +65,11 @@ public final class WebSocket: Sendable {
     @preconcurrency public func onBinary(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onBinaryCallback.value = callback
     }
-    
+
     public func onPong(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onPongCallback.value = callback
     }
-    
+
     @available(*, deprecated, message: "Please use `onPong { socket, data in /* … */ }` with the additional `data` parameter.")
     @preconcurrency public func onPong(_ callback: @Sendable @escaping (WebSocket) -> ()) {
         self.onPongCallback.value = { ws, _ in callback(ws) }
@@ -78,7 +78,7 @@ public final class WebSocket: Sendable {
     public func onPing(_ callback: @Sendable @escaping (WebSocket, ByteBuffer) -> ()) {
         self.onPingCallback.value = callback
     }
-    
+
     @available(*, deprecated, message: "Please use `onPing { socket, data in /* … */ }` with the additional `data` parameter.")
     @preconcurrency public func onPing(_ callback: @Sendable @escaping (WebSocket) -> ()) {
         self.onPingCallback.value = { ws, _ in callback(ws) }
@@ -308,6 +308,13 @@ public final class WebSocket: Sendable {
 
     @Sendable
     private func pingAndScheduleNextTimeoutTask() {
+        if !eventLoop.inEventLoop {
+            eventLoop.execute {
+                self.pingAndScheduleNextTimeoutTask()
+            }
+            return
+        }
+
         guard channel.isActive, let pingInterval = pingInterval else {
             return
         }
