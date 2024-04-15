@@ -20,7 +20,10 @@ extension WebSocket {
         on eventLoopGroup: EventLoopGroup,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
-        guard let url = URL(string: url) else {
+        guard
+            url.hasPrefix("ws://") || url.hasPrefix("wss://"),
+            let url = URL(string: url)
+        else {
             return eventLoopGroup.any().makeFailedFuture(WebSocketClient.Error.invalidURL)
         }
         return self.connect(
