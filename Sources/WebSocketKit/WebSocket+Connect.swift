@@ -21,7 +21,7 @@ extension WebSocket {
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         let optionalURL: URL?
-        if #available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, visionOS 1.0, *) {
+        if #available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *) {
             optionalURL = URL(string: url, encodingInvalidCharacters: false)
         } else {
             optionalURL = URL(string: url)
