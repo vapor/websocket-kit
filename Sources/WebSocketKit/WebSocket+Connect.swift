@@ -20,9 +20,9 @@ extension WebSocket {
         on eventLoopGroup: EventLoopGroup,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
-        #if canImport(Foundation)
+        #if os(iOS) || os(tvOS) || os(watchOS) || os(macOS)
         let optionalURL: URL?
-        if #available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *) {
+        if #available(iOS 17.0, macOS 14.4, tvOS 17.0, watchOS 10.0, *) {
             optionalURL = URL(string: url, encodingInvalidCharacters: false)
         } else {
             optionalURL = URL(string: url)
