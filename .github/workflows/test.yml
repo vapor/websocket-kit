@@ -9,13 +9,13 @@ jobs:
   vapor-integration:
     if: ${{ !(github.event.pull_request.draft || false) }}
     runs-on: ubuntu-latest
-    container: swift:5.8-jammy
+    container: swift:5.10-noble
     steps:
       - name: Check out package
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with: { path: 'websocket-kit' }
       - name: Check out Vapor
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with: { repository: 'vapor/vapor', path: 'vapor' }
       - name: Use local package in Vapor
         run: swift package --package-path vapor edit websocket-kit --path websocket-kit
@@ -23,8 +23,5 @@ jobs:
         run: swift test --package-path vapor
 
   unit-tests:
-    uses: vapor/ci/.github/workflows/run-unit-tests.yml@reusable-workflows
-    with:
-      with_coverage: true
-      with_tsan: false
-      with_public_api_check: ${{ github.event_name == 'pull_request' }}
+    uses: vapor/ci/.github/workflows/run-unit-tests.yml@main
+    secrets: inherit
