@@ -20,6 +20,25 @@ extension WebSocket {
         on eventLoopGroup: EventLoopGroup,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
+        #if os(iOS) || os(tvOS) || os(watchOS) || os(macOS)
+        let optionalURL: URL?
+        if #available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *) {
+            optionalURL = URL(string: url, encodingInvalidCharacters: false)
+        } else {
+            optionalURL = URL(string: url)
+        }
+        guard let url = optionalURL else {
+            return eventLoopGroup.any().makeFailedFuture(WebSocketClient.Error.invalidURL)
+        }
+        
+        return self.connect(
+            to: url,
+            headers: headers,
+            configuration: configuration,
+            on: eventLoopGroup,
+            onUpgrade: onUpgrade
+        )
+        #else
         guard let url = URL(string: url) else {
             return eventLoopGroup.any().makeFailedFuture(WebSocketClient.Error.invalidURL)
         }
@@ -30,8 +49,9 @@ extension WebSocket {
             on: eventLoopGroup,
             onUpgrade: onUpgrade
         )
+        #endif
     }
-
+    
     /// Establish a WebSocket connection.
     ///
     /// - Parameters:
@@ -62,7 +82,7 @@ extension WebSocket {
             onUpgrade: onUpgrade
         )
     }
-
+    
     /// Establish a WebSocket connection.
     ///
     /// - Parameters:
@@ -101,7 +121,7 @@ extension WebSocket {
             onUpgrade: onUpgrade
         )
     }
-
+    
     /// Establish a WebSocket connection via a proxy server.
     ///
     /// - Parameters:
@@ -152,8 +172,8 @@ extension WebSocket {
             onUpgrade: onUpgrade
         )
     }
-
-
+    
+    
     /// Description
     /// - Parameters:
     ///   - url: URL for the origin server.
