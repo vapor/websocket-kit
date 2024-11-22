@@ -478,12 +478,37 @@ final class WebSocketKitTests: XCTestCase {
         try server.close(mode: .all).wait()
     }
     
-    func testBadURLInWebsocketConnect() async throws {
-        XCTAssertThrowsError(try WebSocket.connect(to: "%w", on: self.elg, onUpgrade: { _ in }).wait()) {
+    func testBadURLInWebsocketConnect() throws {
+        
+        let server = try ServerBootstrap.webSocket(on: self.elg) { $1.onText { $0.send($1) } }.bind(host: "localhost", port: 0).wait()
+
+        guard let port = server.localAddress?.port else {
+            return XCTFail("couldn't get port from \(String(reflecting: server.localAddress))")
+        }
+        
+        XCTAssertThrowsError(try WebSocket.connect(to: "ws://%w:\(port)", on: self.elg, onUpgrade: { _ in }).wait()) {
             guard case .invalidURL = $0 as? WebSocketClient.Error else {
                 return XCTFail("Expected .invalidURL but got \(String(reflecting: $0))")
             }
         }
+        
+        XCTAssertThrowsError(try WebSocket.connect(to: "ws://%w", on: self.elg, onUpgrade: { _ in }).wait()) {
+            guard case .invalidURL = $0 as? WebSocketClient.Error else {
+                return XCTFail("Expected .invalidURL but got \(String(reflecting: $0))")
+            }
+        }
+        
+        XCTAssertThrowsError(try WebSocket.connect(to: "", on: self.elg, onUpgrade: { _ in }).wait()) {
+            guard case .invalidURL = $0 as? WebSocketClient.Error else {
+                return XCTFail("Expected .invalidURL but got \(String(reflecting: $0))")
+            }
+        }
+        
+//        XCTAssertThrowsError(try WebSocket.connect(to: "%w", on: self.elg, onUpgrade: { _ in }).wait()) {
+//            guard case .invalidURL = $0 as? WebSocketClient.Error else {
+//                return XCTFail("Expected .invalidURL but got \(String(reflecting: $0))")
+//            }
+//        }
     }
     
     func testOnBinary() throws {
