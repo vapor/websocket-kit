@@ -46,9 +46,10 @@ final class AsyncWebSocketKitTests: XCTestCase {
         try await server.close(mode: .all)
     }
     
-    func testBadURLInWebsocketConnect() async throws {
+    func testBadURLSchemeInWebsocketConnect() async throws {
+        
         do {
-            try await WebSocket.connect(to: "%w", on: self.elg, onUpgrade: { _ async in })
+            try await WebSocket.connect(to: "w`:", on: self.elg, onUpgrade: { _ async in })
             XCTAssertThrowsError({}())
         } catch {
             XCTAssertThrowsError(try { throw error }()) {
