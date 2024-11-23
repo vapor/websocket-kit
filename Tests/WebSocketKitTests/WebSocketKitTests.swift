@@ -480,7 +480,7 @@ final class WebSocketKitTests: XCTestCase {
     
     func testBadURLSchemeInWebsocketConnect() throws {
          
-        XCTAssertThrowsError(try WebSocket.connect(to: "w$:", on: self.elg, onUpgrade: { _ in }).wait()) {
+        XCTAssertThrowsError(try WebSocket.connect(to: "w':", on: self.elg, onUpgrade: { _ in }).wait()) {
             guard case .invalidURL = $0 as? WebSocketClient.Error else {
                 return XCTFail("Expected .invalidURL but got \(String(reflecting: $0))")
             }
