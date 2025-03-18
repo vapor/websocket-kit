@@ -102,7 +102,7 @@ internal final class WebsocketBin {
         }
 
         self.serverChannel = try! ServerBootstrap(group: self.group)
-            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+            .serverChannelOption(.socketOption(.so_reuseaddr), value: 1)
             .childChannelInitializer { channel in
                 do {
 

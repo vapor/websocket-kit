@@ -108,7 +108,7 @@ public final class WebSocketClient: Sendable {
         assert(["ws", "wss"].contains(scheme))
         let upgradePromise = self.group.any().makePromise(of: Void.self)
         let bootstrap = WebSocketClient.makeBootstrap(on: self.group)
-            .channelOption(ChannelOptions.socket(SocketOptionLevel(IPPROTO_TCP), TCP_NODELAY), value: 1)
+            .channelOption(.tcpOption(.tcp_nodelay), value: 1)
             .channelInitializer { channel -> EventLoopFuture<Void> in
 
                 let uri: String
