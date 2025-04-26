@@ -545,9 +545,10 @@ final class WebSocketKitTests: XCTestCase {
         XCTAssertNoThrow(try closePromise.futureResult.wait())
         try server.close(mode: .all).wait()
     }
-    
+
+    @available(*, deprecated, message: "Tests deprecated functionality")
     func testCreateNewELGAndShutdown() throws {
-        let client = WebSocketClient(eventLoopGroupProvider: .shared(.singletonMultiThreadedEventLoopGroup))
+        let client = WebSocketClient(eventLoopGroupProvider: .createNew)
         try client.syncShutdown()
     }
 

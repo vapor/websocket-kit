@@ -2,7 +2,7 @@ import NIOConcurrencyHelpers
 import NIOCore
 import NIOHTTP1
 
-final class HTTPUpgradeRequestHandler: ChannelInboundHandler, RemovableChannelHandler, Sendable {
+final class HTTPUpgradeRequestHandler: ChannelInboundHandler, RemovableChannelHandler {
     typealias InboundIn = HTTPClientResponsePart
     typealias OutboundOut = HTTPClientRequestPart
 
@@ -12,7 +12,7 @@ final class HTTPUpgradeRequestHandler: ChannelInboundHandler, RemovableChannelHa
     let headers: HTTPHeaders
     let upgradePromise: EventLoopPromise<Void>
 
-    private let requestSent = NIOLockedValueBox(false)
+    private var requestSent = false
 
     init(host: String, path: String, query: String?, headers: HTTPHeaders, upgradePromise: EventLoopPromise<Void>) {
         self.host = host
@@ -34,16 +34,11 @@ final class HTTPUpgradeRequestHandler: ChannelInboundHandler, RemovableChannelHa
     }
 
     private func sendRequest(context: ChannelHandlerContext) {
-        if self.requestSent.withLockedValue({
-            if $0 {
-                // we might run into this handler twice, once in handlerAdded and once in channelActive.
-                return true
-            }
-            $0 = true
-            return false
-        }) {
+        if self.requestSent {
+            // we might run into this handler twice, once in handlerAdded and once in channelActive.
             return
         }
+        self.requestSent = true
 
         var headers = self.headers
         headers.add(name: "Host", value: self.host)

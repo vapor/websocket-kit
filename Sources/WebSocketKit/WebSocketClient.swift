@@ -145,7 +145,7 @@ public final class WebSocketClient: Sendable {
                     upgraders: [websocketUpgrader],
                     completionHandler: { context in
                         upgradePromise.succeed(())
-                        channel.pipeline.removeHandler(httpUpgradeRequestHandlerBox.value, promise: nil)
+                        channel.pipeline.syncOperations.removeHandler(httpUpgradeRequestHandlerBox.value, promise: nil)
                     }
                 )
                 let configBox = NIOLoopBound(config, eventLoop: channel.eventLoop)
