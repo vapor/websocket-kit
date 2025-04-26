@@ -1,0 +1,24 @@
+{
+  "theme": {
+    "aside": { "border-radius": "16px", "border-style": "double", "border-width": "3px" },
+    "border-radius": "0",
+    "button": { "border-radius": "16px", "border-width": "1px", "border-style": "solid" },
+    "code":   { "border-radius": "16px", "border-width": "1px", "border-style": "solid" },
+    "color": {
+      "websocketkit": { "dark": "hsl(200, 0%, 100%)", "light": "hsl(200, 0%, 75%)" },
+      "documentation-intro-fill": "radial-gradient(circle at top, var(--color-fluentkit) 30%, #000 100%)",
+      "documentation-intro-accent": "var(--color-websocketkit)",
+      "documentation-intro-eyebrow": "white",
+      "documentation-intro-figure": "white",
+      "documentation-intro-title": "white",
+      "logo-base":  { "dark": "#fff", "light": "#000" },
+      "logo-shape": { "dark": "#000", "light": "#fff" },
+      "fill":       { "dark": "#000", "light": "#fff" }
+    },
+    "icons": { "technology": "/websocketkit/images/WebSocketKit/vapor-websocketkit-logo.svg" }
+  },
+  "features": {
+    "quickNavigation": { "enable": true },
+    "i18n": { "enable": true }
+  }
+}

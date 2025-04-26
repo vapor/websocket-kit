@@ -551,8 +551,8 @@ final class WebSocketKitTests: XCTestCase {
         try client.syncShutdown()
     }
 
-    var elg: EventLoopGroup!
-    
+    var elg: (any EventLoopGroup)!
+
     override func setUp() {
         // needs to be at least two to avoid client / server on same EL timing issues
         self.elg = MultiThreadedEventLoopGroup(numberOfThreads: 2)

@@ -48,7 +48,7 @@ public final class WebSocketClient: Sendable {
     }
 
     let eventLoopGroupProvider: EventLoopGroupProvider
-    let group: EventLoopGroup
+    let group: any EventLoopGroup
     let configuration: Configuration
     let isShutdown = ManagedAtomic(false)
 
@@ -110,7 +110,6 @@ public final class WebSocketClient: Sendable {
         let bootstrap = WebSocketClient.makeBootstrap(on: self.group)
             .channelOption(ChannelOptions.socket(SocketOptionLevel(IPPROTO_TCP), TCP_NODELAY), value: 1)
             .channelInitializer { channel -> EventLoopFuture<Void> in
-
                 let uri: String
                 var upgradeRequestHeaders = headers
                 if proxy == nil {
@@ -265,7 +264,7 @@ public final class WebSocketClient: Sendable {
         }
     }
     
-    private static func makeBootstrap(on eventLoop: EventLoopGroup) -> NIOClientTCPBootstrapProtocol {
+    private static func makeBootstrap(on eventLoop: any EventLoopGroup) -> any NIOClientTCPBootstrapProtocol {
         #if canImport(Network)
         if let tsBootstrap = NIOTSConnectionBootstrap(validatingGroup: eventLoop) {
             return tsBootstrap

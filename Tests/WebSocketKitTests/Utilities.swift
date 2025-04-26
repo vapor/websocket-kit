@@ -9,7 +9,7 @@ import NIOWebSocket
 
 extension ServerBootstrap {
     static func webSocket(
-        on eventLoopGroup: EventLoopGroup,
+        on eventLoopGroup: any EventLoopGroup,
         tls: Bool = false,
         onUpgrade: @escaping (HTTPRequestHead, WebSocket) -> ()
     ) -> ServerBootstrap {
@@ -78,7 +78,7 @@ internal final class WebsocketBin {
 
     private let mode: Mode
     private let sslContext: NIOSSLContext?
-    private var serverChannel: Channel!
+    private var serverChannel: (any Channel)!
     private let isShutdown = ManagedAtomic(false)
 
     init(
@@ -169,10 +169,10 @@ internal final class WebsocketBin {
     // In the TLS case we must set up the 'proxy' and the 'server' handlers sequentially
     // rather than re-using parts because the requestDecoder stops parsing after a CONNECT request
     private func syncAddTLSHTTPProxyHandlers(
-        to channel: Channel,
+        to channel: any Channel,
         proxyConfig: ProxyConfig,
         expectedAuthorization: String?,
-        upgraders: [HTTPServerProtocolUpgrader]
+        upgraders: [any HTTPServerProtocolUpgrader]
     ) throws {
         let sync = channel.pipeline.syncOperations
         let promise = channel.eventLoop.makePromise(of: Void.self)
@@ -207,10 +207,10 @@ internal final class WebsocketBin {
     // In the plain-text case we must set up the 'proxy' and the 'server' handlers simultaneously
     // so that the combined proxy/upgrade request can be processed by the separate proxy and upgrade handlers
     private func syncAddHTTPProxyHandlers(
-        to channel: Channel,
+        to channel: any Channel,
         proxyConfig: ProxyConfig,
         expectedAuthorization: String?,
-        upgraders: [HTTPServerProtocolUpgrader]
+        upgraders: [any HTTPServerProtocolUpgrader]
     ) throws {
         let sync = channel.pipeline.syncOperations
         let promise = channel.eventLoop.makePromise(of: Void.self)
@@ -259,7 +259,7 @@ internal final class WebsocketBin {
         }
     }
 
-    private func httpProxyEstablished(_ channel: Channel, upgraders: [HTTPServerProtocolUpgrader]) {
+    private func httpProxyEstablished(_ channel: any Channel, upgraders: [any HTTPServerProtocolUpgrader]) {
         do {
             // if a connection has been established, we need to negotiate TLS before
             // anything else. Depending on the negotiation, the HTTPHandlers will be added.

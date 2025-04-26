@@ -35,7 +35,7 @@ extension WebSocket {
     /// - Returns: A future which completes when the WebSocket connection to the server is established.
     @preconcurrency
     public static func client(
-        on channel: Channel,
+        on channel: any Channel,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         return self.configure(on: channel, as: .client, with: Configuration(), onUpgrade: onUpgrade)
@@ -49,7 +49,7 @@ extension WebSocket {
     /// - Returns: A future which completes when the WebSocket connection to the server is established.
     @preconcurrency
     public static func client(
-        on channel: Channel,
+        on channel: any Channel,
         config: Configuration,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
@@ -63,7 +63,7 @@ extension WebSocket {
     /// - Returns: A future which completes when the WebSocket connection to the server is established.
     @preconcurrency
     public static func server(
-        on channel: Channel,
+        on channel: any Channel,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         return self.configure(on: channel, as: .server, with: Configuration(), onUpgrade: onUpgrade)
@@ -77,7 +77,7 @@ extension WebSocket {
     /// - Returns: A future which completes when the WebSocket connection to the server is established.
     @preconcurrency
     public static func server(
-        on channel: Channel,
+        on channel: any Channel,
         config: Configuration,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
@@ -85,7 +85,7 @@ extension WebSocket {
     }
 
     private static func configure(
-        on channel: Channel,
+        on channel: any Channel,
         as type: PeerType,
         with config: Configuration,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
@@ -131,7 +131,7 @@ private final class WebSocketHandler: ChannelInboundHandler {
         self.webSocket.handle(incoming: frame)
     }
 
-    func errorCaught(context: ChannelHandlerContext, error: Error) {
+    func errorCaught(context: ChannelHandlerContext, error: any Error) {
         let errorCode: WebSocketErrorCode
         if let error = error as? NIOWebSocketError {
             errorCode = WebSocketErrorCode(error)

@@ -1,3 +1,0 @@
-API breakage: import NIO has been renamed to import NIOCore
-API breakage: import NIO has been renamed to import NIOPosix
-

@@ -17,7 +17,7 @@ extension WebSocket {
         to url: String,
         headers: HTTPHeaders = [:],
         configuration: WebSocketClient.Configuration = .init(),
-        on eventLoopGroup: EventLoopGroup,
+        on eventLoopGroup: any EventLoopGroup,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         guard let url = URL(string: url) else {
@@ -46,7 +46,7 @@ extension WebSocket {
         to url: URL,
         headers: HTTPHeaders = [:],
         configuration: WebSocketClient.Configuration = .init(),
-        on eventLoopGroup: EventLoopGroup,
+        on eventLoopGroup: any EventLoopGroup,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         let scheme = url.scheme ?? "ws"
@@ -85,7 +85,7 @@ extension WebSocket {
         query: String? = nil,
         headers: HTTPHeaders = [:],
         configuration: WebSocketClient.Configuration = .init(),
-        on eventLoopGroup: EventLoopGroup,
+        on eventLoopGroup: any EventLoopGroup,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         return WebSocketClient(
@@ -132,7 +132,7 @@ extension WebSocket {
         proxyHeaders: HTTPHeaders = [:],
         proxyConnectDeadline: NIODeadline = NIODeadline.distantFuture,
         configuration: WebSocketClient.Configuration = .init(),
-        on eventLoopGroup: EventLoopGroup,
+        on eventLoopGroup: any EventLoopGroup,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         return WebSocketClient(
@@ -175,7 +175,7 @@ extension WebSocket {
         proxyHeaders: HTTPHeaders = [:],
         proxyConnectDeadline: NIODeadline = NIODeadline.distantFuture,
         configuration: WebSocketClient.Configuration = .init(),
-        on eventLoopGroup: EventLoopGroup,
+        on eventLoopGroup: any EventLoopGroup,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         guard let url = URL(string: url) else {
