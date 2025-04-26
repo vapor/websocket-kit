@@ -28,4 +28,3 @@ jobs:
     secrets: inherit
     with:
       with_musl: true
-      with_android: true
