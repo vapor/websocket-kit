@@ -479,7 +479,7 @@ final class WebSocketKitTests: XCTestCase {
     }
     
     func testBadURLInWebsocketConnect() async throws {
-        XCTAssertThrowsError(try WebSocket.connect(to: "%w", on: self.elg, onUpgrade: { _ in }).wait()) {
+        XCTAssertThrowsError(try WebSocket.connect(to: "%w:", on: self.elg, onUpgrade: { _ in }).wait()) {
             guard case .invalidURL = $0 as? WebSocketClient.Error else {
                 return XCTFail("Expected .invalidURL but got \(String(reflecting: $0))")
             }
@@ -516,8 +516,8 @@ final class WebSocketKitTests: XCTestCase {
             return XCTFail("couldn't get port from \(String(reflecting: server.localAddress))")
         }
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
-            ws.onPong {
-                $0.close(promise: closePromise)
+            ws.onPong { s, _ in
+                s.close(promise: closePromise)
                 promise.succeed()
             }
             ws.sendPing()
@@ -536,8 +536,8 @@ final class WebSocketKitTests: XCTestCase {
         }
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
             ws.pingInterval = .milliseconds(100)
-            ws.onPong {
-                $0.close(promise: closePromise)
+            ws.onPong { s, _ in
+                s.close(promise: closePromise)
                 promise.succeed()
             }
         }.cascadeFailure(to: closePromise)
@@ -547,7 +547,7 @@ final class WebSocketKitTests: XCTestCase {
     }
     
     func testCreateNewELGAndShutdown() throws {
-        let client = WebSocketClient(eventLoopGroupProvider: .createNew)
+        let client = WebSocketClient(eventLoopGroupProvider: .shared(.singletonMultiThreadedEventLoopGroup))
         try client.syncShutdown()
     }
 
