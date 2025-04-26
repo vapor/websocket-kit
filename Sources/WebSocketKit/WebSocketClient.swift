@@ -162,11 +162,12 @@ public final class WebSocketClient: Sendable {
                         }
                     }
 
-                    return channel.pipeline.addHTTPClientHandlers(
-                        leftOverBytesStrategy: .forwardBytes,
-                        withClientUpgrade: config
-                    ).flatMap {
-                        channel.pipeline.addHandler(httpUpgradeRequestHandlerBox.value)
+                    return channel.eventLoop.submit {
+                        try channel.pipeline.syncOperations.addHTTPClientHandlers(
+                            leftOverBytesStrategy: .forwardBytes,
+                            withClientUpgrade: configBox.value
+                        )
+                        try channel.pipeline.syncOperations.addHandler(httpUpgradeRequestHandlerBox.value)
                     }
                 }
 
@@ -199,9 +200,9 @@ public final class WebSocketClient: Sendable {
                 }
 
                 proxyEstablishedPromise.futureResult.flatMap {
-                    channel.pipeline.removeHandler(decoder.value)
+                    channel.pipeline.syncOperations.removeHandler(decoder.value)
                 }.flatMap {
-                    channel.pipeline.removeHandler(encoder.value)
+                    channel.pipeline.syncOperations.removeHandler(encoder.value)
                 }.whenComplete { result in
                     switch result {
                     case .success:

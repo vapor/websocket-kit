@@ -347,7 +347,7 @@ final class WebSocketKitTests: XCTestCase {
         let promise = elg.any().makePromise(of: String.self)
 
         let localWebsocketBin: WebsocketBin
-        let verifyProxyHead = { (ctx: ChannelHandlerContext, requestHead: HTTPRequestHead) in
+        let verifyProxyHead = { @Sendable (ctx: ChannelHandlerContext, requestHead: HTTPRequestHead) in
             XCTAssertEqual(requestHead.uri, "ws://apple.com/:\(ctx.localAddress!.port!)")
             XCTAssertEqual(requestHead.headers.first(name: "Host"), "apple.com")
         }
@@ -405,7 +405,7 @@ final class WebSocketKitTests: XCTestCase {
         )
         let sslContext = try! NIOSSLContext(configuration: configuration)
 
-        let verifyProxyHead = { (ctx: ChannelHandlerContext, requestHead: HTTPRequestHead) in
+        let verifyProxyHead = { @Sendable (ctx: ChannelHandlerContext, requestHead: HTTPRequestHead) in
             // CONNECT uses a special form of request target, unique to this method, consisting of
             // only the host and port number of the tunnel destination, separated by a colon.
             // https://httpwg.org/specs/rfc9110.html#CONNECT

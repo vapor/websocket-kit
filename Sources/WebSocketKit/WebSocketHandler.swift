@@ -92,14 +92,16 @@ extension WebSocket {
     ) -> EventLoopFuture<Void> {
         let webSocket = WebSocket(channel: channel, type: type)
 
-        return channel.pipeline.addHandlers([
-            NIOWebSocketFrameAggregator(
-                minNonFinalFragmentSize: config.minNonFinalFragmentSize,
-                maxAccumulatedFrameCount: config.maxAccumulatedFrameCount,
-                maxAccumulatedFrameSize: config.maxAccumulatedFrameSize
-            ),
-            WebSocketHandler(webSocket: webSocket)
-        ]).map { _ in
+        return channel.eventLoop.submit {
+            try channel.pipeline.syncOperations.addHandlers([
+                NIOWebSocketFrameAggregator(
+                    minNonFinalFragmentSize: config.minNonFinalFragmentSize,
+                    maxAccumulatedFrameCount: config.maxAccumulatedFrameCount,
+                    maxAccumulatedFrameSize: config.maxAccumulatedFrameSize
+                ),
+                WebSocketHandler(webSocket: webSocket)
+            ])
+        }.map {
             onUpgrade(webSocket)
         }
     }
