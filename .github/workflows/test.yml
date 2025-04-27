@@ -5,11 +5,12 @@ concurrency:
 on:
   pull_request: { types: [opened, reopened, synchronize, ready_for_review] }
   push: { branches: [ main ] }
+
 jobs:
   vapor-integration:
     if: ${{ !(github.event.pull_request.draft || false) }}
     runs-on: ubuntu-latest
-    container: swift:5.10-noble
+    container: swift:6.1-noble
     steps:
       - name: Check out package
         uses: actions/checkout@v4
@@ -25,3 +26,5 @@ jobs:
   unit-tests:
     uses: vapor/ci/.github/workflows/run-unit-tests.yml@main
     secrets: inherit
+    with:
+      with_musl: true

@@ -1,0 +1,32 @@
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" id="technology">
+  <defs>
+  <style>
+    @media(prefers-color-scheme: dark) {
+      :root { --color-logo-shape: #000000; --color-logo-base: #ffffff; }
+    }
+    body[data-color-scheme="dark"] {
+      --color-logo-shape: #000000; --color-logo-base: #ffffff;
+    }
+  </style>
+  <path id="surface" d="m 6,47 l 58,-47 58,47 -58,45 z"/>
+  <path id="strut"   d="m 6,47 v 12 l 58,45 v -12 z"/>
+  <path id="shape"   d="
+    m  81.20, 47.83    6.24, -3.60   -8.65,-15.00  -11.10, -2.97   -1.86,  6.96    8.20,  2.20 z
+    m   8.06, -0.50  -21.76, 12.56   -8.20, -2.20    0.93, -3.50    6.80,  1.80    8.84, -5.10
+      -13.74, -3.70    0.94, -3.50   13.73,  3.70   -5.10, -8.84   -6.75, -1.80    0.93, -3.45
+      -17.10, -4.60  -21.73, 12.55    9.80,  2.63   12.90, -7.43    7.20,  1.93   -2.80, 10.50
+       -7.20, -1.93   -2.04, -3.54   -6.24,  3.60    3.53,  6.10   17.03,  4.56   -1.86,  6.93
+       11.10,  2.97   30.60,-17.67 z
+  "/>
+  </defs>
+  <use href="#strut" fill="#9ee0ff"/>
+  <use href="#strut" fill="#6bd0ff" y="12"/>
+  <use href="#strut" fill="#38c0ff" y="24"/>
+  <g transform="matrix(-1 0 0 1 128 0)">
+    <use href="#strut" fill="#f29eff"/>
+    <use href="#strut" fill="#eb6bff" y="12"/>
+    <use href="#strut" fill="#e438ff" y="24"/>
+  </g>
+  <use href="#surface" style="fill: var(--color-logo-base, #000000);"/>
+  <use href="#shape" style="fill: var(--color-logo-shape, #ffffff);"/>
+</svg>

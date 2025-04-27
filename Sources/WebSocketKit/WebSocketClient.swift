@@ -48,7 +48,7 @@ public final class WebSocketClient: Sendable {
     }
 
     let eventLoopGroupProvider: EventLoopGroupProvider
-    let group: EventLoopGroup
+    let group: any EventLoopGroup
     let configuration: Configuration
     let isShutdown = ManagedAtomic(false)
 
@@ -110,7 +110,6 @@ public final class WebSocketClient: Sendable {
         let bootstrap = WebSocketClient.makeBootstrap(on: self.group)
             .channelOption(ChannelOptions.socket(SocketOptionLevel(IPPROTO_TCP), TCP_NODELAY), value: 1)
             .channelInitializer { channel -> EventLoopFuture<Void> in
-
                 let uri: String
                 var upgradeRequestHeaders = headers
                 if proxy == nil {
@@ -146,7 +145,7 @@ public final class WebSocketClient: Sendable {
                     upgraders: [websocketUpgrader],
                     completionHandler: { context in
                         upgradePromise.succeed(())
-                        channel.pipeline.removeHandler(httpUpgradeRequestHandlerBox.value, promise: nil)
+                        channel.pipeline.syncOperations.removeHandler(httpUpgradeRequestHandlerBox.value, promise: nil)
                     }
                 )
                 let configBox = NIOLoopBound(config, eventLoop: channel.eventLoop)
@@ -163,11 +162,12 @@ public final class WebSocketClient: Sendable {
                         }
                     }
 
-                    return channel.pipeline.addHTTPClientHandlers(
-                        leftOverBytesStrategy: .forwardBytes,
-                        withClientUpgrade: config
-                    ).flatMap {
-                        channel.pipeline.addHandler(httpUpgradeRequestHandlerBox.value)
+                    return channel.eventLoop.submit {
+                        try channel.pipeline.syncOperations.addHTTPClientHandlers(
+                            leftOverBytesStrategy: .forwardBytes,
+                            withClientUpgrade: configBox.value
+                        )
+                        try channel.pipeline.syncOperations.addHandler(httpUpgradeRequestHandlerBox.value)
                     }
                 }
 
@@ -200,9 +200,9 @@ public final class WebSocketClient: Sendable {
                 }
 
                 proxyEstablishedPromise.futureResult.flatMap {
-                    channel.pipeline.removeHandler(decoder.value)
+                    channel.pipeline.syncOperations.removeHandler(decoder.value)
                 }.flatMap {
-                    channel.pipeline.removeHandler(encoder.value)
+                    channel.pipeline.syncOperations.removeHandler(encoder.value)
                 }.whenComplete { result in
                     switch result {
                     case .success:
@@ -265,7 +265,7 @@ public final class WebSocketClient: Sendable {
         }
     }
     
-    private static func makeBootstrap(on eventLoop: EventLoopGroup) -> NIOClientTCPBootstrapProtocol {
+    private static func makeBootstrap(on eventLoop: any EventLoopGroup) -> any NIOClientTCPBootstrapProtocol {
         #if canImport(Network)
         if let tsBootstrap = NIOTSConnectionBootstrap(validatingGroup: eventLoop) {
             return tsBootstrap

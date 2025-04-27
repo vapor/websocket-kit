@@ -347,7 +347,7 @@ final class WebSocketKitTests: XCTestCase {
         let promise = elg.any().makePromise(of: String.self)
 
         let localWebsocketBin: WebsocketBin
-        let verifyProxyHead = { (ctx: ChannelHandlerContext, requestHead: HTTPRequestHead) in
+        let verifyProxyHead = { @Sendable (ctx: ChannelHandlerContext, requestHead: HTTPRequestHead) in
             XCTAssertEqual(requestHead.uri, "ws://apple.com/:\(ctx.localAddress!.port!)")
             XCTAssertEqual(requestHead.headers.first(name: "Host"), "apple.com")
         }
@@ -405,7 +405,7 @@ final class WebSocketKitTests: XCTestCase {
         )
         let sslContext = try! NIOSSLContext(configuration: configuration)
 
-        let verifyProxyHead = { (ctx: ChannelHandlerContext, requestHead: HTTPRequestHead) in
+        let verifyProxyHead = { @Sendable (ctx: ChannelHandlerContext, requestHead: HTTPRequestHead) in
             // CONNECT uses a special form of request target, unique to this method, consisting of
             // only the host and port number of the tunnel destination, separated by a colon.
             // https://httpwg.org/specs/rfc9110.html#CONNECT
@@ -479,7 +479,7 @@ final class WebSocketKitTests: XCTestCase {
     }
     
     func testBadURLInWebsocketConnect() async throws {
-        XCTAssertThrowsError(try WebSocket.connect(to: "%w", on: self.elg, onUpgrade: { _ in }).wait()) {
+        XCTAssertThrowsError(try WebSocket.connect(to: "%w:", on: self.elg, onUpgrade: { _ in }).wait()) {
             guard case .invalidURL = $0 as? WebSocketClient.Error else {
                 return XCTFail("Expected .invalidURL but got \(String(reflecting: $0))")
             }
@@ -516,8 +516,8 @@ final class WebSocketKitTests: XCTestCase {
             return XCTFail("couldn't get port from \(String(reflecting: server.localAddress))")
         }
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
-            ws.onPong {
-                $0.close(promise: closePromise)
+            ws.onPong { s, _ in
+                s.close(promise: closePromise)
                 promise.succeed()
             }
             ws.sendPing()
@@ -536,8 +536,8 @@ final class WebSocketKitTests: XCTestCase {
         }
         WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { ws in
             ws.pingInterval = .milliseconds(100)
-            ws.onPong {
-                $0.close(promise: closePromise)
+            ws.onPong { s, _ in
+                s.close(promise: closePromise)
                 promise.succeed()
             }
         }.cascadeFailure(to: closePromise)
@@ -545,14 +545,15 @@ final class WebSocketKitTests: XCTestCase {
         XCTAssertNoThrow(try closePromise.futureResult.wait())
         try server.close(mode: .all).wait()
     }
-    
+
+    @available(*, deprecated, message: "Tests deprecated functionality")
     func testCreateNewELGAndShutdown() throws {
         let client = WebSocketClient(eventLoopGroupProvider: .createNew)
         try client.syncShutdown()
     }
 
-    var elg: EventLoopGroup!
-    
+    var elg: (any EventLoopGroup)!
+
     override func setUp() {
         // needs to be at least two to avoid client / server on same EL timing issues
         self.elg = MultiThreadedEventLoopGroup(numberOfThreads: 2)

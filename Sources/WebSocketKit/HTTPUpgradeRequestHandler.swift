@@ -1,3 +1,4 @@
+import NIOConcurrencyHelpers
 import NIOCore
 import NIOHTTP1
 
@@ -81,7 +82,7 @@ final class HTTPUpgradeRequestHandler: ChannelInboundHandler, RemovableChannelHa
         }
     }
 
-    func errorCaught(context: ChannelHandlerContext, error: Error) {
+    func errorCaught(context: ChannelHandlerContext, error: any Error) {
         self.upgradePromise.fail(error)
         context.close(promise: nil)
     }

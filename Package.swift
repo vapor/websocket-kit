@@ -1,4 +1,4 @@
-// swift-tools-version:5.7
+// swift-tools-version:5.10
 import PackageDescription
 
 let package = Package(
@@ -20,19 +20,36 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-atomics.git", from: "1.1.0"),
     ],
     targets: [
-        .target(name: "WebSocketKit", dependencies: [
-            .product(name: "NIOCore", package: "swift-nio"),
-            .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
-            .product(name: "NIOExtras", package: "swift-nio-extras"),
-            .product(name: "NIOFoundationCompat", package: "swift-nio"),
-            .product(name: "NIOHTTP1", package: "swift-nio"),
-            .product(name: "NIOSSL", package: "swift-nio-ssl"),
-            .product(name: "NIOWebSocket", package: "swift-nio"),
-            .product(name: "NIOTransportServices", package: "swift-nio-transport-services"),
-            .product(name: "Atomics", package: "swift-atomics")
-        ]),
-        .testTarget(name: "WebSocketKitTests", dependencies: [
-            .target(name: "WebSocketKit"),
-        ]),
+        .target(
+            name: "WebSocketKit",
+            dependencies: [
+                .product(name: "NIOCore", package: "swift-nio"),
+                .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
+                .product(name: "NIOExtras", package: "swift-nio-extras"),
+                .product(name: "NIOFoundationCompat", package: "swift-nio"),
+                .product(name: "NIOHTTP1", package: "swift-nio"),
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
+                .product(name: "NIOWebSocket", package: "swift-nio"),
+                .product(name: "NIOTransportServices", package: "swift-nio-transport-services"),
+                .product(name: "Atomics", package: "swift-atomics"),
+            ],
+            swiftSettings: swiftSettings
+        ),
+        .testTarget(
+            name: "WebSocketKitTests",
+            dependencies: [
+                .target(name: "WebSocketKit"),
+            ],
+            swiftSettings: swiftSettings
+        ),
     ]
 )
+
+var swiftSettings: [SwiftSetting] { [
+    .enableUpcomingFeature("ExistentialAny"),
+    .enableUpcomingFeature("ConciseMagicFile"),
+    .enableUpcomingFeature("ForwardTrailingClosures"),
+    .enableUpcomingFeature("DisableOutwardActorInference"),
+    .enableUpcomingFeature("MemberImportVisibility"),
+    .enableExperimentalFeature("StrictConcurrency=complete"),
+] }

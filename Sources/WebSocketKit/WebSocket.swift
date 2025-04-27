@@ -12,7 +12,7 @@ public final class WebSocket: Sendable {
         case client
     }
 
-    public var eventLoop: EventLoop {
+    public var eventLoop: any EventLoop {
         return channel.eventLoop
     }
 
@@ -31,7 +31,7 @@ public final class WebSocket: Sendable {
 
     @usableFromInline
     /* private but @usableFromInline */
-    internal let channel: Channel
+    internal let channel: any Channel
     private let onTextCallback: NIOLoopBoundBox<@Sendable (WebSocket, String) -> ()>
     private let onBinaryCallback: NIOLoopBoundBox<@Sendable (WebSocket, ByteBuffer) -> ()>
     private let onPongCallback: NIOLoopBoundBox<@Sendable (WebSocket, ByteBuffer) -> ()>
@@ -43,7 +43,7 @@ public final class WebSocket: Sendable {
     private let frameSequence: NIOLockedValueBox<WebSocketFrameSequence?>
     private let _pingInterval: NIOLockedValueBox<TimeAmount?>
 
-    init(channel: Channel, type: PeerType) {
+    init(channel: any Channel, type: PeerType) {
         self.channel = channel
         self.type = type
         self.onTextCallback = .init({ _, _ in }, eventLoop: channel.eventLoop)

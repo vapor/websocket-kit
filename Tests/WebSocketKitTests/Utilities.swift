@@ -2,16 +2,16 @@ import XCTest
 import Atomics
 import NIO
 import NIOExtras
-import NIOHTTP1
-import NIOSSL
+@preconcurrency import NIOHTTP1
+@preconcurrency import NIOSSL
 import NIOWebSocket
 @testable import WebSocketKit
 
 extension ServerBootstrap {
     static func webSocket(
-        on eventLoopGroup: EventLoopGroup,
+        on eventLoopGroup: any EventLoopGroup,
         tls: Bool = false,
-        onUpgrade: @escaping (HTTPRequestHead, WebSocket) -> ()
+        onUpgrade: @escaping @Sendable (HTTPRequestHead, WebSocket) -> ()
     ) -> ServerBootstrap {
         return ServerBootstrap(group: eventLoopGroup).childChannelInitializer { channel in
             if tls {
@@ -46,7 +46,7 @@ extension ServerBootstrap {
     }
 }
 
-internal final class WebsocketBin {
+internal final class WebsocketBin: @unchecked Sendable {
     enum BindTarget {
         case unixDomainSocket(String)
         case localhostIPv4RandomPort
@@ -60,14 +60,14 @@ internal final class WebsocketBin {
         case http1_1(ssl: Bool = false)
     }
 
-    enum Proxy {
+    enum Proxy: Sendable {
         case none
         case simulate(config: ProxyConfig, authorization: String?)
     }
 
-    struct ProxyConfig {
+    struct ProxyConfig: Sendable {
         var tls: Bool
-        let headVerification: (ChannelHandlerContext, HTTPRequestHead) -> Void
+        let headVerification: @Sendable (ChannelHandlerContext, HTTPRequestHead) -> Void
     }
 
     let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
@@ -78,7 +78,7 @@ internal final class WebsocketBin {
 
     private let mode: Mode
     private let sslContext: NIOSSLContext?
-    private var serverChannel: Channel!
+    private var serverChannel: (any Channel)!
     private let isShutdown = ManagedAtomic(false)
 
     init(
@@ -86,7 +86,7 @@ internal final class WebsocketBin {
         proxy: Proxy = .none,
         bindTarget: BindTarget = .localhostIPv4RandomPort,
         sslContext: NIOSSLContext?,
-        onUpgrade: @escaping (HTTPRequestHead, WebSocket) -> ()
+        onUpgrade: @escaping @Sendable (HTTPRequestHead, WebSocket) -> ()
     ) {
         self.mode = mode
         self.sslContext = sslContext
@@ -169,29 +169,29 @@ internal final class WebsocketBin {
     // In the TLS case we must set up the 'proxy' and the 'server' handlers sequentially
     // rather than re-using parts because the requestDecoder stops parsing after a CONNECT request
     private func syncAddTLSHTTPProxyHandlers(
-        to channel: Channel,
+        to channel: any Channel,
         proxyConfig: ProxyConfig,
         expectedAuthorization: String?,
-        upgraders: [HTTPServerProtocolUpgrader]
+        upgraders: [any HTTPServerProtocolUpgrader]
     ) throws {
         let sync = channel.pipeline.syncOperations
         let promise = channel.eventLoop.makePromise(of: Void.self)
 
-        let responseEncoder = HTTPResponseEncoder()
-        let requestDecoder = ByteToMessageHandler(HTTPRequestDecoder(leftOverBytesStrategy: .forwardBytes))
-        let proxySimulator = HTTPProxySimulator(promise: promise, config: proxyConfig, expectedAuthorization: expectedAuthorization)
+        let responseEncoder = NIOLoopBound(HTTPResponseEncoder(), eventLoop: channel.eventLoop)
+        let requestDecoder = NIOLoopBound(ByteToMessageHandler(HTTPRequestDecoder(leftOverBytesStrategy: .forwardBytes)), eventLoop: channel.eventLoop)
+        let proxySimulator = NIOLoopBound(HTTPProxySimulator(promise: promise, config: proxyConfig, expectedAuthorization: expectedAuthorization), eventLoop: channel.eventLoop)
 
-        try sync.addHandler(responseEncoder)
-        try sync.addHandler(requestDecoder)
+        try sync.addHandler(responseEncoder.value)
+        try sync.addHandler(requestDecoder.value)
 
-        try sync.addHandler(proxySimulator)
+        try sync.addHandler(proxySimulator.value)
 
         promise.futureResult.flatMap { _ in
-            channel.pipeline.removeHandler(proxySimulator)
+            channel.pipeline.syncOperations.removeHandler(proxySimulator.value)
         }.flatMap { _ in
-            channel.pipeline.removeHandler(responseEncoder)
+            channel.pipeline.syncOperations.removeHandler(responseEncoder.value)
         }.flatMap { _ in
-            channel.pipeline.removeHandler(requestDecoder)
+            channel.pipeline.syncOperations.removeHandler(requestDecoder.value)
         }.whenComplete { result in
             switch result {
             case .failure:
@@ -207,22 +207,22 @@ internal final class WebsocketBin {
     // In the plain-text case we must set up the 'proxy' and the 'server' handlers simultaneously
     // so that the combined proxy/upgrade request can be processed by the separate proxy and upgrade handlers
     private func syncAddHTTPProxyHandlers(
-        to channel: Channel,
+        to channel: any Channel,
         proxyConfig: ProxyConfig,
         expectedAuthorization: String?,
-        upgraders: [HTTPServerProtocolUpgrader]
+        upgraders: [any HTTPServerProtocolUpgrader]
     ) throws {
         let sync = channel.pipeline.syncOperations
         let promise = channel.eventLoop.makePromise(of: Void.self)
 
         let responseEncoder = HTTPResponseEncoder()
         let requestDecoder = ByteToMessageHandler(HTTPRequestDecoder(leftOverBytesStrategy: .forwardBytes))
-        let proxySimulator = HTTPProxySimulator(promise: promise, config: proxyConfig, expectedAuthorization: expectedAuthorization)
+        let proxySimulator = NIOLoopBound(HTTPProxySimulator(promise: promise, config: proxyConfig, expectedAuthorization: expectedAuthorization), eventLoop: channel.eventLoop)
 
         let serverPipelineHandler = HTTPServerPipelineHandler()
         let serverProtocolErrorHandler = HTTPServerProtocolErrorHandler()
 
-        let extraHTTPHandlers: [RemovableChannelHandler] = [
+        let extraHTTPHandlers: [any RemovableChannelHandler] = [
             requestDecoder,
             serverPipelineHandler,
             serverProtocolErrorHandler
@@ -231,7 +231,7 @@ internal final class WebsocketBin {
         try sync.addHandler(responseEncoder)
         try sync.addHandler(requestDecoder)
 
-        try sync.addHandler(proxySimulator)
+        try sync.addHandler(proxySimulator.value)
 
         try sync.addHandler(serverPipelineHandler)
         try sync.addHandler(serverProtocolErrorHandler)
@@ -248,7 +248,7 @@ internal final class WebsocketBin {
         try sync.addHandler(upgrader)
 
         promise.futureResult.flatMap { () -> EventLoopFuture<Void> in
-            channel.pipeline.removeHandler(proxySimulator)
+            channel.pipeline.syncOperations.removeHandler(proxySimulator.value)
         }.whenComplete { result in
             switch result {
             case .failure:
@@ -259,7 +259,7 @@ internal final class WebsocketBin {
         }
     }
 
-    private func httpProxyEstablished(_ channel: Channel, upgraders: [HTTPServerProtocolUpgrader]) {
+    private func httpProxyEstablished(_ channel: any Channel, upgraders: [any HTTPServerProtocolUpgrader]) {
         do {
             // if a connection has been established, we need to negotiate TLS before
             // anything else. Depending on the negotiation, the HTTPHandlers will be added.

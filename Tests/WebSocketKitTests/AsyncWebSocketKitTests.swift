@@ -48,7 +48,7 @@ final class AsyncWebSocketKitTests: XCTestCase {
     
     func testBadURLInWebsocketConnect() async throws {
         do {
-            try await WebSocket.connect(to: "%w", on: self.elg, onUpgrade: { _ async in })
+            try await WebSocket.connect(to: "%w:", on: self.elg, onUpgrade: { _ async in })
             XCTAssertThrowsError({}())
         } catch {
             XCTAssertThrowsError(try { throw error }()) {
@@ -91,9 +91,9 @@ final class AsyncWebSocketKitTests: XCTestCase {
             return XCTFail("couldn't get port from \(String(reflecting: server.localAddress))")
         }
         try await WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { (ws) async in
-            ws.onPong {
+            ws.onPong { s, _ in
                 do {
-                    try await $0.close()
+                    try await s.close()
                 } catch {
                     XCTFail("Failed to close websocket: \(String(reflecting: error))")
                 }
@@ -118,8 +118,8 @@ final class AsyncWebSocketKitTests: XCTestCase {
         }
         try await WebSocket.connect(to: "ws://localhost:\(port)", on: self.elg) { (ws) async in
             ws.pingInterval = .milliseconds(100)
-            ws.onPong {
-                do { try await $0.close() } catch { XCTFail("Failed to close websocket: \(String(reflecting: error))") }
+            ws.onPong { s, _ in
+                do { try await s.close() } catch { XCTFail("Failed to close websocket: \(String(reflecting: error))") }
                 promise.succeed(())
             }
         }
@@ -127,8 +127,8 @@ final class AsyncWebSocketKitTests: XCTestCase {
         try await server.close(mode: .all)
     }
 
-    var elg: EventLoopGroup!
-    
+    var elg: (any EventLoopGroup)!
+
     override func setUp() {
         // needs to be at least two to avoid client / server on same EL timing issues
         self.elg = MultiThreadedEventLoopGroup(numberOfThreads: 2)

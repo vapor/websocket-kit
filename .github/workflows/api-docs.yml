@@ -11,4 +11,4 @@ jobs:
      with:
        package_name: websocket-kit
        modules: WebSocketKit
-       pathsToInvalidate: /websocket-kit
+       pathsToInvalidate: /websocketkit/*
