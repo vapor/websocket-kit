@@ -13,10 +13,10 @@ jobs:
     container: swift:6.1-noble
     steps:
       - name: Check out package
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with: { path: 'websocket-kit' }
       - name: Check out Vapor
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with: { repository: 'vapor/vapor', path: 'vapor' }
       - name: Use local package in Vapor
         run: swift package --package-path vapor edit websocket-kit --path websocket-kit
