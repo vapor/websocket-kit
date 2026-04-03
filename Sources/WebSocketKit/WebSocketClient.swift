@@ -116,11 +116,14 @@ public final class WebSocketClient: Sendable {
                     uri = path
                 } else {
                     let relativePath = path.hasPrefix("/") ? path : "/" + path
-                    let port = proxyPort.map { ":\($0)" } ?? ""
-                    uri = "\(scheme)://\(host)\(relativePath)\(port)"
-
+                    // ws: use absolute-form (full URI) for direct proxy connection;
+                    // wss: use origin-form (path only) after CONNECT tunnel is established per RFC 7230
                     if scheme == "ws" {
+                        let port = proxyPort.map { ":\($0)" } ?? ""
+                        uri = "\(scheme)://\(host)\(port)\(relativePath)"
                         upgradeRequestHeaders.add(contentsOf: proxyHeaders)
+                    } else {
+                        uri = relativePath
                     }
                 }
 

@@ -348,7 +348,7 @@ final class WebSocketKitTests: XCTestCase {
 
         let localWebsocketBin: WebsocketBin
         let verifyProxyHead = { @Sendable (ctx: ChannelHandlerContext, requestHead: HTTPRequestHead) in
-            XCTAssertEqual(requestHead.uri, "ws://apple.com/:\(ctx.localAddress!.port!)")
+            XCTAssertEqual(requestHead.uri, "ws://apple.com:\(ctx.localAddress!.port!)/")
             XCTAssertEqual(requestHead.headers.first(name: "Host"), "apple.com")
         }
         localWebsocketBin = WebsocketBin(
