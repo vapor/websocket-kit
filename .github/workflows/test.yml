@@ -11,8 +11,10 @@ permissions:
 jobs:
   vapor-integration:
     if: ${{ !(github.event.pull_request.draft || false) }}
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
-    container: swift:6.2-noble
+    container: swift:6.3-noble
     steps:
       - name: Check out package
         uses: actions/checkout@v6
@@ -26,7 +28,16 @@ jobs:
         run: swift test --package-path vapor
 
   unit-tests:
+    permissions:
+      contents: read
     uses: vapor/ci/.github/workflows/run-unit-tests.yml@main
     secrets: inherit
     with:
       with_musl: true
+
+  submit-dependencies:
+    permissions:
+      contents: write
+    if: ${{ github.event_name == 'push' }}
+    uses: vapor/ci/.github/workflows/submit-deps.yml@main
+    secrets: inherit
