@@ -546,6 +546,231 @@ final class WebSocketKitTests: XCTestCase {
         try server.close(mode: .all).wait()
     }
 
+    func testUpgradeTimeoutClosesAStalledHandshake() throws {
+        // A server that accepts the connection and never answers the upgrade request.
+        let accepted = self.elg.any().makePromise(of: (any Channel).self)
+        let server = try ServerBootstrap(group: self.elg).childChannelInitializer { channel in
+            accepted.succeed(channel)
+            return channel.eventLoop.makeSucceededVoidFuture()
+        }.bind(host: "127.0.0.1", port: 0).wait()
+        guard let port = server.localAddress?.port else {
+            XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
+            return
+        }
+
+        var configuration = WebSocketClient.Configuration()
+        configuration.upgradeTimeout = .milliseconds(500)
+        let client = WebSocketClient(eventLoopGroupProvider: .shared(self.elg), configuration: configuration)
+        let connect = client.connect(scheme: "ws", host: "127.0.0.1", port: port) { _ in
+            XCTFail("the server never upgraded the connection")
+        }
+
+        switch result(of: connect, within: .seconds(10)) {
+        case .failure(ChannelError.connectTimeout(let timeout)):
+            XCTAssertEqual(timeout, .milliseconds(500))
+        case let other:
+            XCTFail("expected the upgrade to time out, got \(other)")
+        }
+        // The client closed its end, so the server's connection ends as well.
+        let serverSide = try result(of: accepted.futureResult, within: .seconds(10)).get()
+        XCTAssertNoThrow(try result(of: serverSide.closeFuture, within: .seconds(10)).get())
+
+        try server.close(mode: .all).wait()
+        try client.syncShutdown()
+    }
+
+    func testUpgradeTimeoutLeavesAnUpgradedConnectionAlone() throws {
+        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in
+            ws.onText { ws, text in
+                ws.send(text)
+            }
+        }.bind(host: "127.0.0.1", port: 0).wait()
+        guard let port = server.localAddress?.port else {
+            XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
+            return
+        }
+
+        var configuration = WebSocketClient.Configuration()
+        configuration.upgradeTimeout = .milliseconds(250)
+        let client = WebSocketClient(eventLoopGroupProvider: .shared(self.elg), configuration: configuration)
+        let echoed = self.elg.any().makePromise(of: String.self)
+        client.connect(scheme: "ws", host: "127.0.0.1", port: port) { ws in
+            ws.onText { ws, text in
+                echoed.succeed(text)
+                ws.close(promise: nil)
+            }
+            // Well past the timeout: had it fired, this connection would be closed by now.
+            ws.eventLoop.scheduleTask(in: .seconds(1)) {
+                ws.send("still open")
+            }
+        }.cascadeFailure(to: echoed)
+
+        XCTAssertEqual(try result(of: echoed.futureResult, within: .seconds(10)).get(), "still open")
+        try server.close(mode: .all).wait()
+        try client.syncShutdown()
+    }
+
+    func testServerClosingBeforeTheUpgradeFailsTheConnect() throws {
+        // A server that reads the upgrade request and closes the connection without answering it: a
+        // clean end of stream, which reports no error of its own. No timeout is set, so only the
+        // connection ending can complete the connect.
+        let server = try ServerBootstrap(group: self.elg).childChannelInitializer { channel in
+            channel.eventLoop.makeCompletedFuture {
+                try channel.pipeline.syncOperations.addHandler(CloseOnFirstRead())
+            }
+        }.bind(host: "127.0.0.1", port: 0).wait()
+        guard let port = server.localAddress?.port else {
+            XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
+            return
+        }
+
+        let connect = WebSocket.connect(to: "ws://127.0.0.1:\(port)", on: self.elg) { _ in
+            XCTFail("the server never upgraded the connection")
+        }
+        switch result(of: connect, within: .seconds(10)) {
+        case .failure(ChannelError.eof):
+            break
+        case let other:
+            XCTFail("expected the connect to fail with the end of the connection, got \(other)")
+        }
+        try server.close(mode: .all).wait()
+    }
+
+    func testServerClosingTLSCleanlyBeforeTheUpgradeFailsTheConnect() throws {
+        // The TLS handshake completes, then the server closes with a close_notify instead of answering
+        // the upgrade: a clean close, which reports no error of its own.
+        let (cert, key) = generateSelfSignedCert()
+        let serverTLS = try NIOSSLContext(configuration: .makeServerConfiguration(
+            certificateChain: [.certificate(cert)], privateKey: .privateKey(key)))
+        let server = try ServerBootstrap(group: self.elg).childChannelInitializer { channel in
+            channel.eventLoop.makeCompletedFuture {
+                try channel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: serverTLS))
+                try channel.pipeline.syncOperations.addHandler(CloseOnFirstRead())
+            }
+        }.bind(host: "127.0.0.1", port: 0).wait()
+        guard let port = server.localAddress?.port else {
+            XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
+            return
+        }
+
+        var tlsConfiguration = TLSConfiguration.makeClientConfiguration()
+        tlsConfiguration.certificateVerification = .none
+        let client = WebSocketClient(eventLoopGroupProvider: .shared(self.elg),
+                                     configuration: .init(tlsConfiguration: tlsConfiguration))
+        let connect = client.connect(scheme: "wss", host: "127.0.0.1", port: port) { _ in
+            XCTFail("the server never upgraded the connection")
+        }
+        switch result(of: connect, within: .seconds(10)) {
+        case .failure(ChannelError.eof):
+            break
+        case let other:
+            XCTFail("expected the connect to fail with the end of the connection, got \(other)")
+        }
+        try server.close(mode: .all).wait()
+        try client.syncShutdown()
+    }
+
+    func testProxyRefusingTheTunnelFailsTheConnect() throws {
+        let localWebsocketBin = WebsocketBin(
+            .http1_1(ssl: true),
+            proxy: .simulate(
+                config: WebsocketBin.ProxyConfig(tls: true, headVerification: { _, _ in }),
+                authorization: "token amFwcGxlc2VlZDpwYXNzMTIz"
+            ),
+            sslContext: nil
+        ) { req, ws in
+            XCTFail("the proxy never opened the tunnel")
+        }
+        defer {
+            XCTAssertNoThrow(try localWebsocketBin.shutdown())
+        }
+
+        var tlsConfiguration = TLSConfiguration.makeClientConfiguration()
+        tlsConfiguration.certificateVerification = .none
+        let client = WebSocketClient(eventLoopGroupProvider: .shared(self.elg),
+                                     configuration: .init(tlsConfiguration: tlsConfiguration))
+        let connect = client.connect(
+            scheme: "wss",
+            host: "apple.com",
+            port: localWebsocketBin.port,
+            proxy: "localhost",
+            proxyPort: localWebsocketBin.port,
+            proxyHeaders: HTTPHeaders([("proxy-authorization", "token wrong")])
+        ) { _ in
+            XCTFail("the proxy never opened the tunnel")
+        }
+        switch result(of: connect, within: .seconds(10)) {
+        case .failure(let error as NIOHTTP1ProxyConnectHandler.Error):
+            XCTAssertEqual(error, .proxyAuthenticationRequired())
+        case let other:
+            XCTFail("expected the proxy's refusal, got \(other)")
+        }
+        try client.syncShutdown()
+    }
+
+    func testServerRefusingTheUpgradeFailsWithItsStatus() throws {
+        let server = try ServerBootstrap(group: self.elg).childChannelInitializer { channel in
+            channel.pipeline.configureHTTPServerPipeline().flatMap {
+                channel.pipeline.addHandler(RespondNotFound())
+            }
+        }.bind(host: "127.0.0.1", port: 0).wait()
+        guard let port = server.localAddress?.port else {
+            XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
+            return
+        }
+
+        let connect = WebSocket.connect(to: "ws://127.0.0.1:\(port)", on: self.elg) { _ in
+            XCTFail("the server refused the upgrade")
+        }
+        switch result(of: connect, within: .seconds(10)) {
+        case .failure(WebSocketClient.Error.invalidResponseStatus(let head)):
+            XCTAssertEqual(head.status, .notFound)
+        case let other:
+            XCTFail("expected invalidResponseStatus, got \(other)")
+        }
+        try server.close(mode: .all).wait()
+    }
+
+    func testConnectCompletesOnlyOnceOnUpgradeHasRun() throws {
+        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in }
+            .bind(host: "127.0.0.1", port: 0).wait()
+        guard let port = server.localAddress?.port else {
+            XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
+            return
+        }
+
+        let upgraded = ManagedAtomic(false)
+        // One event loop, so the order the callbacks run in is the order the library completes them.
+        let connect = WebSocket.connect(to: "ws://127.0.0.1:\(port)", on: self.elg.next()) { ws in
+            upgraded.store(true, ordering: .relaxed)
+            ws.close(promise: nil)
+        }.map { upgraded.load(ordering: .relaxed) }
+        XCTAssertEqual(try result(of: connect, within: .seconds(10)).get(), true,
+                       "the connect completed before onUpgrade had run")
+        try server.close(mode: .all).wait()
+    }
+
+    func testConnectCompletesOnTheWebSocketsEventLoop() throws {
+        let server = try ServerBootstrap.webSocket(on: self.elg) { req, ws in }
+            .bind(host: "127.0.0.1", port: 0).wait()
+        guard let port = server.localAddress?.port else {
+            XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
+            return
+        }
+
+        let webSocketLoop = self.elg.any().makePromise(of: ObjectIdentifier.self)
+        let connect = WebSocket.connect(to: "ws://127.0.0.1:\(port)", on: self.elg) { ws in
+            webSocketLoop.succeed(ObjectIdentifier(ws.eventLoop))
+            ws.close(promise: nil)
+        }
+        connect.cascadeFailure(to: webSocketLoop)
+        XCTAssertNoThrow(try result(of: connect, within: .seconds(10)).get())
+        XCTAssertEqual(try result(of: webSocketLoop.futureResult, within: .seconds(10)).get(),
+                       ObjectIdentifier(connect.eventLoop),
+                       "the connect completed on another event loop than its WebSocket's")
+        try server.close(mode: .all).wait()
+    }
+
     @available(*, deprecated, message: "Tests deprecated functionality")
     func testCreateNewELGAndShutdown() throws {
         let client = WebSocketClient(eventLoopGroupProvider: .createNew)

@@ -34,6 +34,11 @@ public final class WebSocketClient: Sendable {
         /// Maximum frame size after aggregation.
         /// See `NIOWebSocketFrameAggregator` for details.
         public var maxAccumulatedFrameSize: Int
+        /// How long a connection may take to become a WebSocket: resolving the host, the TCP
+        /// connect, the TLS handshake, a proxy's `CONNECT` and the HTTP upgrade together. When it
+        /// runs out the connection is closed and `connect` fails with `ChannelError.connectTimeout`.
+        /// `nil`, the default, waits for as long as the server takes.
+        public var upgradeTimeout: TimeAmount?
 
         public init(
             tlsConfiguration: TLSConfiguration? = nil,
@@ -44,6 +49,7 @@ public final class WebSocketClient: Sendable {
             self.minNonFinalFragmentSize = 0
             self.maxAccumulatedFrameCount = Int.max
             self.maxAccumulatedFrameSize = Int.max
+            self.upgradeTimeout = nil
         }
     }
 
@@ -89,8 +95,10 @@ public final class WebSocketClient: Sendable {
     ///   - proxyPort: Port on which to connect to the proxy server.
     ///   - proxyHeaders: Headers to send to the proxy server.
     ///   - proxyConnectDeadline: Deadline for establishing the proxy connection.
-    ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
-    /// - Returns: A future which completes when the connection to the origin server is established.
+    ///   - onUpgrade: An escaping closure to be executed once the connection is upgraded and configured with the WebSocket handlers.
+    /// - Returns: A future which completes once the connection to the origin server is upgraded and `onUpgrade` has run.
+    ///   It fails if the connection ends first, if the server answers with anything but a switch to the
+    ///   WebSocket protocol (`Error.invalidResponseStatus`), or once `Configuration.upgradeTimeout` runs out.
     @preconcurrency
     public func connect(
         scheme: String,
@@ -106,8 +114,19 @@ public final class WebSocketClient: Sendable {
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
     ) -> EventLoopFuture<Void> {
         assert(["ws", "wss"].contains(scheme))
-        let upgradePromise = self.group.any().makePromise(of: Void.self)
-        let bootstrap = WebSocketClient.makeBootstrap(on: self.group)
+        // One loop for the connection and its upgrade, so the deadline, the connection closing and the
+        // upgrade completing are ordered with one another.
+        let eventLoop = self.group.any()
+        let upgradePromise = eventLoop.makePromise(of: Void.self)
+        let deadline = self.configuration.upgradeTimeout.map { upgradeTimeout in
+            eventLoop.scheduleTask(in: upgradeTimeout) {
+                upgradePromise.fail(ChannelError.connectTimeout(upgradeTimeout))
+            }
+        }
+        upgradePromise.futureResult.whenComplete { _ in
+            deadline?.cancel()
+        }
+        let bootstrap = WebSocketClient.makeBootstrap(on: eventLoop)
             .channelOption(ChannelOptions.socket(SocketOptionLevel(IPPROTO_TCP), TCP_NODELAY), value: 1)
             .channelInitializer { channel -> EventLoopFuture<Void> in
                 let uri: String
@@ -140,14 +159,20 @@ public final class WebSocketClient: Sendable {
                     maxFrameSize: self.configuration.maxFrameSize,
                     automaticErrorHandling: true,
                     upgradePipelineHandler: { channel, req in
-                        return WebSocket.client(on: channel, config: .init(clientConfig: self.configuration), onUpgrade: onUpgrade)
+                        // The server accepted the upgrade: what is left is local.
+                        deadline?.cancel()
+                        let upgraded = WebSocket.client(on: channel, config: .init(clientConfig: self.configuration), onUpgrade: onUpgrade)
+                        // The upgrade is complete once `onUpgrade` has run, not as soon as the response
+                        // arrives: a connection lost in between must fail the connect, not leave the
+                        // caller waiting for an `onUpgrade` that never comes.
+                        upgraded.cascade(to: upgradePromise)
+                        return upgraded
                     }
                 )
 
                 let config: NIOHTTPClientUpgradeConfiguration = (
                     upgraders: [websocketUpgrader],
                     completionHandler: { context in
-                        upgradePromise.succeed(())
                         channel.pipeline.syncOperations.removeHandler(httpUpgradeRequestHandlerBox.value, promise: nil)
                     }
                 )
@@ -161,7 +186,7 @@ public final class WebSocketClient: Sendable {
                             // due to the promise originating on the event loop of the channel.
                             try channel.pipeline.syncOperations.addHandler(tlsHandler)
                         } catch {
-                            return channel.pipeline.close(mode: .all)
+                            return channel.eventLoop.makeFailedFuture(error)
                         }
                     }
 
@@ -220,9 +245,15 @@ public final class WebSocketClient: Sendable {
                             )
                             try channel.pipeline.syncOperations.addHandler(httpUpgradeRequestHandlerBox.value)
                         } catch {
+                            upgradePromise.fail(error)
                             channel.pipeline.close(mode: .all, promise: nil)
                         }
-                    case .failure:
+                    case .failure(let error):
+                        // Only an attempt that got as far as sending its CONNECT: the attempts the connect
+                        // raced against the winner never became active, and fail here too.
+                        if channel.isActive {
+                            upgradePromise.fail(error)
+                        }
                         channel.pipeline.close(mode: .all, promise: nil)
                     }
                 }
@@ -231,10 +262,27 @@ public final class WebSocketClient: Sendable {
             }
 
         let connect = bootstrap.connect(host: proxy ?? host, port: proxyPort ?? port)
-        connect.cascadeFailure(to: upgradePromise)
-        return connect.flatMap { channel in
-            return upgradePromise.futureResult
+        connect.whenComplete { result in
+            switch result {
+            case .failure(let error):
+                upgradePromise.fail(error)
+            case .success(let channel):
+                // Only the connection that was made, not every attempt the connect raced against it.
+                // One that ends before its upgrade completes fails the upgrade: nothing else does when
+                // the server closes cleanly without answering. Once the upgrade has completed this is
+                // a no-op.
+                channel.closeFuture.whenComplete { _ in
+                    upgradePromise.fail(ChannelError.eof)
+                }
+                // An upgrade that failed or ran out of time, even before the connection was made,
+                // leaves nothing open behind it.
+                upgradePromise.futureResult.whenFailure { _ in
+                    channel.close(promise: nil)
+                }
+            }
         }
+        // Not chained on the connect: the upgrade's timeout also bounds a connect still in flight.
+        return upgradePromise.futureResult
     }
 
     @Sendable

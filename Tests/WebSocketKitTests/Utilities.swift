@@ -361,3 +361,40 @@ final class HTTPProxySimulator: ChannelInboundHandler, RemovableChannelHandler {
         }
     }
 }
+
+/// A future that has not completed within the bound `result(of:within:)` gave it.
+struct StillPending: Error {}
+
+/// The future's result, or `StillPending` once `bound` has passed: a connect the library never
+/// completes fails the test instead of hanging the run.
+func result<Value: Sendable>(of future: EventLoopFuture<Value>, within bound: TimeAmount) -> Result<Value, any Error> {
+    let bounded = future.eventLoop.makePromise(of: Value.self)
+    future.cascade(to: bounded)
+    let timer = future.eventLoop.scheduleTask(in: bound) { bounded.fail(StillPending()) }
+    bounded.futureResult.whenComplete { _ in timer.cancel() }
+    return Result { try bounded.futureResult.wait() }
+}
+
+/// Closes the connection when the upgrade request arrives, without answering it. Behind a TLS
+/// handler the TLS handshake has completed by then, and the close sends a close_notify.
+final class CloseOnFirstRead: ChannelInboundHandler {
+    typealias InboundIn = ByteBuffer
+
+    func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+        context.close(promise: nil)
+    }
+}
+
+/// Answers every request with an empty 404.
+final class RespondNotFound: ChannelInboundHandler, Sendable {
+    typealias InboundIn = HTTPServerRequestPart
+    typealias OutboundOut = HTTPServerResponsePart
+
+    func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+        guard case .end = Self.unwrapInboundIn(data) else { return }
+        var headers = HTTPHeaders()
+        headers.add(name: "Content-Length", value: "0")
+        context.write(Self.wrapOutboundOut(.head(HTTPResponseHead(version: .http1_1, status: .notFound, headers: headers))), promise: nil)
+        context.writeAndFlush(Self.wrapOutboundOut(.end(nil)), promise: nil)
+    }
+}
