@@ -10,8 +10,10 @@ extension WebSocket {
     ///   - headers: Headers to send to the WebSocket server.
     ///   - configuration: Configuration for the WebSocket client.
     ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
-    ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
-    /// - Returns: A future which completes when the connection to the WebSocket server is established.
+    ///   - onUpgrade: An escaping closure to be executed once the connection is upgraded and configured with the WebSocket handlers.
+    /// - Returns: A future which completes once the connection to the WebSocket server is upgraded and `onUpgrade` has run.
+    ///   It fails if the connection ends first, if the server answers with anything but a switch to the WebSocket
+    ///   protocol (`WebSocketClient.Error.invalidResponseStatus`), or once `WebSocketClient.Configuration.upgradeTimeout` runs out.
     @preconcurrency
     public static func connect(
         to url: String,
@@ -39,8 +41,10 @@ extension WebSocket {
     ///   - headers: Headers to send to the WebSocket server.
     ///   - configuration: Configuration for the WebSocket client.
     ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
-    ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
-    /// - Returns: A future which completes when the connection to the WebSocket server is established.
+    ///   - onUpgrade: An escaping closure to be executed once the connection is upgraded and configured with the WebSocket handlers.
+    /// - Returns: A future which completes once the connection to the WebSocket server is upgraded and `onUpgrade` has run.
+    ///   It fails if the connection ends first, if the server answers with anything but a switch to the WebSocket
+    ///   protocol (`WebSocketClient.Error.invalidResponseStatus`), or once `WebSocketClient.Configuration.upgradeTimeout` runs out.
     @preconcurrency
     public static func connect(
         to url: URL,
@@ -74,8 +78,10 @@ extension WebSocket {
     ///   - headers: Headers to send to the WebSocket server.
     ///   - configuration: Configuration for the WebSocket client.
     ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
-    ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
-    /// - Returns: A future which completes when the connection to the WebSocket server is established.
+    ///   - onUpgrade: An escaping closure to be executed once the connection is upgraded and configured with the WebSocket handlers.
+    /// - Returns: A future which completes once the connection to the WebSocket server is upgraded and `onUpgrade` has run.
+    ///   It fails if the connection ends first, if the server answers with anything but a switch to the WebSocket
+    ///   protocol (`WebSocketClient.Error.invalidResponseStatus`), or once `WebSocketClient.Configuration.upgradeTimeout` runs out.
     @preconcurrency
     public static func connect(
         scheme: String = "ws",
@@ -117,8 +123,10 @@ extension WebSocket {
     ///   - proxyConnectDeadline: Deadline for establishing the proxy connection.
     ///   - configuration: Configuration for the WebSocket client.
     ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
-    ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
-    /// - Returns: A future which completes when the connection to the origin server is established.
+    ///   - onUpgrade: An escaping closure to be executed once the connection is upgraded and configured with the WebSocket handlers.
+    /// - Returns: A future which completes once the connection to the origin server is upgraded and `onUpgrade` has run.
+    ///   It fails if the connection ends first, if the server answers with anything but a switch to the WebSocket
+    ///   protocol (`WebSocketClient.Error.invalidResponseStatus`), or once `WebSocketClient.Configuration.upgradeTimeout` runs out.
     @preconcurrency
     public static func connect(
         scheme: String = "ws",
@@ -164,8 +172,10 @@ extension WebSocket {
     ///   - proxyConnectDeadline: Deadline for establishing the proxy connection.
     ///   - configuration: Configuration for the WebSocket client.
     ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
-    ///   - onUpgrade: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`.
-    /// - Returns: A future which completes when the connection to the origin server is established.
+    ///   - onUpgrade: An escaping closure to be executed once the connection is upgraded and configured with the WebSocket handlers.
+    /// - Returns: A future which completes once the connection to the origin server is upgraded and `onUpgrade` has run.
+    ///   It fails if the connection ends first, if the server answers with anything but a switch to the WebSocket
+    ///   protocol (`WebSocketClient.Error.invalidResponseStatus`), or once `WebSocketClient.Configuration.upgradeTimeout` runs out.
     @preconcurrency
     public static func connect(
         to url: String,
