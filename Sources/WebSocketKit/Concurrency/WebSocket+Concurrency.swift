@@ -173,4 +173,100 @@ extension WebSocket {
             }
         ).get()
     }
+
+    /// Establish a WebSocket connection, receiving the server's upgrade response headers.
+    ///
+    /// - Parameters:
+    ///   - to: URL for the WebSocket server.
+    ///   - headers: Headers to send to the WebSocket server.
+    ///   - configuration: Configuration for the WebSocket client.
+    ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
+    ///   - onUpgradeWithResponse: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`, invoked with the 101 Switching Protocols response head.
+    @preconcurrency public static func connect(
+        to url: String,
+        headers: HTTPHeaders = [:],
+        configuration: WebSocketClient.Configuration = .init(),
+        on eventLoopGroup: any EventLoopGroup,
+        onUpgradeWithResponse: @Sendable @escaping (WebSocket, HTTPResponseHead) async -> ()
+    ) async throws {
+        return try await self.connect(
+            to: url,
+            headers: headers,
+            configuration: configuration,
+            on: eventLoopGroup,
+            onUpgradeWithResponse: { ws, head in
+                Task {
+                    await onUpgradeWithResponse(ws, head)
+                }
+            }
+        ).get()
+    }
+
+    /// Establish a WebSocket connection, receiving the server's upgrade response headers.
+    ///
+    /// - Parameters:
+    ///   - to: URL for the WebSocket server.
+    ///   - headers: Headers to send to the WebSocket server.
+    ///   - configuration: Configuration for the WebSocket client.
+    ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
+    ///   - onUpgradeWithResponse: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`, invoked with the 101 Switching Protocols response head.
+    @preconcurrency public static func connect(
+        to url: URL,
+        headers: HTTPHeaders = [:],
+        configuration: WebSocketClient.Configuration = .init(),
+        on eventLoopGroup: any EventLoopGroup,
+        onUpgradeWithResponse: @Sendable @escaping (WebSocket, HTTPResponseHead) async -> ()
+    ) async throws {
+        return try await self.connect(
+            to: url,
+            headers: headers,
+            configuration: configuration,
+            on: eventLoopGroup,
+            onUpgradeWithResponse: { ws, head in
+                Task {
+                    await onUpgradeWithResponse(ws, head)
+                }
+            }
+        ).get()
+    }
+
+    /// Establish a WebSocket connection, receiving the server's upgrade response headers.
+    ///
+    /// - Parameters:
+    ///   - scheme: Scheme component of the URI for the WebSocket server.
+    ///   - host: Host component of the URI for the WebSocket server.
+    ///   - port: Port on which to connect to the WebSocket server.
+    ///   - path: Path component of the URI for the WebSocket server.
+    ///   - query: Query component of the URI for the WebSocket server.
+    ///   - headers: Headers to send to the WebSocket server.
+    ///   - configuration: Configuration for the WebSocket client.
+    ///   - eventLoopGroup: Event loop group to be used by the WebSocket client.
+    ///   - onUpgradeWithResponse: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`, invoked with the 101 Switching Protocols response head.
+    @preconcurrency public static func connect(
+        scheme: String = "ws",
+        host: String,
+        port: Int = 80,
+        path: String = "/",
+        query: String? = nil,
+        headers: HTTPHeaders = [:],
+        configuration: WebSocketClient.Configuration = .init(),
+        on eventLoopGroup: any EventLoopGroup,
+        onUpgradeWithResponse: @Sendable @escaping (WebSocket, HTTPResponseHead) async -> ()
+    ) async throws {
+        return try await self.connect(
+            scheme: scheme,
+            host: host,
+            port: port,
+            path: path,
+            query: query,
+            headers: headers,
+            configuration: configuration,
+            on: eventLoopGroup,
+            onUpgradeWithResponse: { ws, head in
+                Task {
+                    await onUpgradeWithResponse(ws, head)
+                }
+            }
+        ).get()
+    }
 }

@@ -255,6 +255,68 @@ final class WebSocketKitTests: XCTestCase {
         try XCTAssertFalse(promiseHasUnwantedHeaders.futureResult.wait())
         try server.close(mode: .all).wait()
     }
+
+    func testUpgradeResponseHeadersAreReceived() throws {
+        let promiseToken = self.elg.any().makePromise(of: String.self)
+
+        let server = try ServerBootstrap.webSocket(on: self.elg) { requestHead in
+            // The server echoes the client's auth token back in the 101 response
+            // headers, simulating the server-side authentication flow from #151.
+            if let token = requestHead.headers.first(name: "Auth") {
+                return ["X-Auth-Token": "verified-\(token)"]
+            }
+            return [:]
+        } onUpgrade: { requestHead, ws in
+            ws.close(promise: nil)
+        }.bind(host: "localhost", port: 0).wait()
+
+        guard let port = server.localAddress?.port else {
+            XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
+            return
+        }
+
+        WebSocket.connect(
+            to: "ws://localhost:\(port)",
+            headers: ["Auth": "supersecretsauce"],
+            on: self.elg
+        ) { ws, responseHead in
+            promiseToken.succeed(responseHead.headers.first(name: "X-Auth-Token") ?? "")
+            _ = ws.close()
+        }.cascadeFailure(to: promiseToken)
+
+        try XCTAssertEqual(promiseToken.futureResult.wait(), "verified-supersecretsauce")
+        try server.close(mode: .all).wait()
+    }
+
+    func testUpgradeResponseHeadersAreReceivedAsync() async throws {
+        let tokenBox = self.elg.any().makePromise(of: String.self)
+
+        let server = try ServerBootstrap.webSocket(on: self.elg) { requestHead in
+            if let token = requestHead.headers.first(name: "Auth") {
+                return ["X-Auth-Token": "verified-\(token)"]
+            }
+            return [:]
+        } onUpgrade: { requestHead, ws in
+            ws.close(promise: nil)
+        }.bind(host: "localhost", port: 0).wait()
+
+        guard let port = server.localAddress?.port else {
+            XCTFail("couldn't get port from \(server.localAddress.debugDescription)")
+            return
+        }
+
+        try await WebSocket.connect(
+            to: "ws://localhost:\(port)",
+            headers: ["Auth": "supersecretsauce"],
+            on: self.elg
+        ) { ws, responseHead in
+            tokenBox.succeed(responseHead.headers.first(name: "X-Auth-Token") ?? "")
+            _ = ws.close()
+        }
+
+        try XCTAssertEqual(tokenBox.futureResult.wait(), "verified-supersecretsauce")
+        try server.close(mode: .all).wait()
+    }
     
     func testQueryParamsAreSent() throws {
         let promise = self.elg.any().makePromise(of: String.self)
