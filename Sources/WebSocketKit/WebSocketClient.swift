@@ -76,6 +76,33 @@ public final class WebSocketClient: Sendable {
         self.connect(scheme: scheme, host: host, port: port, path: path, query: query, headers: headers, proxy: nil, onUpgrade: onUpgrade)
     }
 
+    /// Establish a WebSocket connection, receiving the server's upgrade response headers.
+    ///
+    /// - Parameters:
+    ///   - scheme: Scheme component of the URI for the origin server.
+    ///   - host: Host component of the URI for the origin server.
+    ///   - port: Port on which to connect to the origin server.
+    ///   - path: Path component of the URI for the origin server.
+    ///   - query: Query component of the URI for the origin server.
+    ///   - headers: Headers to send to the origin server.
+    ///   - onUpgradeWithResponse: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`, invoked with the 101 Switching Protocols response head.
+    /// - Returns: A future which completes when the connection to the origin server is established.
+    @preconcurrency
+    public func connect(
+        scheme: String,
+        host: String,
+        port: Int,
+        path: String = "/",
+        query: String? = nil,
+        headers: HTTPHeaders = [:],
+        onUpgradeWithResponse: @Sendable @escaping (WebSocket, HTTPResponseHead) -> ()
+    ) -> EventLoopFuture<Void> {
+        self.connect(
+            scheme: scheme, host: host, port: port, path: path, query: query, headers: headers, proxy: nil,
+            onUpgradeWithResponse: onUpgradeWithResponse
+        )
+    }
+
     /// Establish a WebSocket connection via a proxy server.
     ///
     /// - Parameters:
@@ -104,6 +131,43 @@ public final class WebSocketClient: Sendable {
         proxyHeaders: HTTPHeaders = [:],
         proxyConnectDeadline: NIODeadline = NIODeadline.distantFuture,
         onUpgrade: @Sendable @escaping (WebSocket) -> ()
+    ) -> EventLoopFuture<Void> {
+        self.connect(
+            scheme: scheme, host: host, port: port, path: path, query: query, headers: headers,
+            proxy: proxy, proxyPort: proxyPort, proxyHeaders: proxyHeaders,
+            proxyConnectDeadline: proxyConnectDeadline,
+            onUpgradeWithResponse: { ws, _ in onUpgrade(ws) }
+        )
+    }
+
+    /// Establish a WebSocket connection via a proxy server, receiving the server's upgrade response headers.
+    ///
+    /// - Parameters:
+    ///   - scheme: Scheme component of the URI for the origin server.
+    ///   - host: Host component of the URI for the origin server.
+    ///   - port: Port on which to connect to the origin server.
+    ///   - path: Path component of the URI for the origin server.
+    ///   - query: Query component of the URI for the origin server.
+    ///   - headers: Headers to send to the origin server.
+    ///   - proxy: Host component of the URI for the proxy server.
+    ///   - proxyPort: Port on which to connect to the proxy server.
+    ///   - proxyHeaders: Headers to send to the proxy server.
+    ///   - proxyConnectDeadline: Deadline for establishing the proxy connection.
+    ///   - onUpgradeWithResponse: An escaping closure to be executed after the upgrade is completed by `NIOWebSocketClientUpgrader`, invoked with the 101 Switching Protocols response head.
+    /// - Returns: A future which completes when the connection to the origin server is established.
+    @preconcurrency
+    public func connect(
+        scheme: String,
+        host: String,
+        port: Int,
+        path: String = "/",
+        query: String? = nil,
+        headers: HTTPHeaders = [:],
+        proxy: String?,
+        proxyPort: Int? = nil,
+        proxyHeaders: HTTPHeaders = [:],
+        proxyConnectDeadline: NIODeadline = NIODeadline.distantFuture,
+        onUpgradeWithResponse: @Sendable @escaping (WebSocket, HTTPResponseHead) -> ()
     ) -> EventLoopFuture<Void> {
         assert(["ws", "wss"].contains(scheme))
         let upgradePromise = self.group.any().makePromise(of: Void.self)
@@ -140,7 +204,11 @@ public final class WebSocketClient: Sendable {
                     maxFrameSize: self.configuration.maxFrameSize,
                     automaticErrorHandling: true,
                     upgradePipelineHandler: { channel, req in
-                        return WebSocket.client(on: channel, config: .init(clientConfig: self.configuration), onUpgrade: onUpgrade)
+                        return WebSocket.client(
+                            on: channel,
+                            config: .init(clientConfig: self.configuration),
+                            onUpgrade: { ws in onUpgradeWithResponse(ws, req) }
+                        )
                     }
                 )
 

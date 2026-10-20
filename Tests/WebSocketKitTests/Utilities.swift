@@ -11,6 +11,7 @@ extension ServerBootstrap {
     static func webSocket(
         on eventLoopGroup: any EventLoopGroup,
         tls: Bool = false,
+        upgradeResponseHeaders: @escaping @Sendable (HTTPRequestHead) -> HTTPHeaders = { _ in [:] },
         onUpgrade: @escaping @Sendable (HTTPRequestHead, WebSocket) -> ()
     ) -> ServerBootstrap {
         return ServerBootstrap(group: eventLoopGroup).childChannelInitializer { channel in
@@ -26,7 +27,7 @@ extension ServerBootstrap {
             }
             let webSocket = NIOWebSocketServerUpgrader(
                 shouldUpgrade: { channel, req in
-                    return channel.eventLoop.makeSucceededFuture([:])
+                    return channel.eventLoop.makeSucceededFuture(upgradeResponseHeaders(req))
                 },
                 upgradePipelineHandler: { channel, req in
                     return WebSocket.server(on: channel) { ws in
